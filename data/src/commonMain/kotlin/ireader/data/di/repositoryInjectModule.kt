@@ -29,6 +29,12 @@ val repositoryInjectModule = module {
     // because repositories use getOrNull<LibraryChangeNotifier>() to notify changes.
     // If this is registered after repositories, they will get null and won't notify.
     single { LibraryChangeNotifier() }
+    single<ireader.domain.data.repository.DiscoveryTranslations> {
+        ireader.data.discovery.CachedDiscoveryTranslations(
+            FileDiscoveryCache(AppDataDirectory.getPath() / "discovery-translations", get()),
+            ireader.data.discovery.createDiscoveryTranslator(),
+        )
+    }
     single<DiscoveryRepository> {
         val http = get<ireader.core.http.HttpClients>().default
         NovelTrackerDiscoveryRepository(

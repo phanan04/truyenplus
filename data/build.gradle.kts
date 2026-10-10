@@ -112,6 +112,7 @@ kotlin {
         
         androidMain {
             dependencies {
+                implementation(libs.googleTranslator)
                 // Platform-specific Ktor engines
                 implementation(libs.ktor.okhttp)
                 implementation(libs.ktor.core.android)

@@ -24,3 +24,5 @@ Cập nhật trong app: **Trang chủ → ⋯ → Cập nhật ứng dụng**.
 Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát hành](docs/APP_UPDATES.md).
 
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
+
+Ngôn ngữ Việt/Anh được chọn trong Cài đặt; Khám phá dịch thông tin tự động bằng Google Translate qua [ML Kit](https://developers.google.com/ml-kit/language/translation).

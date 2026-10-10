@@ -1,5 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.i18n.resources.*
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -26,54 +29,55 @@ fun ReaderUpdateSheet(version: String, endpoint: String, supported: Boolean, sta
 @Composable
 fun ReaderUpdateContent(version: String, endpoint: String, supported: Boolean, state: ReaderUpdateState,
     onCheck: (String) -> Unit, onDownload: () -> Unit, onInstall: () -> Unit, onCancel: () -> Unit) {
+    val strings = requireNotNull(LocalLocalizeHelper.current)
     var address by rememberSaveable(endpoint) { mutableStateOf(endpoint) }
     var showAddress by rememberSaveable { mutableStateOf(endpoint.isBlank()) }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Icon(Icons.Outlined.SystemUpdate, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
-            Text("Cập nhật ứng dụng", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text("Truyện+ · Phiên bản $version", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(strings.localize(Res.string.tp_app_update), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(strings.localize(Res.string.tp_version, version), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!supported) {
-                Text("Cập nhật trong ứng dụng hiện hỗ trợ Android.")
+                Text(strings.localize(Res.string.tp_update_android))
             } else {
                 if (showAddress) {
-                    Text("Địa chỉ cập nhật", style = MaterialTheme.typography.titleSmall)
-                    Text("Nhập liên kết do người phát hành Truyện+ cung cấp.", style = MaterialTheme.typography.bodySmall,
+                    Text(strings.localize(Res.string.tp_update_address), style = MaterialTheme.typography.titleSmall)
+                    Text(strings.localize(Res.string.tp_update_address_hint), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(address, { address = it }, modifier = Modifier.fillMaxWidth(), enabled = !state.busy,
-                        label = { Text("Liên kết HTTPS") }, singleLine = true)
+                        label = { Text(strings.localize(Res.string.tp_https_link)) }, singleLine = true)
                 } else {
-                    TextButton(onClick = { showAddress = true }, enabled = !state.busy) { Text("Đổi địa chỉ cập nhật") }
+                    TextButton(onClick = { showAddress = true }, enabled = !state.busy) { Text(strings.localize(Res.string.tp_change_update_address)) }
                 }
                 when (state.stage) {
-                    ReaderUpdateStage.Idle -> Text(if (endpoint.isBlank()) "Chưa thiết lập nơi nhận bản cập nhật." else "Kiểm tra để nhận phiên bản Truyện+ mới nhất.")
-                    ReaderUpdateStage.Checking -> { Text("Đang kiểm tra phiên bản…"); LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                    ReaderUpdateStage.Current -> Text("Bạn đang dùng phiên bản mới nhất được phát hành tại địa chỉ này.")
+                    ReaderUpdateStage.Idle -> Text(if (endpoint.isBlank()) strings.localize(Res.string.tp_update_not_set) else strings.localize(Res.string.tp_update_check_hint))
+                    ReaderUpdateStage.Checking -> { Text(strings.localize(Res.string.tp_checking_update)); LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                    ReaderUpdateStage.Current -> Text(strings.localize(Res.string.tp_update_current))
                     ReaderUpdateStage.Available, ReaderUpdateStage.Downloading, ReaderUpdateStage.Ready -> {
                         state.update?.let { update ->
-                            Text("Có phiên bản ${update.release.versionName}", style = MaterialTheme.typography.titleMedium)
+                            Text(strings.localize(Res.string.tp_new_version, update.release.versionName), style = MaterialTheme.typography.titleMedium)
                             Text("${update.asset.sizeBytes / 1_048_576} MB", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             if (update.release.notes.isNotBlank()) Text(update.release.notes.take(6000), style = MaterialTheme.typography.bodyMedium)
                         }
                         if (state.stage == ReaderUpdateStage.Downloading) {
                             LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
-                            Text("Đang tải · ${(state.progress * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
+                            Text(strings.localize(Res.string.tp_downloading, (state.progress * 100).toInt()), style = MaterialTheme.typography.bodySmall)
                         }
-                        if (state.stage == ReaderUpdateStage.Ready) Text("Đã tải và kiểm tra. Sẵn sàng cài đặt.")
+                        if (state.stage == ReaderUpdateStage.Ready) Text(strings.localize(Res.string.tp_update_ready))
                     }
                     ReaderUpdateStage.Error -> Unit
                 }
-                state.message?.let { Text(it, color = if (state.stage == ReaderUpdateStage.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
+                state.message?.let { Text(localizeReaderUpdateMessage(it, strings), color = if (state.stage == ReaderUpdateStage.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
                 when (state.stage) {
-                    ReaderUpdateStage.Checking, ReaderUpdateStage.Downloading -> OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text("Hủy") }
-                    ReaderUpdateStage.Available -> Button(onClick = onDownload, modifier = Modifier.fillMaxWidth()) { Text("Tải bản mới") }
-                    ReaderUpdateStage.Ready -> Button(onClick = onInstall, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(if (state.installing) "Đang kiểm tra tệp…" else "Cài đặt bản mới") }
-                    else -> Button(onClick = { onCheck(address) }, enabled = address.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Kiểm tra cập nhật") }
+                    ReaderUpdateStage.Checking, ReaderUpdateStage.Downloading -> OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text(strings.localize(Res.string.tp_cancel)) }
+                    ReaderUpdateStage.Available -> Button(onClick = onDownload, modifier = Modifier.fillMaxWidth()) { Text(strings.localize(Res.string.tp_download_update)) }
+                    ReaderUpdateStage.Ready -> Button(onClick = onInstall, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) { Text(if (state.installing) strings.localize(Res.string.tp_checking_file) else strings.localize(Res.string.tp_install_update)) }
+                    else -> Button(onClick = { onCheck(address) }, enabled = address.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text(strings.localize(Res.string.tp_check_update)) }
                 }
                 if (showAddress && state.stage in listOf(ReaderUpdateStage.Available, ReaderUpdateStage.Ready, ReaderUpdateStage.Current)) {
-                    TextButton(onClick = { onCheck(address) }, enabled = !state.busy && address.isNotBlank()) { Text("Kiểm tra địa chỉ này") }
+                    TextButton(onClick = { onCheck(address) }, enabled = !state.busy && address.isNotBlank()) { Text(strings.localize(Res.string.tp_check_address)) }
                 }
-                Text("Android sẽ yêu cầu bạn xác nhận khi cài đặt bản mới.", style = MaterialTheme.typography.bodySmall,
+                Text(strings.localize(Res.string.tp_install_confirm_hint), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

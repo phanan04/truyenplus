@@ -3,6 +3,7 @@ import ireader.presentation.ui.truyenplus.ReaderDestination
 fun main() {
     check(ReaderAppScope.features.size == 6)
     check(ReaderDestination.entries.size == 4)
+    check(ReaderDestination.entries.map { it.name } == listOf("Home", "Library", "Settings", "Discover"))
     check(ReaderAppScope.allows("main"))
     check(ReaderAppScope.allows("bookDetail/12"))
     check(ReaderAppScope.allows("reader/12/-1"))

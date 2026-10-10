@@ -22,7 +22,7 @@ runtime = os.pathsep.join([stdlib, annotations, jar('org.jetbrains.kotlinx', 'ko
 java = str(Path(os.environ.get('JAVA_HOME', '/Applications/Android Studio.app/Contents/jbr/Contents/Home')) / 'bin/java')
 sources = [root/'domain/src/commonMain/kotlin/ireader/domain/models/discovery/DiscoveryModels.kt',
            root/'data/src/commonMain/kotlin/ireader/data/discovery/NovelTrackerParser.kt', root/'data/src/commonMain/kotlin/ireader/data/discovery/NovelTrackerDiscoveryRepository.kt',
-           root/'domain/src/commonMain/kotlin/ireader/domain/data/repository/DiscoveryRepository.kt', root/'presentation/src/commonMain/kotlin/ireader/presentation/ui/truyenplus/DiscoverySelection.kt', root/'scripts/DiscoveryChecks.kt']
+           root/'domain/src/commonMain/kotlin/ireader/domain/data/repository/DiscoveryRepository.kt', root/'domain/src/commonMain/kotlin/ireader/domain/data/repository/DiscoveryTranslations.kt', root/'presentation/src/commonMain/kotlin/ireader/presentation/ui/truyenplus/DiscoverySelection.kt', root/'scripts/DiscoveryChecks.kt']
 with tempfile.TemporaryDirectory(prefix='truyenplus-discovery-') as output:
     subprocess.run([java, '-cp', compiler, 'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
         '-no-stdlib', '-no-reflect', '-classpath', runtime, '-d', output, *map(str, sources)], check=True)

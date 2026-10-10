@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.CompositionLocalProvider
 import java.util.Locale
 
 /**
@@ -13,7 +13,7 @@ import java.util.Locale
  * Sets the JVM default locale which is used by Compose Resources
  * to determine which resource files to load.
  * 
- * The key() composable ensures recomposition when language changes,
+ * The locale composition local ensures recomposition when language changes,
  * which triggers Compose Resources to reload strings in the new locale.
  */
 @Composable
@@ -32,9 +32,9 @@ actual fun AppLocaleProvider(
     }
 
     
-    // Use key to force recomposition when language changes
+    // Invalidate localized UI when language changes without recreating its state
     // This ensures Compose Resources reload strings in the new locale
-    key(currentLanguage) {
+    CompositionLocalProvider(LocalAppLanguage provides currentLanguage) {
         content()
     }
 }

@@ -1,5 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.i18n.resources.*
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +34,7 @@ fun LibraryBook.toReaderBookUi() = ReaderBookUi(id, title, BookCover.from(toBook
 
 @Composable
 fun ReaderShellRoute(initialIndex: Int = 0) {
+    val strings = requireNotNull(LocalLocalizeHelper.current)
     val navigator = requireNotNull(LocalNavigator.current)
     val vm: LibraryViewModel = getIViewModel(key = "library")
     val state by vm.state.collectAsState()
@@ -40,6 +44,18 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, ReaderDestination.entries.lastIndex)) }
     val destination = ReaderDestination.entries[destinationIndex]
     var showImport by rememberSaveable { mutableStateOf(false) }
+    var showProgress by rememberSaveable { mutableStateOf(false) }
+    val uiPreferences: ireader.domain.preferences.prefs.UiPreferences = koinInject()
+    val localeHelper: ireader.presentation.core.theme.LocaleHelper = koinInject()
+    val languageCode by localeHelper.currentLanguageFlow.collectAsState()
+    val language = ReaderUiLanguage.fromCode(languageCode)
+    LaunchedEffect(localeHelper) {
+        val code = ReaderUiLanguage.fromCode(localeHelper.getCurrentLanguageCode()).code
+        if (uiPreferences.language().get() != code) {
+            uiPreferences.language().set(code)
+            localeHelper.updateLocal()
+        }
+    }
     var confirmRemove by remember { mutableStateOf(false) }
     var showCategories by remember { mutableStateOf(false) }
     val addQueue = remember { mutableStateListOf<BookCategory>() }
@@ -53,6 +69,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val books = state.books.map { it.toReaderBookUi() }
     val onBook: (Long) -> Unit = { navigator.navigateTo(BookDetailScreenSpec(it)) }
     LaunchedEffect(destination, state.categories.map { it.id }) {
+        if (destination != ReaderDestination.Settings) showProgress = false
         vm.loadLastReadInfo()
         vm.refreshCurrentCategoryIfStale()
         if (destination != ReaderDestination.Library) {
@@ -70,7 +87,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         }
     }
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
-        if (state.selectionMode) vm.unselectAll() else destinationIndex = 0
+        if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else destinationIndex = 0
     }
     ReaderBackdrop {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -79,7 +96,11 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onLibrary = { destinationIndex = 1 }, onImport = { showImport = true },
                     onSearch = { destinationIndex = 1; vm.setSearchMode(true) }, onUpdate = { showUpdate = true })
                 ReaderDestination.Library -> ReaderLibraryScreen(books,
-                    categories = state.categories.map { it.category.name }, categoryIndex = state.selectedCategoryIndex,
+                    categories = state.categories.map { when (it.category.id) {
+                        0L -> strings.localize(Res.string.tp_all)
+                        -1L -> strings.localize(Res.string.uncategorized)
+                        else -> it.category.name
+                    } }, categoryIndex = state.selectedCategoryIndex,
                     hasMore = vm.getPaginationState(state.selectedCategory?.id ?: 0L).hasMoreItems,
                     query = state.searchQuery.orEmpty(), isLoading = state.isLoading, selected = state.selectedBookIds,
                     onQuery = { vm.setSearchMode(true); vm.searchInLibrary(it) }, onCategory = vm::setSelectedPage,
@@ -91,18 +112,29 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     val discoveryVm: DiscoveryViewModel = getIViewModel()
                     val discoveryState by discoveryVm.state.collectAsState()
                     LaunchedEffect(discoveryVm) { discoveryVm.load() }
-                    DiscoveryScreen(discoveryState, discoveryVm::refresh)
+                    val translationState by discoveryVm.translated.collectAsState()
+                    DiscoveryScreen(discoveryState, discoveryVm::refresh, translationState, language.code,
+                        discoveryVm::configure, discoveryVm::retryTranslation)
                 }
-                ReaderDestination.Progress -> {
+                ReaderDestination.Settings -> {
+                    if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->
+                        uiPreferences.language().set(selected.code)
+                        localeHelper.updateLocal()
+                    }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true })
+                    else {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }
                     val stats by statisticsFlow.collectAsState(ReadingStatisticsType1())
                     val historyVm: HistoryViewModel = getIViewModel()
                     val historyState by historyVm.state.collectAsState()
                     val history = historyState.histories.values.flatten().distinctBy { it.id }.map { ReaderHistoryUi(it.id, it.bookId, it.chapterId, it.title, it.chapterName) }
-                    ReaderProgressScreen(stats, books, history, onBook,
+                    Column {
+                        TextButton(onClick = { showProgress = false }) { Text(strings.localize(Res.string.tp_back)) }
+                        Box(Modifier.weight(1f)) { ReaderProgressScreen(stats, books, history, onBook,
                         onHistory = { navigator.navigateTo(ReaderScreenSpec(it.bookId, it.chapterId)) },
-                        onMoreHistory = historyVm::loadMoreHistory)
+                        onMoreHistory = historyVm::loadMoreHistory) }
+                    }
+                    }
                 }
             }
             Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
@@ -110,13 +142,13 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     Surface(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                         Column(Modifier.padding(12.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                TextButton(onClick = vm::unselectAll) { Text("Bỏ chọn") }
-                                TextButton(onClick = { showCategories = true }) { Text("Bộ sưu tập") }
-                                TextButton(onClick = { confirmRemove = true }) { Text("Gỡ sách") }
+                                TextButton(onClick = vm::unselectAll) { Text(strings.localize(Res.string.tp_unselect)) }
+                                TextButton(onClick = { showCategories = true }) { Text(strings.localize(Res.string.tp_collections)) }
+                                TextButton(onClick = { confirmRemove = true }) { Text(strings.localize(Res.string.tp_remove_books)) }
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                                TextButton(onClick = { vm.markAsReadWithUndo(); vm.unselectAll() }) { Text("Đánh dấu đã đọc") }
-                                TextButton(onClick = { vm.markAsUnreadWithUndo(); vm.unselectAll() }) { Text("Chưa đọc") }
+                                TextButton(onClick = { vm.markAsReadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_mark_read)) }
+                                TextButton(onClick = { vm.markAsUnreadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_unread)) }
                             }
                         }
                     }
@@ -168,8 +200,8 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         vm.setShowImportPdfDialog(false)
         if (uris.isNotEmpty()) vm.importPdfFiles(uris.map { it.toString() })
     }
-    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text("Gỡ sách khỏi thư viện?") }, text = { Text("Gỡ ${state.selectedCount} sách đã chọn khỏi thư viện.") },
-        confirmButton = { TextButton(onClick = { val ids = state.selectedBookIds.toList(); scope.launch { vm.deleteUseCase.unFavoriteBook(ids); vm.unselectAll() }; confirmRemove = false }) { Text("Gỡ sách") } }, dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Hủy") } })
+    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text(strings.localize(Res.string.tp_remove_title)) }, text = { Text(strings.localize(Res.string.tp_remove_count, state.selectedCount)) },
+        confirmButton = { TextButton(onClick = { val ids = state.selectedBookIds.toList(); scope.launch { vm.deleteUseCase.unFavoriteBook(ids); vm.unselectAll() }; confirmRemove = false }) { Text(strings.localize(Res.string.tp_remove_books)) } }, dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(strings.localize(Res.string.tp_cancel)) } })
     EditCategoriesDialog(vm = vm, showDialog = showCategories,
         categories = state.categories.filter { !it.category.isSystemCategory },
         onConfirm = { scope.launch { vm.getCategory.insertBookCategory(addQueue.toList()); vm.getCategory.deleteBookCategory(deleteQueue.toList()); addQueue.clear(); deleteQueue.clear(); vm.unselectAll(); vm.resetAllPagination() }; showCategories = false },

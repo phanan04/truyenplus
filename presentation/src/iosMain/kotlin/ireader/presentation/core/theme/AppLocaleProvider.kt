@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.CompositionLocalProvider
 import platform.Foundation.NSUserDefaults
 
 /**
@@ -14,7 +14,7 @@ import platform.Foundation.NSUserDefaults
  * loads localized strings. Note that some iOS locale changes may require
  * an app restart to take full effect.
  * 
- * The key() composable ensures recomposition when language changes,
+ * The locale composition local ensures recomposition when language changes,
  * which triggers Compose Resources to reload strings in the new locale.
  */
 @Composable
@@ -31,9 +31,9 @@ actual fun AppLocaleProvider(
         }
     }
     
-    // Use key to force recomposition when language changes
+    // Invalidate localized UI when language changes without recreating its state
     // This ensures Compose Resources reload strings in the new locale
-    key(currentLanguage) {
+    CompositionLocalProvider(LocalAppLanguage provides currentLanguage) {
         content()
     }
 }

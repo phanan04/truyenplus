@@ -172,11 +172,10 @@ fun ReaderSettingMainLayout(
         onNavigate: (String) -> Unit = {}
 ) {
     val pagerState = rememberPagerState(pageCount = { 3 })
-    val tabs = remember {
-        listOf(TabItem("Đọc") { ReaderScreenTab(vm, onTextAlign) },
-            TabItem("Màu nền") { ColorScreenTab(vm, onChangeBrightness, onBackgroundChange) },
-            TabItem("Phông chữ") { FontPickerTab(vm) })
-    }
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current)
+    val tabs = listOf(TabItem(localizeHelper.localize(Res.string.tp_reading_tab)) { ReaderScreenTab(vm, onTextAlign) },
+            TabItem(localizeHelper.localize(Res.string.tp_background_tab)) { ColorScreenTab(vm, onChangeBrightness, onBackgroundChange) },
+            TabItem(localizeHelper.localize(Res.string.tp_font_tab)) { FontPickerTab(vm) })
     Column(modifier = Modifier.fillMaxSize()) {
         Tabs(libraryTabs = tabs, pagerState = pagerState)
         TabsContent(libraryTabs = tabs, pagerState = pagerState)

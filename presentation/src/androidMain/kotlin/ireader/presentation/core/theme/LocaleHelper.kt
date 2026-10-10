@@ -18,7 +18,7 @@ actual class LocaleHelper(
 
     actual val languages: MutableList<String> = mutableListOf()
 
-    private val _currentLanguageFlow = MutableStateFlow(language.get().ifEmpty { "en" })
+    private val _currentLanguageFlow = MutableStateFlow(language.get().ifEmpty { Locale.getDefault().language })
     actual val currentLanguageFlow: StateFlow<String> = _currentLanguageFlow.asStateFlow()
 
     init {
@@ -38,7 +38,7 @@ actual class LocaleHelper(
     }
 
     actual fun updateLocal() {
-        val lang = language.get().ifEmpty { "en" }
+        val lang = language.get().ifEmpty { Locale.getDefault().language }
         context.resources.apply {
             val locale = parseLocale(lang)
             val config = Configuration(configuration)

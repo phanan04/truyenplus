@@ -83,11 +83,11 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
             Text(chapter?.name.orEmpty(), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
             if (chapter != null) {
                 AppIconButton(imageVector = if (chapter.bookmark) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = "Đánh dấu chương", onClick = onBookmark,
+                    contentDescription = localize(Res.string.tp_bookmarks), onClick = onBookmark,
                     tint = if (chapter.bookmark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                if (onListen != null) AppIconButton(imageVector = Icons.Default.Headphones, contentDescription = "Nghe truyện", onClick = onListen)
+                if (onListen != null) AppIconButton(imageVector = Icons.Default.Headphones, contentDescription = localize(Res.string.tp_listen_book), onClick = onListen)
             }
-            AppIconButton(imageVector = Icons.Default.Tune, contentDescription = "Tùy chỉnh đọc", onClick = onSettings)
+            AppIconButton(imageVector = Icons.Default.Tune, contentDescription = localize(Res.string.reader), onClick = onSettings)
         }
     }
 }

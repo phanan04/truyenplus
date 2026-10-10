@@ -1,6 +1,6 @@
 # Khám phá truyện
 
-Tab Khám phá dùng dữ liệu công khai của [novel-tracker](https://github.com/dylan-byte-max/novel-tracker), thu thập từ Qidian, Fanqie và Jinjiang. Không cần cài nguồn/extension hoặc đăng nhập. Tên, tác giả và mô tả giữ nguyên ngôn ngữ nguồn.
+Tab Khám phá dùng dữ liệu công khai của [novel-tracker](https://github.com/dylan-byte-max/novel-tracker), thu thập từ Qidian, Fanqie và Jinjiang. Không cần cài nguồn/extension hoặc đăng nhập. Giao diện và bản dịch thông tin theo lựa chọn Tiếng Việt/English trong Cài đặt. Tên tác giả giữ nguyên từ nguồn; chi tiết truyện có nút xem lại tên và mô tả gốc.
 
 - Qidian: bảng bán chạy trong ngày.
 - Fanqie: bảng hot của thư viện.
@@ -26,6 +26,18 @@ Cache JSON theo nguồn trong thư mục dữ liệu riêng của app (`discover
 Parser kiểm tra platform, liên kết sách chính thức, ID, ngày cập nhật và giới hạn kích thước. Bản ghi thiếu thông tin bắt buộc bị bỏ qua. Dữ liệu mẫu của bộ sinh demo trong repo tham khảo bị từ chối; không có fallback chứa truyện giả. Khi chưa tải được dữ liệu và chưa có cache, trang hiển thị lỗi/thử lại.
 
 Bấm truyện xem bìa, tên, tác giả, tag, mô tả và liên kết trang chính thức. Feed chỉ có metadata; không giả lập chương đọc hoặc đưa truyện chưa có nội dung vào thư viện. Việc đọc trong app tiếp tục dùng sách đã nhập.
+
+## Ngôn ngữ và bản dịch
+
+Thanh điều hướng gồm Trang chủ, Khám phá, Thư viện, Cài đặt. Thống kê và lịch sử đọc vẫn có trong Cài đặt → Tiến độ đọc. Lựa chọn Việt/Anh dùng `UiPreferences.language()` và `LocaleHelper` hiện có, lưu qua lần mở app và cập nhật các nhãn Compose Resources. Nội dung ebook đã nhập không tự bị dịch hoặc sửa đổi khi đổi ngôn ngữ giao diện.
+
+`DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3), dịch từ `zh` sang `vi` hoặc `en` trên thiết bị. Lần đầu cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
+
+Tên, mô tả, trạng thái và các tag chưa có nhãn cố định được dịch ngầm theo nguồn đang xem, hiện dần từng truyện. Thể loại phổ biến có bảng nhãn Việt/Anh cố định. ViewModel hủy hàng đợi cũ khi đổi nguồn/ngôn ngữ hoặc nội dung feed thay đổi; cache được khôi phục trước khi chờ model. Khi dịch lỗi vẫn đọc được metadata gốc và có nút thử lại.
+
+Cache bản dịch trong `discovery-translations/`, riêng từng truyện và ngôn ngữ. Chữ ký nội dung gốc bằng SHA-256 ngăn dùng lại bản dịch sau khi tên/mô tả/tag/trạng thái thay đổi. Ghi nguyên tử; không cache kết quả trống, thiếu trường hoặc trả nguyên văn tiếng Trung. Thứ hạng, tác giả, bìa và liên kết vẫn dùng nguồn thật. Tìm kiếm khớp cả tên gốc và tên dịch.
+
+Bản dịch tự động do Google Translate cung cấp qua [ML Kit](https://developers.google.com/ml-kit/language/translation); chất lượng cần kiểm tra trên thiết bị thực tế, đặc biệt tên riêng và Trung → Việt qua tiếng Anh. Đây là dịch metadata, không phải dịch toàn bộ chương. Huy hiệu `google_translate_attribution.png` lấy nguyên bản từ [bộ huy hiệu chính thức](https://docs.cloud.google.com/static/translate/images/google-translate-attribution.zip), hiển thị cạnh thông tin đã dịch theo [hướng dẫn ghi nguồn](https://docs.cloud.google.com/translate/attribution).
 
 ## Kiểm tra
 

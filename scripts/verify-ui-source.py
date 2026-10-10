@@ -15,7 +15,8 @@ for folder in ('presentation', 'android', 'desktop'):
         reference = original / path.relative_to(root)
         if not reference.exists() or path.read_bytes() != reference.read_bytes():
             changed.append(path)
-allowed_existing = {'data/src/commonMain/kotlin/ireader/data/di/repositoryInjectModule.kt'}
+allowed_existing = {'data/src/commonMain/kotlin/ireader/data/di/repositoryInjectModule.kt', 'data/build.gradle.kts'}
+assert (root/'data/build.gradle.kts').read_text().replace('                implementation(libs.googleTranslator)\n', '') == (original/'data/build.gradle.kts').read_text(), 'Only the existing ML Kit dependency may be added to data'
 for folder in ('domain', 'data', 'core-utils', 'source-api', 'plugin-api', 'source-runtime-js', 'android-compat', 'supabase'):
     for reference in (original / folder).rglob('*'):
         if reference.is_file() and 'build' not in reference.parts:
@@ -23,7 +24,7 @@ for folder in ('domain', 'data', 'core-utils', 'source-api', 'plugin-api', 'sour
             assert current.exists(), str(current)
             if str(reference.relative_to(original)) not in allowed_existing:
                 assert current.read_bytes() == reference.read_bytes(), str(current)
-print('PASS: existing IReader business/source layers preserved, apart from discovery DI registration', flush=True)
+print('PASS: existing IReader business/source layers preserved, apart from discovery DI registration and the existing ML Kit SDK dependency', flush=True)
 translations = root / 'i18n/src/commonMain/composeResources'
 en = {node.attrib['name'] for node in ET.parse(translations / 'values/truyenplus.xml').getroot()}
 vi = {node.attrib['name'] for node in ET.parse(translations / 'values-vi/truyenplus.xml').getroot()}

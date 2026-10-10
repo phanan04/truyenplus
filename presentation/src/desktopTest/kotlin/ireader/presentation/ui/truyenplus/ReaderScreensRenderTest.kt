@@ -35,6 +35,13 @@ import org.jetbrains.skia.EncodedImageFormat
 
 /** Visual verification of production layouts. Fixtures exist only in the test source set. */
 class ReaderScreensRenderTest {
+    @Composable
+    private fun ReaderTestTheme(colorScheme: ColorScheme, shapes: androidx.compose.material3.Shapes = Shapes, content: @Composable () -> Unit) {
+        CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+            MaterialTheme(colorScheme = colorScheme, shapes = shapes, content = content)
+        }
+    }
+
     private val books = listOf(
         ReaderBookUi(1, "Hồ Yêu Tiểu Thư", read = 245, total = 520, pinned = true, chapter = "Chương 245 · Tương phùng nơi nhân gian"),
         ReaderBookUi(2, "Thần Vực", read = 102, total = 680),
@@ -51,7 +58,7 @@ class ReaderScreensRenderTest {
             "library" to { Shell(ReaderDestination.Library) {
                 ReaderLibraryScreen(books, listOf("Tất cả", "Yêu thích", "Đang đọc"), 0, "", false, false, emptySet(), {}, {}, {}, {}, {}, {}, {}, {})
             } },
-            "progress" to { Shell(ReaderDestination.Progress) {
+            "progress" to { Shell(ReaderDestination.Settings) {
                 ReaderProgressScreen(ReadingStatisticsType1(totalChaptersRead = 359, totalReadingTimeMinutes = 2175, readingStreak = 21, booksCompleted = 12), books, emptyList(), {}, {}, {})
             } },
             "book" to { ReaderBookScreen(books.first(), "Tác giả của bạn", (1..20).map {
@@ -79,7 +86,7 @@ class ReaderScreensRenderTest {
         for ((name, content) in pages) {
             val scene = ImageComposeScene(width = 360, height = 800, density = Density(1f)) {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
-                    MaterialTheme(colorScheme = TruyenPlusDarkColors, shapes = Shapes) {
+                    ReaderTestTheme(colorScheme = TruyenPlusDarkColors, shapes = Shapes) {
                         ReaderBackdrop { content() }
                     }
                 }
@@ -102,7 +109,7 @@ class ReaderScreensRenderTest {
         val feed = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Qidian, raw)
         for (width in listOf(360, 800)) {
             val scene = ImageComposeScene(width = width, height = 1000, density = Density(1f)) {
-                MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+                ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                     ReaderBackdrop { Shell(ReaderDestination.Discover, miniPlayer = false) {
                         DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = mapOf(feed.source to feed)), {})
                     } }
@@ -130,7 +137,7 @@ class ReaderScreensRenderTest {
             ireader.data.discovery.NovelTrackerParser.parse(source, raw)
         }
         val scene = ImageComposeScene(width = 360, height = 1000, density = Density(1f)) {
-            MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+            ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                 ReaderBackdrop { DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = feeds), {}) }
             }
         }
@@ -154,7 +161,7 @@ class ReaderScreensRenderTest {
         val book = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Jinjiang, raw).books.single()
         var opened: String? = null
         val scene = ImageComposeScene(width = 360, height = 1000, density = Density(1f)) {
-            MaterialTheme(colorScheme = TruyenPlusDarkColors) { Surface { DiscoveryDetailsContent(book) { opened = it } } }
+            ReaderTestTheme(colorScheme = TruyenPlusDarkColors) { Surface { DiscoveryDetailsContent(book) { opened = it } } }
         }
         try {
             scene.render(0)
@@ -186,7 +193,7 @@ class ReaderScreensRenderTest {
     @Test
     fun navigationUsesTheSameWidthAsTheMiniPlayerOnWidePhones() {
         val scene = ImageComposeScene(width = 600, height = 1000, density = Density(1f)) {
-            MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+            ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                 ReaderBackdrop { Shell(ReaderDestination.Home) { ReaderHomeScreen(books, false, {}, {}, {}, {}, onUpdate = {}) } }
             }
         }
@@ -198,7 +205,7 @@ class ReaderScreensRenderTest {
             val navButtons = nodes.filter { node ->
                 node.config.getOrNull(SemanticsActions.OnClick)?.action != null &&
                     node.config.getOrNull(SemanticsProperties.Text)?.any { text ->
-                        ReaderDestination.entries.any { it.label == text.text }
+                        ReaderDestination.entries.any { it.localizedLabel(LocalizeHelper()) == text.text }
                     } == true
             }
             assertEquals(4, navButtons.size)
@@ -214,7 +221,7 @@ class ReaderScreensRenderTest {
     @Test
     fun homeShowsOnlyOneShelfForBooksAlreadyBeingRead() {
         val scene = ImageComposeScene(width = 600, height = 1600, density = Density(1f)) {
-            MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+            ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                 ReaderBackdrop { ReaderHomeScreen(books, false, {}, {}, {}, {}) }
             }
         }
@@ -254,7 +261,7 @@ class ReaderScreensRenderTest {
             chapterName = "Chương 245", showCacheIndicators = false)
         val scene = ImageComposeScene(width = 360, height = 800, density = Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
-                MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+                ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                     ReaderListenChapterScreen(state, PreviewTtsActions(selected::add), {}, lazyListState = scroll)
                 }
             }

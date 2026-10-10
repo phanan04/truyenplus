@@ -2937,7 +2937,10 @@
     <string name="similar_titles_mode_by_genre_subtitle">Tìm sách có thể loại/danh mục tương ứng</string>
     <string name="similar_titles_mode_by_category">Tương tự theo Danh mục</string>
     <string name="similar_titles_mode_by_category_subtitle">Tìm sách trong cùng danh mục</string>
-    <string name="similar_titles_max_count_unlimited">Unlimited</string></resources>
+    <string name="similar_titles_max_count_unlimited">Unlimited</string>    <string name="custom_background_color">Tùy chỉnh màu nền trang đọc</string>
+    <string name="custom_text_color">Tùy chỉnh màu chữ trang đọc</string>
+    <string name="invert_volume_keys">Đảo chức năng phím âm lượng</string>
+</resources>
 
 
 

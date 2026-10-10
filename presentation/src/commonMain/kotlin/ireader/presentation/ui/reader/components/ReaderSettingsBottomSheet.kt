@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ireader.domain.models.prefs.PreferenceValues
-import ireader.i18n.resources.Res
+import ireader.i18n.resources.*
 import ireader.i18n.resources.colors
 import ireader.i18n.resources.fonts
 import ireader.i18n.resources.general
@@ -120,7 +120,7 @@ fun ReaderSettingsBottomSheet(
                 onThemeChange = { themeId -> onBackgroundChange(themeId); vm.readerThemeSavable = false },
             )
             TruyenPlusTabs(
-                labels = listOf("Đọc", "Màu nền", "Phông chữ"),
+                labels = listOf(localizeHelper.localize(Res.string.tp_reading_tab), localizeHelper.localize(Res.string.tp_background_tab), localizeHelper.localize(Res.string.tp_font_tab)),
                 selectedIndex = pagerState.currentPage,
                 onSelect = { page -> scope.launch {
                     if (reducedAnimations) pagerState.scrollToPage(page)
