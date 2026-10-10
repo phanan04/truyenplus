@@ -1,9 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
-enum class ReaderFeature { Library, Reading, Progress, TextToSpeech, EbookFiles }
-enum class ReaderDestination(val label: String) { Home("Trang chủ"), Library("Thư viện"), Progress("Tiến độ") }
+enum class ReaderFeature { Library, Reading, Progress, TextToSpeech, EbookFiles, Discovery }
+enum class ReaderDestination(val label: String) { Home("Trang chủ"), Library("Thư viện"), Progress("Tiến độ"), Discover("Khám phá") }
 
-/** The public product contains only the five reader features requested by the user. */
+/** Reader features plus the explicitly requested public discovery catalog. */
 object ReaderAppScope {
     val features = ReaderFeature.entries.toSet()
     private val screens = setOf("main", "category", "fontSettings", "ttsEngineManager", "textReplacement")

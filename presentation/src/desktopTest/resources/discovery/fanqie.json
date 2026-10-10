@@ -1,0 +1,58 @@
+{
+  "update_time": "2026-10-10 13:34:10",
+  "update_date": "2026-10-10",
+  "total_count": 50,
+  "source": "番茄小说书库·最热榜",
+  "source_url": "https://fanqienovel.com/library?enter_from=menu",
+  "platform": "fanqie",
+  "platform_name": "番茄小说",
+  "tag_stats": {
+    "传统玄幻": 3,
+    "悬疑脑洞": 7,
+    "都市高武": 14,
+    "玄幻脑洞": 4,
+    "游戏体育": 1,
+    "都市脑洞": 6,
+    "科幻末世": 1,
+    "都市日常": 5,
+    "1v1": 2,
+    "悬疑灵异": 1,
+    "都市修真": 1,
+    "历史古代": 1,
+    "西方奇幻": 1,
+    "打脸": 1,
+    "东方仙侠": 1,
+    "反派": 1
+  },
+  "gender_stats": {
+    "男频": 43,
+    "女频": 7
+  },
+  "books": [
+    {
+      "rank": 1,
+      "book_id": "7665193065501445145",
+      "book_name": "神通者",
+      "author": "天蚕土豆",
+      "gender": "男频",
+      "primary_tag": "传统玄幻",
+      "secondary_tags": [
+        "空间",
+        "架空",
+        "东方玄幻"
+      ],
+      "all_tags": [
+        "传统玄幻",
+        "空间",
+        "架空",
+        "东方玄幻"
+      ],
+      "abstract": "世间生灵，体生异骨，可铭刻承载诸多灵妙之法，执掌",
+      "status": "连载中",
+      "thumb_url": "https://p9-novel-sign.byteimg.com/novel-pic/p2o6f70f2cb2f4ff3adff8ccc52e8a38d46~tplv-resize:225:300.image?lk3s=191c1ecc&x-expires=1791697175&x-signature=2FjmNItfwkGHoaeVnkw6Bx53g3s%3D",
+      "book_url": "https://fanqienovel.com/page/7665193065501445145",
+      "rank_change": 0,
+      "history_days": 75
+    }
+  ]
+}

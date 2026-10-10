@@ -37,7 +37,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val tts: ireader.domain.services.tts_service.v2.TTSController = koinInject()
     val ttsState by tts.state.collectAsState()
     val ttsService: ireader.domain.services.tts_service.v2.TTSV2ServiceStarter = koinInject()
-    var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, 2)) }
+    var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, ReaderDestination.entries.lastIndex)) }
     val destination = ReaderDestination.entries[destinationIndex]
     var showImport by rememberSaveable { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
@@ -66,7 +66,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     }
     LaunchedEffect(Unit) {
         MainStarterScreen.tabRequests.collect { index ->
-            destinationIndex = index.coerceIn(0, 2)
+            destinationIndex = index.coerceIn(0, ReaderDestination.entries.lastIndex)
         }
     }
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
@@ -87,6 +87,12 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onCollections = { navigator.navigate(NavigationRoutes.category) },
                     onSort = { vm.toggleSort(if (state.sort.type == LibrarySort.Type.Title) LibrarySort.Type.LastRead else LibrarySort.Type.Title) },
                     onLoadMore = { vm.loadMoreBooks(state.selectedCategory?.id ?: 0L) })
+                ReaderDestination.Discover -> {
+                    val discoveryVm: DiscoveryViewModel = getIViewModel()
+                    val discoveryState by discoveryVm.state.collectAsState()
+                    LaunchedEffect(discoveryVm) { discoveryVm.load() }
+                    DiscoveryScreen(discoveryState, discoveryVm::refresh)
+                }
                 ReaderDestination.Progress -> {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }
@@ -162,7 +168,6 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         vm.setShowImportPdfDialog(false)
         if (uris.isNotEmpty()) vm.importPdfFiles(uris.map { it.toString() })
     }
-    if (state.epubImportState.showProgress) AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Đang nhập sách") }, text = { Column { Text("Đang thêm ebook vào thư viện…"); LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 16.dp)) } })
     if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text("Gỡ sách khỏi thư viện?") }, text = { Text("Gỡ ${state.selectedCount} sách đã chọn khỏi thư viện.") },
         confirmButton = { TextButton(onClick = { val ids = state.selectedBookIds.toList(); scope.launch { vm.deleteUseCase.unFavoriteBook(ids); vm.unselectAll() }; confirmRemove = false }) { Text("Gỡ sách") } }, dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Hủy") } })
     EditCategoriesDialog(vm = vm, showDialog = showCategories,

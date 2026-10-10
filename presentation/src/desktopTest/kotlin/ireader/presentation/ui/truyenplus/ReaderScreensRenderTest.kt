@@ -96,6 +96,83 @@ class ReaderScreensRenderTest {
         }
     }
 
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test fun discoveryRendersRealMetadataAtPhoneAndTabletWidths() {
+        val raw = requireNotNull(javaClass.getResourceAsStream("/discovery/qidian.json")).bufferedReader().use { it.readText() }
+        val feed = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Qidian, raw)
+        for (width in listOf(360, 800)) {
+            val scene = ImageComposeScene(width = width, height = 1000, density = Density(1f)) {
+                MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+                    ReaderBackdrop { Shell(ReaderDestination.Discover, miniPlayer = false) {
+                        DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = mapOf(feed.source to feed)), {})
+                    } }
+                }
+            }
+            try {
+                scene.render(0)
+                val bitmap = scene.render(1_000_000_000)
+                fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
+                val text = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+                    .flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty() }.map { it.text }
+                assertTrue("青山" in text && "会说话的肘子" in text)
+                assertTrue(text.any { it.contains("2026-10-10") })
+                val output = File("build/reports/truyenplus-v2/discovery-$width.png")
+                output.parentFile.mkdirs()
+                output.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)
+            } finally { scene.close() }
+        }
+    }
+
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test fun discoverySourceChipSwitchesToRealFanqieData() {
+        val feeds = ireader.domain.models.discovery.DiscoverySource.entries.associateWith { source ->
+            val raw = requireNotNull(javaClass.getResourceAsStream("/discovery/${source.id}.json")).bufferedReader().use { it.readText() }
+            ireader.data.discovery.NovelTrackerParser.parse(source, raw)
+        }
+        val scene = ImageComposeScene(width = 360, height = 1000, density = Density(1f)) {
+            MaterialTheme(colorScheme = TruyenPlusDarkColors) {
+                ReaderBackdrop { DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = feeds), {}) }
+            }
+        }
+        try {
+            scene.render(0); scene.render(1_000_000_000)
+            fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
+            fun nodes() = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            val chip = nodes().first { it.config.getOrNull(SemanticsActions.OnClick)?.action != null &&
+                it.config.getOrNull(SemanticsProperties.Text)?.any { text -> text.text == "Fanqie" } == true }
+            assertTrue(requireNotNull(chip.config.getOrNull(SemanticsActions.OnClick)?.action).invoke())
+            scene.render(2_000_000_000); scene.render(3_000_000_000)
+            val text = nodes().flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty() }.map { it.text }
+            assertTrue("神通者" in text && "天蚕土豆" in text)
+            assertTrue("青山" !in text)
+        } finally { scene.close() }
+    }
+
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test fun discoveryDetailsShowsOriginalDescriptionAndOpensOfficialUrl() {
+        val raw = requireNotNull(javaClass.getResourceAsStream("/discovery/jjwxc.json")).bufferedReader().use { it.readText() }
+        val book = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Jinjiang, raw).books.single()
+        var opened: String? = null
+        val scene = ImageComposeScene(width = 360, height = 1000, density = Density(1f)) {
+            MaterialTheme(colorScheme = TruyenPlusDarkColors) { Surface { DiscoveryDetailsContent(book) { opened = it } } }
+        }
+        try {
+            scene.render(0)
+            val bitmap = scene.render(1_000_000_000)
+            fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
+            val nodes = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            val text = nodes.flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty() }.map { it.text }
+            assertTrue(book.description in text && book.title in text && book.author in text)
+            val button = nodes.first { it.config.getOrNull(SemanticsActions.OnClick)?.action != null &&
+                it.config.getOrNull(SemanticsProperties.Text)?.any { text -> text.text == "Xem trên Jinjiang" } == true }
+            requireNotNull(button.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
+            assertEquals(book.url, opened)
+            val output = File("build/reports/truyenplus-v2/discovery-details.png")
+            output.parentFile.mkdirs()
+            output.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)
+        } finally { scene.close() }
+    }
+
     private val chapterParagraphs = listOf(
         "Gió đêm thổi qua, mang theo hương hoa mộc lan thoang thoảng. Nàng đứng trên bậc thềm cũ, ánh trăng phủ lên vai, như rót bạc xuống nhân gian.",
         "Đã bao năm trôi qua, gặp lại người trong hoàn cảnh này, trái tim vẫn khẽ run lên như thuở ban đầu. Có những chuyện, dù thời gian có xóa nhòa, cũng không thể nào quên được.",
@@ -124,7 +201,7 @@ class ReaderScreensRenderTest {
                         ReaderDestination.entries.any { it.label == text.text }
                     } == true
             }
-            assertEquals(3, navButtons.size)
+            assertEquals(4, navButtons.size)
             assertTrue(navButtons.minOf { it.boundsInRoot.left } <= 27f, "Navigation should start at the mini player inset")
             assertTrue(navButtons.maxOf { it.boundsInRoot.right } >= 573f, "Navigation should reach the right mini player inset")
             val output = File("build/reports/truyenplus-v2/home-wide.png")

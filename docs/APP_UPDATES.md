@@ -10,18 +10,18 @@ Cấu hình mặc định dùng GitHub Releases của repo `phanan04/truyenplus`
 
 Nhập địa chỉ trong app, hoặc đặt Gradle property `truyenplusUpdateUrl` trước khi đóng gói bản phát hành. Property này được đưa vào manifest Android làm địa chỉ mặc định; không chứa khóa bí mật. Cấu hình do người dùng nhập sẽ ghi đè địa chỉ mặc định sau khi kiểm tra thành công.
 
-Release [v2.0.28](https://github.com/phanan04/truyenplus/releases/tag/v2.0.28) đã cung cấp `update.json` và APK ARM64 (versionCode 82). URL mặc định trỏ tới release mới nhất. Mỗi bản phát hành cần APK và manifest tương ứng. Trước đó app báo lỗi nguồn chưa sẵn sàng, không giả báo đang dùng bản mới nhất. Repo riêng tư cần cơ chế xác thực riêng, chưa được hỗ trợ.
+Release [v2.0.29](https://github.com/phanan04/truyenplus/releases/tag/v2.0.29) đã cung cấp `update.json` và APK ARM64 (versionCode 83). URL mặc định trỏ tới release mới nhất. Mỗi bản phát hành cần APK và manifest tương ứng. Trước đó app báo lỗi nguồn chưa sẵn sàng, không giả báo đang dùng bản mới nhất. Repo riêng tư cần cơ chế xác thực riêng, chưa được hỗ trợ.
 
 ## Chuẩn bị một bản mới
 
-1. Tăng `versionCode` trong `buildSrc/src/main/kotlin/ProjectConfig.kt` (bản 2.0.28 là 82). Giữ nguyên package và khóa ký của bản đã cài. Không thay debug key giữa các lần phát hành; bản release không thể cập nhật đè bản debug ký bằng khóa khác.
+1. Tăng `versionCode` trong `buildSrc/src/main/kotlin/ProjectConfig.kt` (bản 2.0.29 là 83). Giữ nguyên package và khóa ký của bản đã cài. Không thay debug key giữa các lần phát hành; bản release không thể cập nhật đè bản debug ký bằng khóa khác.
 2. Chỉ build khi người dùng yêu cầu. Tạo các APK cho kiến trúc cần hỗ trợ.
 3. Chạy script dưới đây trên APK đã có. Script đọc package/phiên bản/kiến trúc từ APK và tính kích thước, SHA-256; không build hoặc tải lên mạng.
 
 ```sh
 ANDROID_HOME=/path/to/android-sdk python3 scripts/create-update-manifest.py \
   --apk /path/to/TruyenPlus-arm64.apk \
-  --download-base-url https://github.com/phanan04/truyenplus/releases/download/v2.0.28 \
+  --download-base-url https://github.com/phanan04/truyenplus/releases/download/v2.0.29 \
   --notes-file /path/to/release-notes.txt \
   --output /path/to/update.json
 ```

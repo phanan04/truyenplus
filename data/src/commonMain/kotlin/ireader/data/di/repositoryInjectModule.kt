@@ -15,6 +15,13 @@ import ireader.domain.services.library.LibraryChangeNotifier
 import ireader.domain.usecases.database.RepairDatabaseUseCase
 import ireader.core.log.Log
 import org.koin.dsl.module
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.withTimeoutOrNull
+import ireader.data.discovery.FileDiscoveryCache
+import ireader.data.discovery.NovelTrackerDiscoveryRepository
+import ireader.domain.data.repository.DiscoveryRepository
+import ireader.domain.utils.extensions.currentTimeToLong
 
 
 val repositoryInjectModule = module {
@@ -22,6 +29,18 @@ val repositoryInjectModule = module {
     // because repositories use getOrNull<LibraryChangeNotifier>() to notify changes.
     // If this is registered after repositories, they will get null and won't notify.
     single { LibraryChangeNotifier() }
+    single<DiscoveryRepository> {
+        val http = get<ireader.core.http.HttpClients>().default
+        NovelTrackerDiscoveryRepository(
+            FileDiscoveryCache(AppDataDirectory.getPath() / "discovery", get()),
+            fetch = { source -> withTimeoutOrNull(20_000) {
+                val response = http.get(source.feedUrl)
+                check(response.status.value == 200) { "HTTP ${response.status.value}" }
+                response.bodyAsText()
+            } ?: error("Nguồn phản hồi quá chậm") },
+            now = ::currentTimeToLong,
+        )
+    }
     
     // Include feature-specific repository modules
     includes(bookRepositoryModule)

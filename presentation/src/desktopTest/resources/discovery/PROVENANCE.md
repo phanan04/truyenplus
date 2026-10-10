@@ -1,0 +1,1 @@
+Real excerpts from dylan-byte-max/novel-tracker commit 80f3dfaf2cc4328758f0e24e8f4b7236d14dd735, fetched 2026-10-10. The main fixtures keep the first real book; qidian-new.json keeps one real new-on-ranking entry and up to 24 description characters, with original feed metadata. These are test excerpts, never app seed/demo data. Full live feeds are fetched by the app.

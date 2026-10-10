@@ -1,0 +1,48 @@
+{
+  "update_time": "2026-10-10 13:46:49",
+  "update_date": "2026-10-10",
+  "total_count": 50,
+  "source": "起点中文网·每日畅销榜",
+  "source_url": "https://www.qidian.com/rank/hotsales/",
+  "platform": "qidian",
+  "platform_name": "起点中文网",
+  "tag_stats": {
+    "玄幻": 15,
+    "仙侠": 8,
+    "都市": 8,
+    "轻小说": 7,
+    "科幻": 4,
+    "奇幻": 1,
+    "悬疑灵异": 1,
+    "历史": 5,
+    "游戏": 1
+  },
+  "gender_stats": {
+    "男频": 49,
+    "未知": 1
+  },
+  "books": [
+    {
+      "rank": 8,
+      "book_id": "1049875166",
+      "book_name": "无限制格斗闯女频",
+      "author": "君子无醉",
+      "gender": "男频",
+      "primary_tag": "都市",
+      "secondary_tags": [
+        "都市异能"
+      ],
+      "all_tags": [
+        "都市",
+        "都市异能"
+      ],
+      "abstract": "意外穿成女频世界的窝囊废舔狗男主。女主和反派想对",
+      "status": "连载中",
+      "word_count": "",
+      "thumb_url": "https://bookcover.yuewen.com/qdbimg/349573/1049875166/150.webp",
+      "book_url": "https://www.qidian.com/book/1049875166/",
+      "rank_change": "new",
+      "history_days": 1
+    }
+  ]
+}

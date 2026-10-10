@@ -1,0 +1,54 @@
+{
+  "update_time": "2026-10-10 13:47:11",
+  "update_date": "2026-10-10",
+  "total_count": 50,
+  "source": "晋江文学城·积分月榜",
+  "source_url": "https://www.jjwxc.net/topten.php?orderstr=5&t=2",
+  "platform": "jjwxc",
+  "platform_name": "晋江文学城",
+  "tag_stats": {
+    "言情": 27,
+    "纯爱": 21,
+    "百合": 2
+  },
+  "gender_stats": {
+    "言情": 27,
+    "纯爱": 21,
+    "百合": 2
+  },
+  "books": [
+    {
+      "rank": 1,
+      "book_id": "11014721",
+      "book_name": "高冷太子的克星",
+      "author": "笑佳人",
+      "channel": "言情",
+      "nature": "原创",
+      "genre": "言情",
+      "era": "架空历史",
+      "theme": "爱情",
+      "primary_tag": "言情",
+      "secondary_tags": [
+        "架空历史",
+        "爱情"
+      ],
+      "all_tags": [
+        "原创",
+        "言情",
+        "架空历史",
+        "爱情"
+      ],
+      "score": 2274738944,
+      "score_display": "2.3G",
+      "abstract": "永盛帝平定南朝诸国，太子赵玹功不可没，其人治军严",
+      "status": "连载中",
+      "word_count": "3237",
+      "update_time": "2026-09-01 16:38:16",
+      "thumb_url": "https://i2-static.jjwxc.net/authorimagespace.php?path=MTAwNzQyMA==&imageName=20260901124432.jpg",
+      "book_url": "https://www.jjwxc.net/onebook.php?novelid=11014721",
+      "author_url": "https://www.jjwxc.net/oneauthor.php?authorid=1007420",
+      "rank_change": 0,
+      "history_days": 29
+    }
+  ]
+}

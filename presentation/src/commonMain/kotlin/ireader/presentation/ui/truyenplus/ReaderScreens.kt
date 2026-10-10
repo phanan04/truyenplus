@@ -215,9 +215,9 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
 fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination) -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            ReaderDestination.entries.forEach { destination ->
+            listOf(ReaderDestination.Home, ReaderDestination.Discover, ReaderDestination.Library, ReaderDestination.Progress).forEach { destination ->
                 val active = selected == destination
-                val icon = when (destination) { ReaderDestination.Home -> Icons.Outlined.Home; ReaderDestination.Library -> Icons.Outlined.LibraryBooks; ReaderDestination.Progress -> Icons.Outlined.BarChart }
+                val icon = when (destination) { ReaderDestination.Home -> Icons.Outlined.Home; ReaderDestination.Library -> Icons.Outlined.LibraryBooks; ReaderDestination.Progress -> Icons.Outlined.BarChart; ReaderDestination.Discover -> Icons.Outlined.Explore }
                 Surface(onClick = { onSelect(destination) }, modifier = Modifier.weight(1f), shape = CircleShape, color = if (active) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent) {
                     Column(Modifier.padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Icon(icon, destination.label, tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))

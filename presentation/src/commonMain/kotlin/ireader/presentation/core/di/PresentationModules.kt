@@ -48,6 +48,7 @@ import ireader.presentation.ui.plugins.integration.pluginIntegrationModule
 import org.koin.dsl.module
 
 val PresentationModules = module {
+    factory { ireader.presentation.ui.truyenplus.DiscoveryViewModel(get()) }
 
 
     // State objects removed - ViewModels now use Mihon-style MutableStateFlow internally
