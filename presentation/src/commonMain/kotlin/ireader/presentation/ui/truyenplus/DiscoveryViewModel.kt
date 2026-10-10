@@ -24,6 +24,7 @@ class DiscoveryViewModel(private val repository: DiscoveryRepository, private va
                 selected to feeds[selected.source]?.books.orEmpty()
             }.collectLatest { (selected, books) ->
                 mutableTranslations.value = DiscoveryTranslationState(selected.language)
+                if (selected.source.language == selected.language) return@collectLatest
                 // Restore every cached entry before waiting for language packs or new translations.
                 val cached = books.mapNotNull { book -> translations.cached(book, selected.language)?.let { book.key to it } }.toMap()
                 mutableTranslations.value = DiscoveryTranslationState(selected.language, cached, books.any { it.key !in cached })

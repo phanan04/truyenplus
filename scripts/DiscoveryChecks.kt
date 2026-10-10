@@ -32,7 +32,7 @@ fun main(args: Array<String>) {
         check(filterDiscoveryBooks(parsed, DiscoverySection.New, "", "").all { it.newOnRanking })
         verified += parsed.books.size
     }
-    println("PASS: parsed $verified real book records across all three providers")
+    println("PASS: parsed $verified real book records across ${DiscoverySource.entries.size} providers")
     val storage = mutableMapOf<String, String>()
     val cache = object : DiscoveryCache {
         override fun read(key: String) = storage[key]
@@ -49,16 +49,16 @@ fun main(args: Array<String>) {
     runBlocking {
         val repo = repository()
         repo.refresh()
-        check(repo.state.value.feeds.size == 3 && calls.get() == 3)
+        check(repo.state.value.feeds.size == DiscoverySource.entries.size && calls.get() == DiscoverySource.entries.size)
         repo.refresh()
-        check(calls.get() == 3) // fresh cache avoids network
+        check(calls.get() == DiscoverySource.entries.size) // fresh cache avoids network
         val restarted = repository()
         restarted.refresh()
-        check(restarted.state.value.feeds.size == 3 && calls.get() == 3) // persisted cache
+        check(restarted.state.value.feeds.size == DiscoverySource.entries.size && calls.get() == DiscoverySource.entries.size) // persisted cache
         time += 30_000_000
         offline = true
         restarted.refresh(true)
-        check(restarted.state.value.feeds.size == 3)
+        check(restarted.state.value.feeds.size == DiscoverySource.entries.size)
         check(restarted.state.value.checkedAt[DiscoverySource.Qidian] == 100_000_000L)
         check(restarted.state.value.errors.keys == setOf(DiscoverySource.Qidian))
         check(!restarted.state.value.refreshing)

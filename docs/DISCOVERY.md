@@ -1,12 +1,13 @@
 # Khám phá truyện
 
-Tab Khám phá dùng dữ liệu công khai của [novel-tracker](https://github.com/dylan-byte-max/novel-tracker), thu thập từ Qidian, Fanqie và Jinjiang. Không cần cài nguồn/extension hoặc đăng nhập. Giao diện và bản dịch thông tin theo lựa chọn Tiếng Việt/English trong Cài đặt. Tên tác giả giữ nguyên từ nguồn; chi tiết truyện có nút xem lại tên và mô tả gốc.
+Tab Khám phá lấy thông tin tiếng Việt trực tiếp từ [TruyenFull](https://truyenfull.live/), và dữ liệu Qidian, Fanqie, Jinjiang qua [novel-tracker](https://github.com/dylan-byte-max/novel-tracker). Không cần cài nguồn/extension hoặc đăng nhập. Giao diện và bản dịch thông tin theo lựa chọn Tiếng Việt/English trong Cài đặt. Tên tác giả giữ nguyên từ nguồn; chi tiết truyện có nút xem lại tên và mô tả gốc khi có bản dịch máy.
 
 - Qidian: bảng bán chạy trong ngày.
 - Fanqie: bảng hot của thư viện.
 - Jinjiang: bảng điểm tháng.
-- Truyện hot: tối đa 10 vị trí đầu của bảng hiện tại, riêng từng nguồn.
-- Mới lên bảng: bản ghi có `rank_change = "new"`. Đây không phải ngày xuất bản; nguồn không cung cấp ngày này nhất quán.
+- TruyenFull: bảng đọc nhiều trong ngày, tối đa 20 truyện hot và 20 truyện mới cập nhật chương. Chỉ lấy thứ hạng được in trong bảng bên nguồn; thứ tự danh sách hot/mới không bị gán thành hạng.
+- Truyện hot của ba nguồn Trung: tối đa 10 vị trí đầu của bảng hiện tại, riêng từng nguồn.
+- Mới lên bảng của ba nguồn Trung: bản ghi có `rank_change = "new"`. TruyenFull dùng nhãn Mới cập nhật, không coi đây là ngày xuất bản.
 - Thể loại: các tag thực tế của nguồn. Thứ hạng giữ nguyên; không tạo bảng tổng hợp hoặc tự gán hạng.
 
 ## Kiến trúc
@@ -21,6 +22,10 @@ https://raw.githubusercontent.com/dylan-byte-max/novel-tracker/main/data/fanqie/
 https://raw.githubusercontent.com/dylan-byte-max/novel-tracker/main/data/jjwxc/latest.json
 ```
 
+TruyenFull dùng HTML công khai tại `/danh-sach/truyen-hot/` và `/danh-sach/truyen-moi/`, rồi lấy bìa, tác giả, mô tả, thể loại, trạng thái từ trang chi tiết. `TruyenFullParser` dùng Ksoup đã có trong data; `TruyenFullDiscoveryFetcher` dùng HTTP client Ktor có sẵn, giới hạn ba yêu cầu chi tiết đồng thời. HTML được chuẩn hóa thành JSON để dùng nguyên repository/cache hiện có. Trang sai truyện, thiếu metadata hoặc bị chặn được bỏ qua và hiển thị số truyện chưa tải được; khi không có truyện hợp lệ vẫn giữ cache cũ. Không lấy chương, không vượt trang đăng nhập hoặc chặn truy cập. Liên kết và số hạng có thể thay đổi phía nguồn; hạng bị thiếu không được đánh số lại.
+
+Ngày TruyenFull hiển thị là thời điểm tải dữ liệu (UTC), vì nguồn không công bố thời điểm cập nhật bảng. Cache 6 giờ và nút làm mới cũng áp dụng cho nguồn này. Lần đầu cần thêm yêu cầu mạng để tải metadata chi tiết, các lần mở trong TTL dùng snapshot trên máy.
+
 Cache JSON theo nguồn trong thư mục dữ liệu riêng của app (`discovery/`), ghi qua tệp tạm và đổi tên nguyên tử. TTL 6 giờ; nút làm mới bỏ qua TTL. Cache được đọc trước khi gọi mạng. Lỗi một nguồn giữ lại bản cũ của nguồn đó, không gia hạn thời gian kiểm tra thành công. Ngày cập nhật do nguồn cung cấp luôn hiển thị để người dùng biết dữ liệu cũ. Bộ tải ảnh dùng cache bộ nhớ và đĩa có sẵn; một số URL bìa Fanqie có chữ ký có thể hết hạn.
 
 Parser kiểm tra platform, liên kết sách chính thức, ID, ngày cập nhật và giới hạn kích thước. Bản ghi thiếu thông tin bắt buộc bị bỏ qua. Dữ liệu mẫu của bộ sinh demo trong repo tham khảo bị từ chối; không có fallback chứa truyện giả. Khi chưa tải được dữ liệu và chưa có cache, trang hiển thị lỗi/thử lại.
@@ -31,7 +36,7 @@ Bấm truyện xem bìa, tên, tác giả, tag, mô tả và liên kết trang c
 
 Thanh điều hướng gồm Trang chủ, Khám phá, Thư viện, Cài đặt. Thống kê và lịch sử đọc vẫn có trong Cài đặt → Tiến độ đọc. Lựa chọn Việt/Anh dùng `UiPreferences.language()` và `LocaleHelper` hiện có, lưu qua lần mở app và cập nhật các nhãn Compose Resources. Nội dung ebook đã nhập không tự bị dịch hoặc sửa đổi khi đổi ngôn ngữ giao diện.
 
-`DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3), dịch từ `zh` sang `vi` hoặc `en` trên thiết bị. Lần đầu cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
+`DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. TruyenFull có ngôn ngữ nguồn `vi`: khi giao diện là Tiếng Việt, ViewModel bỏ qua cả đọc cache dịch, tải model và gọi dịch; không hiển thị huy hiệu Google Translate. Khi chọn English, Android dịch từ `vi` sang `en`. Ba nguồn Trung vẫn dịch từ `zh` sang `vi` hoặc `en`. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3). Lần đầu dịch cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
 
 Tên, mô tả, trạng thái và các tag chưa có nhãn cố định được dịch ngầm theo nguồn đang xem, hiện dần từng truyện. Thể loại phổ biến và các nhánh Qidian có bảng nhãn Việt/Anh cố định, gồm các giai đoạn Tống–Nguyên–Minh, Tấn–Tùy–Đường và các tag Fanqie/Jinjiang thường gặp. Các nhãn này luôn ưu tiên hơn bản dịch máy đã lưu, không cần xóa cache để sửa thể loại. ViewModel hủy hàng đợi cũ khi đổi nguồn/ngôn ngữ hoặc nội dung feed thay đổi; cache được khôi phục trước khi chờ model. Khi dịch lỗi vẫn đọc được metadata gốc và có nút thử lại.
 

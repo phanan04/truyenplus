@@ -7,6 +7,25 @@ import kotlin.test.*
 import okio.Path.Companion.toPath
 
 class DiscoveryTranslationTest {
+    @Test fun englishTranslationOfVietnameseMetadataUsesVietnameseSourceLanguage() = runBlocking {
+        val original = book().copy(source = DiscoverySource.TruyenFull, title = "Thần Đạo Đan Tôn", description = "Lăng Hàn trọng sinh.", genres = listOf("Tiên Hiệp"), status = "Full")
+        val cache = object : DiscoveryCache {
+            override fun read(key: String): String? = null
+            override fun write(key: String, value: String) {}
+        }
+        var sourceLanguage: String? = null
+        val translator = object : DiscoveryTranslator {
+            override suspend fun translate(texts: List<String>, target: String): List<String> = error("Wrong Chinese-only route")
+            override suspend fun translateFrom(texts: List<String>, source: String, target: String): List<String> {
+                sourceLanguage = source
+                assertEquals("en", target)
+                return texts.map { "English $it" }
+            }
+        }
+        val repo = CachedDiscoveryTranslations(cache, translator)
+        assertTrue(repo.translate(original, "en").title.startsWith("English"))
+        assertEquals("vi", sourceLanguage)
+    }
     private fun book() = NovelTrackerParser.parse(DiscoverySource.Qidian,
         requireNotNull(javaClass.getResourceAsStream("/discovery/qidian.json")).bufferedReader().use { it.readText() }).books.first()
 

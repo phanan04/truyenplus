@@ -20,6 +20,10 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.withTimeoutOrNull
 import ireader.data.discovery.FileDiscoveryCache
 import ireader.data.discovery.NovelTrackerDiscoveryRepository
+import ireader.data.discovery.TruyenFullDiscoveryFetcher
+import ireader.domain.models.discovery.DiscoverySource
+import kotlin.time.Clock
+import io.ktor.client.request.header
 import ireader.domain.data.repository.DiscoveryRepository
 import ireader.domain.utils.extensions.currentTimeToLong
 
@@ -37,13 +41,17 @@ val repositoryInjectModule = module {
     }
     single<DiscoveryRepository> {
         val http = get<ireader.core.http.HttpClients>().default
+        suspend fun fetchText(url: String): String = withTimeoutOrNull(20_000) {
+            val response = http.get(url) { header("User-Agent", "TruyenPlus/2.0 (Android; discovery)") }
+            check(response.status.value == 200) { "HTTP ${response.status.value}" }
+            response.bodyAsText().also { check(it.length <= 2_000_000) { "Dữ liệu quá lớn" } }
+        } ?: error("Nguồn phản hồi quá chậm")
+        val vietnamese = TruyenFullDiscoveryFetcher(::fetchText, { Clock.System.now().toString().replace('T', ' ').replace("Z", " UTC") })
         NovelTrackerDiscoveryRepository(
             FileDiscoveryCache(AppDataDirectory.getPath() / "discovery", get()),
-            fetch = { source -> withTimeoutOrNull(20_000) {
-                val response = http.get(source.feedUrl)
-                check(response.status.value == 200) { "HTTP ${response.status.value}" }
-                response.bodyAsText()
-            } ?: error("Nguồn phản hồi quá chậm") },
+            fetch = { source -> if (source == DiscoverySource.TruyenFull)
+                withTimeoutOrNull(120_000) { vietnamese.fetch() } ?: error("Nguồn phản hồi quá chậm")
+                else fetchText(source.feedUrl) },
             now = ::currentTimeToLong,
         )
     }

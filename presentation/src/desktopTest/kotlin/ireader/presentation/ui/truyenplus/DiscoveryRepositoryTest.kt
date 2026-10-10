@@ -25,18 +25,18 @@ class DiscoveryRepositoryTest {
         }, { clock })
         val first = repository()
         first.refresh()
-        assertEquals(3, calls.get())
+        assertEquals(DiscoverySource.entries.size, calls.get())
         val restarted = repository()
         restarted.refresh()
-        assertEquals(3, calls.get())
-        assertEquals(3, restarted.state.value.feeds.size)
+        assertEquals(DiscoverySource.entries.size, calls.get())
+        assertEquals(DiscoverySource.entries.size, restarted.state.value.feeds.size)
         failing = true
         clock += 30_000_000L
         restarted.refresh(true)
         assertEquals(100_000_000L, restarted.state.value.checkedAt[DiscoverySource.Qidian])
         assertEquals(clock, restarted.state.value.checkedAt[DiscoverySource.Fanqie])
         assertEquals(setOf(DiscoverySource.Qidian), restarted.state.value.errors.keys)
-        assertEquals(3, restarted.state.value.feeds.size)
+        assertEquals(DiscoverySource.entries.size, restarted.state.value.feeds.size)
         assertFalse(restarted.state.value.refreshing)
     }
     @Test fun overlappingRefreshIsCoalescedAndCancellationDoesNotBecomeAnOfflineError() = runBlocking {
@@ -49,20 +49,20 @@ class DiscoveryRepositoryTest {
         val job = launch { repo.refresh(true) }
         started.await()
         repo.refresh(true)
-        assertTrue(calls.get() <= 3)
+        assertTrue(calls.get() <= DiscoverySource.entries.size)
         job.cancelAndJoin()
         assertFalse(repo.state.value.refreshing)
         assertTrue(repo.state.value.errors.isEmpty())
         release.complete(Unit)
         repo.refresh(true)
-        assertEquals(3, repo.state.value.feeds.size)
+        assertEquals(DiscoverySource.entries.size, repo.state.value.feeds.size)
     }
     @Test fun corruptCacheIsReplacedByValidLiveData() = runBlocking {
         val cache = Cache()
         cache.values["truyenplus.discovery.v1.qidian"] = "broken JSON"
         val repo = NovelTrackerDiscoveryRepository(cache, ::fixture, { 100_000_000L })
         repo.refresh()
-        assertEquals(3, repo.state.value.feeds.size)
+        assertEquals(DiscoverySource.entries.size, repo.state.value.feeds.size)
         assertTrue(cache.values.getValue("truyenplus.discovery.v1.qidian").contains("青山"))
     }
     @Test fun diskSnapshotCanBeOverwrittenAndReadByANewCacheInstance() {

@@ -10,6 +10,10 @@ data class DiscoveryTranslation(
 
 fun interface DiscoveryTranslator {
     suspend fun translate(texts: List<String>, target: String): List<String>
+    suspend fun translateFrom(texts: List<String>, source: String, target: String): List<String> {
+        require(source == "zh") { "Unsupported source language" }
+        return translate(texts, target)
+    }
 }
 
 interface DiscoveryTranslations {

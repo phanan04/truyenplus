@@ -10,13 +10,17 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /** Reuses the installed ML Kit SDK; metadata stays on device and clients are always closed. */
-actual fun createDiscoveryTranslator(): DiscoveryTranslator = DiscoveryTranslator { texts, target ->
-    val client = Translation.getClient(TranslatorOptions.Builder()
-        .setSourceLanguage("zh").setTargetLanguage(target).build())
-    try {
-        client.downloadModelIfNeeded(DownloadConditions.Builder().requireWifi().build()).awaitDiscoveryTask()
-        texts.map { client.translate(it).awaitDiscoveryTask() }
-    } finally { client.close() }
+actual fun createDiscoveryTranslator(): DiscoveryTranslator = object : DiscoveryTranslator {
+    override suspend fun translate(texts: List<String>, target: String) = translateFrom(texts, "zh", target)
+    override suspend fun translateFrom(texts: List<String>, source: String, target: String): List<String> {
+        if (source == target) return texts
+        val client = Translation.getClient(TranslatorOptions.Builder()
+            .setSourceLanguage(source).setTargetLanguage(target).build())
+        try {
+            client.downloadModelIfNeeded(DownloadConditions.Builder().requireWifi().build()).awaitDiscoveryTask()
+            return texts.map { client.translate(it).awaitDiscoveryTask() }
+        } finally { client.close() }
+    }
 }
 
 private suspend fun <T> Task<T>.awaitDiscoveryTask(): T = suspendCancellableCoroutine { continuation ->

@@ -97,7 +97,7 @@
     <string name="tp_check_address">Kiểm tra địa chỉ này</string>
     <string name="tp_install_confirm_hint">Android sẽ yêu cầu bạn xác nhận khi cài đặt bản mới.</string>
     <string name="tp_discover_title">Khám phá truyện</string>
-    <string name="tp_discover_subtitle">Bảng xếp hạng từ ba nguồn</string>
+    <string name="tp_discover_subtitle">Khám phá truyện Việt và Trung</string>
     <string name="tp_refresh">Làm mới dữ liệu</string>
     <string name="tp_search_novels">Tìm truyện, tác giả</string>
     <string name="tp_clear_search">Xóa tìm kiếm</string>
@@ -247,4 +247,13 @@
     <string name="tp_genre_love">Tình yêu</string>
     <string name="tp_genre_plot">Cốt truyện</string>
     <string name="tp_genre_modern_era">Cận đại và hiện đại</string>
+    <string name="tp_native_novels_count">%1$d truyện · trực tiếp từ TruyenFull</string>
+    <string name="tp_board_truyenfull">Đọc nhiều trong ngày</string>
+    <string name="tp_recently_updated">Mới cập nhật</string>
+    <string name="tp_updated_hint">Truyện vừa cập nhật chương trên TruyenFull, không phải ngày xuất bản.</string>
+    <string name="tp_fetched_date">Đã tải: %1$s</string>
+    <string name="tp_partial_feed">Chưa tải được thông tin của %1$d truyện. Làm mới để thử lại.</string>
+    <string name="tp_no_recent_updates">Chưa có truyện mới cập nhật.</string>
+    <string name="tp_board_truyenfull_hot">Hot trong tháng</string>
+    <string name="tp_rank_today"> · Hạng %1$d trong ngày</string>
 </resources>

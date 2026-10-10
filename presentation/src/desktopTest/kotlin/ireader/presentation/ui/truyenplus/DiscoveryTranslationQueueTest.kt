@@ -16,6 +16,28 @@ class DiscoveryTranslationQueueTest {
         override suspend fun refresh(force: Boolean) {}
     }
     private fun translated(book: DiscoveryBook, language: String) = DiscoveryTranslation(book, language, "$language:${book.title}", "$language:${book.description}", book.genres, book.status)
+    @Test fun vietnameseSourceSkipsTranslationAndModelDownloadsWhenUiIsVietnamese() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val source = DiscoverySource.TruyenFull
+        val raw = requireNotNull(javaClass.getResourceAsStream("/discovery/truyenfull-hot.html")).bufferedReader().use { it.readText() }
+        val fresh = requireNotNull(javaClass.getResourceAsStream("/discovery/truyenfull-new.html")).bufferedReader().use { it.readText() }
+        val books = ireader.data.discovery.TruyenFullParser.listings(raw, fresh).filter { it.author.isNotBlank() }
+        val feed = DiscoveryFeed(source, "", "", "2026-10-10", "", books)
+        var calls = 0
+        val translations = object : DiscoveryTranslations {
+            override suspend fun cached(book: DiscoveryBook, language: String): DiscoveryTranslation? { calls++; return null }
+            override suspend fun translate(book: DiscoveryBook, language: String): DiscoveryTranslation { calls++; return translated(book, language) }
+        }
+        val vm = DiscoveryViewModel(Repository(mapOf(source to feed)), translations)
+        try {
+            vm.configure(source, "vi"); runCurrent()
+            assertEquals(0, calls)
+            assertTrue(vm.translated.value.values.isEmpty())
+            assertFalse(vm.translated.value.failed); assertFalse(vm.translated.value.translating)
+            vm.configure(source, "en"); runCurrent()
+            assertEquals(books.size, vm.translated.value.values.size)
+        } finally { vm.scope.cancel(); Dispatchers.resetMain() }
+    }
     @Test fun changingLanguageCancelsOldWorkAndCannotDisplayItsResult() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val feed = feed(DiscoverySource.Qidian)

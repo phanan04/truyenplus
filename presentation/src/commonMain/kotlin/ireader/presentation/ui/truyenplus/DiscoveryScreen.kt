@@ -40,6 +40,9 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
     val uriHandler = LocalUriHandler.current
     val openUrl: (String) -> Unit = { linkError = runCatching { uriHandler.openUri(it) }.isFailure }
     val source = DiscoverySource.entries[sourceIndex]
+    val sourceOptions = listOf(DiscoverySource.TruyenFull) + DiscoverySource.entries.filter { it != DiscoverySource.TruyenFull }
+    val vietnameseSource = source == DiscoverySource.TruyenFull
+    val needsTranslation = source.language != language
     val section = DiscoverySection.entries[sectionIndex]
     val feed = state.feeds[source]
     val translations = if (translationState.language == language) translationState.values else emptyMap()
@@ -64,12 +67,12 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                     if (state.refreshing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                     else IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, strings.localize(Res.string.tp_refresh)) }
                 }
-                ReaderChips(DiscoverySource.entries.map { it.label }, sourceIndex) { sourceIndex = it; genre = "" }
+                ReaderChips(sourceOptions.map { it.label }, sourceOptions.indexOf(source)) { sourceIndex = sourceOptions[it].ordinal; genre = "" }
                 Spacer(Modifier.height(12.dp))
                 ReaderChips(DiscoverySection.entries.map { strings.localize(when (it) {
                     DiscoverySection.Ranking -> Res.string.tp_ranking
                     DiscoverySection.Hot -> Res.string.tp_hot
-                    DiscoverySection.New -> Res.string.tp_new_rankings
+                    DiscoverySection.New -> if (vietnameseSource) Res.string.tp_recently_updated else Res.string.tp_new_rankings
                 }) }, sectionIndex) { sectionIndex = it }
                 OutlinedTextField(value = query, onValueChange = { query = it }, singleLine = true,
                     placeholder = { Text(strings.localize(Res.string.tp_search_novels)) },
@@ -84,13 +87,26 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                     },
                     if (genre.isBlank()) 0 else genres.indexOf(genre) + 1) { genre = if (it == 0) "" else genres[it - 1] }
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("${source.label} · ${strings.localize(when (source) { DiscoverySource.Qidian -> Res.string.tp_board_qidian; DiscoverySource.Fanqie -> Res.string.tp_board_fanqie; DiscoverySource.Jinjiang -> Res.string.tp_board_jinjiang })}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("${source.label} · ${strings.localize(when (source) {
+                        DiscoverySource.Qidian -> Res.string.tp_board_qidian
+                        DiscoverySource.Fanqie -> Res.string.tp_board_fanqie
+                        DiscoverySource.Jinjiang -> Res.string.tp_board_jinjiang
+                        DiscoverySource.TruyenFull -> when (section) {
+                            DiscoverySection.Ranking -> Res.string.tp_board_truyenfull
+                            DiscoverySection.Hot -> Res.string.tp_board_truyenfull_hot
+                            DiscoverySection.New -> Res.string.tp_recently_updated
+                        }
+                    })}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     if (feed != null) {
-                        Text(strings.localize(Res.string.tp_source_date, feed.updatedTime.ifBlank { feed.updatedDate }), style = MaterialTheme.typography.bodySmall,
+                        Text(strings.localize(if (vietnameseSource) Res.string.tp_fetched_date else Res.string.tp_source_date, feed.updatedTime.ifBlank { feed.updatedDate }), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(strings.localize(Res.string.tp_novels_count, books.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.localize(if (vietnameseSource) Res.string.tp_native_novels_count else Res.string.tp_novels_count, books.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (feed.unavailableBooks > 0) {
+                            Text(strings.localize(Res.string.tp_partial_feed, feed.unavailableBooks), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            TextButton(onClick = onRefresh, enabled = !state.refreshing) { Text(strings.localize(Res.string.tp_retry)) }
+                        }
                     }
-                    if (section == DiscoverySection.New) Text(strings.localize(Res.string.tp_new_ranking_hint),
+                    if (section == DiscoverySection.New) Text(strings.localize(if (vietnameseSource) Res.string.tp_updated_hint else Res.string.tp_new_ranking_hint),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     state.errors[source]?.let { error ->
                         Text(strings.localize(if (error.contains("cache")) Res.string.tp_cache_error else Res.string.tp_feed_error), style = MaterialTheme.typography.bodySmall,
@@ -98,9 +114,9 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                         if (feed != null && !error.contains("cache")) Text(strings.localize(Res.string.tp_feed_cached), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = onRefresh, enabled = !state.refreshing) { Text(strings.localize(Res.string.tp_retry)) }
                     }
-                    if (translationState.translating) Text(strings.localize(Res.string.tp_translation_loading), style = MaterialTheme.typography.bodySmall,
+                    if (needsTranslation && translationState.translating) Text(strings.localize(Res.string.tp_translation_loading), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (translationState.failed) {
+                    if (needsTranslation && translationState.failed) {
                         Text(strings.localize(Res.string.tp_translation_failed), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = onRetryTranslation) { Text(strings.localize(Res.string.tp_retry)) }
                     }
@@ -117,7 +133,7 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                     feed == null && state.refreshing -> strings.localize(Res.string.tp_loading_feeds)
                     feed == null -> strings.localize(Res.string.tp_no_source_data, source.label)
                     query.isNotBlank() || genre.isNotBlank() -> strings.localize(Res.string.tp_no_novels_filter)
-                    section == DiscoverySection.New -> strings.localize(Res.string.tp_no_new_rankings)
+                    section == DiscoverySection.New -> strings.localize(if (vietnameseSource) Res.string.tp_no_recent_updates else Res.string.tp_no_new_rankings)
                     else -> strings.localize(Res.string.tp_no_novels)
                 }, style = MaterialTheme.typography.bodyMedium)
                 if (feed == null && !state.refreshing && source !in state.errors) TextButton(onClick = onRefresh) { Text(strings.localize(Res.string.tp_load_data)) }
@@ -125,9 +141,10 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
             }
         }
         items(books, key = { it.key }) { book ->
-            DiscoveryBookCard(book, translations[book.key], Modifier.padding(horizontal = 20.dp)) { selected = book }
+            DiscoveryBookCard(book, translations[book.key], Modifier.padding(horizontal = 20.dp),
+                showRank = !vietnameseSource || section == DiscoverySection.Ranking) { selected = book }
         }
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        if (needsTranslation) item(span = { GridItemSpan(maxLineSpan) }) {
             Text(strings.localize(Res.string.tp_translation_notice),
                 Modifier.padding(horizontal = 20.dp, vertical = 16.dp), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -153,7 +170,7 @@ private fun DiscoveryCover(book: DiscoveryBook, modifier: Modifier) {
 }
 
 @Composable
-private fun DiscoveryBookCard(book: DiscoveryBook, translation: ireader.domain.data.repository.DiscoveryTranslation?, modifier: Modifier, onClick: () -> Unit) {
+private fun DiscoveryBookCard(book: DiscoveryBook, translation: ireader.domain.data.repository.DiscoveryTranslation?, modifier: Modifier, showRank: Boolean = true, onClick: () -> Unit) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = modifier.fillMaxWidth()) {
@@ -162,7 +179,7 @@ private fun DiscoveryBookCard(book: DiscoveryBook, translation: ireader.domain.d
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(book.source.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    book.rank?.let { Text("#$it", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium) }
+                    if (showRank) book.rank?.let { Text("#$it", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium) }
                 }
                 Text(translation?.title ?: book.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -187,7 +204,7 @@ fun DiscoveryDetailsContent(book: DiscoveryBook, localized: ireader.domain.data.
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(translation?.title ?: book.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(book.author, style = MaterialTheme.typography.bodyMedium)
-                Text(book.source.label + (book.rank?.let { strings.localize(Res.string.tp_rank, it) } ?: ""), style = MaterialTheme.typography.labelMedium,
+                Text(book.source.label + (book.rank?.let { strings.localize(if (book.source == DiscoverySource.TruyenFull) Res.string.tp_rank_today else Res.string.tp_rank, it) } ?: ""), style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (book.status.isNotBlank()) Text(translation?.status ?: book.status, style = MaterialTheme.typography.bodySmall)
             }

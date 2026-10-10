@@ -39,7 +39,7 @@ class CachedDiscoveryTranslations(
         cached(book, language)?.let { return@withLock it }
         val input = texts(book)
         val indices = input.indices.filter { input[it].isNotBlank() }
-        val output = withTimeoutOrNull(timeoutMillis) { translator.translate(indices.map { input[it] }, language) }
+        val output = withTimeoutOrNull(timeoutMillis) { translator.translateFrom(indices.map { input[it] }, book.source.language, language) }
             ?: error("Translation timed out")
         check(output.size == indices.size) { "Incomplete translation" }
         val values = input.toMutableList()

@@ -17,6 +17,44 @@ import org.jetbrains.skia.EncodedImageFormat
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderLanguageTest {
+    @Test fun vietnameseDiscoveryUsesNativeMetadataAndUpdatedListLabels() {
+        val previous = Locale.getDefault()
+        val source = ireader.domain.models.discovery.DiscoverySource.TruyenFull
+        fun html(name: String) = requireNotNull(javaClass.getResourceAsStream("/discovery/truyenfull-$name.html")).bufferedReader().use { it.readText() }
+        val book = ireader.data.discovery.TruyenFullParser.details(ireader.data.discovery.TruyenFullParser.listings(html("hot"), html("new")).first(), html("detail"))
+        val feed = ireader.domain.models.discovery.DiscoveryFeed(source, source.board, source.feedUrl, "2026-10-10", "2026-10-10 20:00:00 UTC", listOf(book))
+        try {
+            Locale.setDefault(Locale.forLanguageTag("vi"))
+            for (width in listOf(360, 800)) {
+                val scene = ImageComposeScene(width = width, height = 1000, density = Density(1f)) {
+                    CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                        MaterialTheme(colorScheme = TruyenPlusDarkColors) { Surface { DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = mapOf(source to feed)), {}) } }
+                    }
+                }
+                try {
+                    scene.render(0); scene.render(1_000_000_000)
+                    click(scene, "TruyenFull")
+                    scene.render(2_000_000_000)
+                    val bitmap = scene.render(3_000_000_000)
+                    val visible = texts(scene).joinToString("\n")
+                    assertTrue(book.title in visible && book.author in visible)
+                    assertTrue("Mới cập nhật" in visible)
+                    assertTrue("Đọc nhiều trong ngày" in visible)
+                    assertFalse("qua novel-tracker" in visible)
+                    assertFalse("ba nguồn" in visible)
+                    assertFalse("Đang chuẩn bị bản dịch" in visible)
+                    assertFalse(nodes(scene).any { it.config.getOrNull(SemanticsProperties.ContentDescription)?.any { value -> value.contains("Powered by") } == true })
+                    val output = File("build/reports/truyenplus-v2/discovery-vietnamese-$width.png")
+                    output.parentFile.mkdirs(); output.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)
+                    click(scene, "Truyện hot")
+                    scene.render(4_000_000_000); scene.render(5_000_000_000)
+                    val hotText = texts(scene)
+                    assertTrue(hotText.any { it.contains("Hot trong tháng") })
+                    assertFalse("#1" in hotText) // The hot list does not publish monthly ranks.
+                } finally { scene.close() }
+            }
+        } finally { Locale.setDefault(previous) }
+    }
     @Test fun catalogGenresUseReviewedLabelsInsteadOfCachedMachineTranslations() {
         val previous = Locale.getDefault()
         val book = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Qidian,

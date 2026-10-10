@@ -23,20 +23,26 @@ object NovelTrackerParser {
             val url = item.text("book_url")
             val demo = Regex("^(?:番茄热门小说|起点畅销小说|晋江热文)\\d+号").containsMatchIn(title)
             require(!demo) { "Phát hiện dữ liệu mẫu" }
-            if (!Regex("[0-9]+").matches(id) || title.isBlank() || author.isBlank() || !officialBookUrl(source, id, url)) return@mapNotNull null
+            val validId = if (source == DiscoverySource.TruyenFull) Regex("[a-z0-9]+(?:-[a-z0-9]+)*").matches(id) else Regex("[0-9]+").matches(id)
+            if (!validId || title.isBlank() || author.isBlank() || !officialBookUrl(source, id, url)) return@mapNotNull null
             val genres = (listOf(item.text("primary_tag")) +
                 listOf("all_tags", "secondary_tags").flatMap { field ->
                     (item[field] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
                 }).filter { it.isNotBlank() }.distinct()
             val cover = item.text("thumb_url").let { if (it.startsWith("//")) "https:$it" else it }
                 .takeIf { Regex("https://[A-Za-z0-9.-]+(?::443)?/[^\\s]*").matches(it) }
+            val rank = (item["rank"] as? JsonPrimitive)?.intOrNull?.takeIf { it > 0 }
             DiscoveryBook(id, source, title, author, item.text("abstract"), cover, url, genres,
-                item.text("status"), (item["rank"] as? JsonPrimitive)?.intOrNull?.takeIf { it > 0 },
-                item.text("rank_change") == "new")
-        }.distinctBy { it.id }.sortedWith(compareBy(nullsLast()) { it.rank })
+                item.text("status"), rank, item.text("rank_change") == "new",
+                if (source == DiscoverySource.TruyenFull) item["is_hot"]?.jsonPrimitive?.booleanOrNull == true else rank?.let { it <= 10 } == true,
+                source == DiscoverySource.TruyenFull && item["recently_updated"]?.jsonPrimitive?.booleanOrNull == true)
+        }.distinctBy { it.id }.let { books ->
+            if (source == DiscoverySource.TruyenFull) books else books.sortedWith(compareBy(nullsLast()) { it.rank })
+        }
         require(books.isNotEmpty()) { "Nguồn chưa có truyện hợp lệ" }
         return DiscoveryFeed(source, root.text("source").ifBlank { source.board }, sourceUrl,
-            date, root.text("update_time"), books)
+            date, root.text("update_time"), books,
+            (root["unavailable_books"] as? JsonPrimitive)?.intOrNull?.coerceIn(0, 100) ?: 0)
     }
     private fun JsonObject.text(key: String) = (get(key) as? JsonPrimitive)?.contentOrNull.orEmpty().trim()
     private fun officialUrl(source: DiscoverySource, url: String) =
@@ -45,5 +51,6 @@ object NovelTrackerParser {
         DiscoverySource.Qidian -> url == "https://${source.host}/book/$id/" || url == "https://${source.host}/book/$id"
         DiscoverySource.Fanqie -> url == "https://${source.host}/page/$id"
         DiscoverySource.Jinjiang -> url == "https://${source.host}/onebook.php?novelid=$id"
+        DiscoverySource.TruyenFull -> url == "https://${source.host}/$id/"
     }
 }
