@@ -411,7 +411,9 @@ composeCompiler {
 // Only for standard and dev flavors, excluded for fdroid flavor
 // F-Droid policy prohibits proprietary services
 val taskRequests = gradle.startParameter.taskRequests.toString()
-if (!taskRequests.contains("Fdroid", ignoreCase = true) && file("google-services.json").exists()) {
+if (!taskRequests.contains("Fdroid", ignoreCase = true) &&
+    providers.gradleProperty("truyenplusFirebase").orElse("false").get().toBoolean() &&
+    file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
 }

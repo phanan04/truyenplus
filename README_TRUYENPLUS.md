@@ -28,7 +28,7 @@ Giao diện hiện dùng phong cách tối giản theo yêu cầu tham khảo Ch
 
 Cấu hình gốc: Java 21 cho Gradle/Desktop, Java 17 cho `android-compat`, Android SDK API 37.
 
-Cấu hình SDK cục bộ, khóa ký, Firebase và API không được đưa lên Git. Nếu cần Firebase, dùng `android/google-services.json` của dự án Firebase riêng; nếu không có tệp này, plugin Google Services/Crashlytics được bỏ qua. Các workflow IReader cũ được giữ ở `.github/upstream-workflows/` để tham khảo và không tự chạy build/phát hành.
+Cấu hình SDK cục bộ, khóa ký, Firebase và API không được đưa lên Git. Firebase mặc định tắt. Nếu cần Firebase riêng, dùng `android/google-services.json` của dự án của bạn và bật `-PtruyenplusFirebase=true`; cấu hình Firebase IReader cũ không được dùng trong bản phát hành Truyện+. Các workflow IReader cũ được giữ ở `.github/upstream-workflows/` để tham khảo và không tự chạy build/phát hành.
 
 ```sh
 ./gradlew :desktop:run
