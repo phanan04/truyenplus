@@ -209,7 +209,8 @@ fun DiscoveryDetailsContent(book: DiscoveryBook, localized: ireader.domain.data.
 }
 
 private fun discoveryGenreLabel(tag: String, strings: ireader.i18n.LocalizeHelper, translated: String? = null): String {
-    val resource = when (tag) {
+    // Source tags are category identifiers: reviewed labels override even old translation caches.
+    val resource = when (tag.trim()) {
         "玄幻" -> Res.string.tp_genre_xuanhuan
         "仙侠" -> Res.string.tp_genre_xianxia
         "都市" -> Res.string.tp_genre_urban
@@ -222,6 +223,52 @@ private fun discoveryGenreLabel(tag: String, strings: ireader.i18n.LocalizeHelpe
         "游戏" -> Res.string.tp_genre_game
         "古代言情" -> Res.string.tp_genre_ancient_romance
         "现代言情" -> Res.string.tp_genre_modern_romance
+        "东方玄幻" -> Res.string.tp_genre_eastern_fantasy
+        "两宋元明" -> Res.string.tp_genre_song_yuan_ming
+        "两晋隋唐" -> Res.string.tp_genre_jin_sui_tang
+        "轻小说" -> Res.string.tp_genre_light_novel
+        "原生幻想" -> Res.string.tp_genre_original_fantasy
+        "衍生同人" -> Res.string.tp_genre_fan_fiction
+        "架空历史" -> Res.string.tp_genre_alternate_history
+        "悬疑灵异" -> Res.string.tp_genre_supernatural_mystery
+        "修真文明" -> Res.string.tp_genre_cultivation_civilization
+        "剑与魔法" -> Res.string.tp_genre_sword_magic
+        "古典仙侠" -> Res.string.tp_genre_classical_cultivation
+        "幻想修仙" -> Res.string.tp_genre_fantasy_cultivation
+        "异世大陆" -> Res.string.tp_genre_other_world
+        "异术超能" -> Res.string.tp_genre_superpowers
+        "恋爱日常" -> Res.string.tp_genre_everyday_romance
+        "惊悚微恐" -> Res.string.tp_genre_thriller
+        "时空穿梭" -> Res.string.tp_genre_time_travel
+        "游戏异界" -> Res.string.tp_genre_game_world
+        "超级科技" -> Res.string.tp_genre_advanced_technology
+        "进化变异" -> Res.string.tp_genre_evolution
+        "都市异能" -> Res.string.tp_genre_urban_superpowers
+        "都市生活" -> Res.string.tp_genre_urban_life
+        "高武世界" -> Res.string.tp_genre_martial_world
+        "传统玄幻" -> Res.string.tp_genre_traditional_fantasy
+        "悬疑脑洞" -> Res.string.tp_genre_mystery_imagination
+        "都市高武" -> Res.string.tp_genre_urban_martial
+        "玄幻脑洞" -> Res.string.tp_genre_fantasy_imagination
+        "游戏体育" -> Res.string.tp_genre_games_sports
+        "都市脑洞" -> Res.string.tp_genre_urban_imagination
+        "科幻末世" -> Res.string.tp_genre_scifi_apocalypse
+        "都市日常" -> Res.string.tp_genre_urban_daily
+        "1v1" -> Res.string.tp_genre_one_couple
+        "都市修真" -> Res.string.tp_genre_urban_cultivation
+        "历史古代" -> Res.string.tp_genre_ancient_history
+        "西方奇幻" -> Res.string.tp_genre_western_fantasy
+        "打脸" -> Res.string.tp_genre_humiliation
+        "东方仙侠" -> Res.string.tp_genre_eastern_cultivation
+        "反派" -> Res.string.tp_genre_villain
+        "纯爱" -> Res.string.tp_genre_boys_love
+        "百合" -> Res.string.tp_genre_girls_love
+        "原创" -> Res.string.tp_genre_original
+        "古色古香" -> Res.string.tp_genre_classical_style
+        "幻想未来" -> Res.string.tp_genre_future_fantasy
+        "爱情" -> Res.string.tp_genre_love
+        "剧情" -> Res.string.tp_genre_plot
+        "近代现代" -> Res.string.tp_genre_modern_era
         else -> null
     }
     return resource?.let(strings::localize) ?: translated ?: tag

@@ -33,7 +33,7 @@ Thanh điều hướng gồm Trang chủ, Khám phá, Thư viện, Cài đặt. 
 
 `DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3), dịch từ `zh` sang `vi` hoặc `en` trên thiết bị. Lần đầu cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
 
-Tên, mô tả, trạng thái và các tag chưa có nhãn cố định được dịch ngầm theo nguồn đang xem, hiện dần từng truyện. Thể loại phổ biến có bảng nhãn Việt/Anh cố định. ViewModel hủy hàng đợi cũ khi đổi nguồn/ngôn ngữ hoặc nội dung feed thay đổi; cache được khôi phục trước khi chờ model. Khi dịch lỗi vẫn đọc được metadata gốc và có nút thử lại.
+Tên, mô tả, trạng thái và các tag chưa có nhãn cố định được dịch ngầm theo nguồn đang xem, hiện dần từng truyện. Thể loại phổ biến và các nhánh Qidian có bảng nhãn Việt/Anh cố định, gồm các giai đoạn Tống–Nguyên–Minh, Tấn–Tùy–Đường và các tag Fanqie/Jinjiang thường gặp. Các nhãn này luôn ưu tiên hơn bản dịch máy đã lưu, không cần xóa cache để sửa thể loại. ViewModel hủy hàng đợi cũ khi đổi nguồn/ngôn ngữ hoặc nội dung feed thay đổi; cache được khôi phục trước khi chờ model. Khi dịch lỗi vẫn đọc được metadata gốc và có nút thử lại.
 
 Cache bản dịch trong `discovery-translations/`, riêng từng truyện và ngôn ngữ. Chữ ký nội dung gốc bằng SHA-256 ngăn dùng lại bản dịch sau khi tên/mô tả/tag/trạng thái thay đổi. Ghi nguyên tử; không cache kết quả trống, thiếu trường hoặc trả nguyên văn tiếng Trung. Thứ hạng, tác giả, bìa và liên kết vẫn dùng nguồn thật. Tìm kiếm khớp cả tên gốc và tên dịch.
 

@@ -17,6 +17,33 @@ import org.jetbrains.skia.EncodedImageFormat
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderLanguageTest {
+    @Test fun catalogGenresUseReviewedLabelsInsteadOfCachedMachineTranslations() {
+        val previous = Locale.getDefault()
+        val book = ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Qidian,
+            requireNotNull(javaClass.getResourceAsStream("/discovery/qidian.json")).bufferedReader().use { it.readText() }).books.first()
+            .copy(genres = listOf("东方玄幻", "两宋元明", "两晋隋唐", "原生幻想", "衍生同人", "都市高武", "架空历史", "纯爱", "百合"))
+        // Regression inputs reproduce the poor cached machine labels reported on Android.
+        val translation = ireader.domain.data.repository.DiscoveryTranslation(book, "vi", book.title,
+            book.description, book.genres.map { "Hai triều đại bài hát" }, book.status)
+        try {
+            for ((language, expected) in listOf(
+                "vi" to listOf("Huyền huyễn phương Đông", "Tống – Nguyên – Minh", "Tấn – Tùy – Đường", "Kỳ ảo nguyên bản", "Đồng nhân", "Đô thị cao võ", "Lịch sử giả tưởng", "Đam mỹ", "Bách hợp"),
+                "en" to listOf("Eastern fantasy", "Song, Yuan and Ming dynasties", "Jin, Sui and Tang dynasties", "Original fantasy", "Fan fiction", "Urban martial fantasy", "Alternate history", "Boys love", "Girls love"))) {
+                Locale.setDefault(Locale.forLanguageTag(language))
+                val scene = ImageComposeScene(width = 600, height = 1000, density = Density(1f)) {
+                    CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                        MaterialTheme { DiscoveryDetailsContent(book, translation, {}) }
+                    }
+                }
+                try {
+                    scene.render(0)
+                    val visible = texts(scene).joinToString("\n")
+                    expected.forEach { assertTrue(it in visible, "Missing $language genre: $it") }
+                    assertFalse("Hai triều đại bài hát" in visible)
+                } finally { scene.close() }
+            }
+        } finally { Locale.setDefault(previous) }
+    }
     private fun nodes(scene: ImageComposeScene): List<SemanticsNode> {
         fun walk(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::walk)
         return scene.semanticsOwners.flatMap { walk(it.rootSemanticsNode) }
