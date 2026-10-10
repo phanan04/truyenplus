@@ -65,6 +65,6 @@ Build và render không thay thế kiểm tra các luồng này trên điện th
 
 - Bản 2.0.27 đã build và phát hành với cùng package debug và khóa ký của APK cũ. Đã đối chiếu chữ ký v2, versionCode 81, ARM64, minSdk 26 và địa chỉ cập nhật trong APK; không kèm cấu hình Firebase của IReader.
 - Build `:android:assembleStandardDebug` và 14 test Desktop đều qua. Test cập nhật kiểm tra chọn ABI, chặn phiên bản cũ/sai package/không tương thích/thiếu checksum/HTTP, lỗi tải, tải lại, hủy tải và nguồn chưa cấu hình.
-- Đã tạo `update.json` từ APK mới, đăng kèm `SHA256SUMS`. GitHub xác nhận dung lượng và SHA-256 của cả ba tệp tải lên.
+- Đã tạo `update.json` từ APK mới, đăng kèm `SHA256SUMS`. GitHub xác nhận dung lượng và SHA-256 của cả ba tệp tải lên. URL `latest/download/update.json` công khai trả đúng manifest; URL APK trả HTTP 200 và dung lượng đúng. Việc tải lại toàn bộ APK tại máy phát triển quá chậm nên chưa đối chiếu checksum qua lượt tải công khai đầy đủ.
 - [Ảnh giao diện trung tính](docs/design/truyenplus-neutral-preview.png): Trang chủ, nghe toàn chương, nội dung bảng cập nhật. Dữ liệu và phiên bản trong ảnh là dữ liệu kiểm thử. Bảng cập nhật được render bằng thành phần nội dung thực, không phải ảnh chụp cửa sổ Android.
 - Đã phát hành [v2.0.27](https://github.com/phanan04/truyenplus/releases/tag/v2.0.27) từ commit `c55cec6`. Chưa thử cài và chạy các luồng trên điện thoại thật. Xem [hướng dẫn phát hành](docs/APP_UPDATES.md).
