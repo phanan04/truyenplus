@@ -1,6 +1,7 @@
 package org.ireader.app.initiators
 
 import android.app.Application
+import com.google.firebase.FirebaseApp
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import org.ireader.app.BuildConfig
 
@@ -9,7 +10,7 @@ import org.ireader.app.BuildConfig
 class CrashHandler(private val context: Application) {
 
     init {
-        if (!BuildConfig.DEBUG) {
+        if (!BuildConfig.DEBUG && FirebaseApp.initializeApp(context) != null) {
             setupCrashHandler()
         }
     }
