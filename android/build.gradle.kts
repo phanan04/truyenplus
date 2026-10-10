@@ -222,7 +222,7 @@ android {
 
     buildTypes {
         named("debug") {
-            versionNameSuffix = "-${gitCommitCount.get()}"
+            versionNameSuffix = ""
             applicationIdSuffix = ".debug"
             extra["enableCrashlytics"] = false
             extra["alwaysUpdateBuildId"] = false

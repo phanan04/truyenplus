@@ -36,7 +36,7 @@ Cấu hình SDK cục bộ, khóa ký, Firebase và API không được đưa l�
 ./gradlew :presentation:desktopTest --tests '*ReaderAppScopeTest' --tests '*BookReadingProgressTest' --tests '*ReaderScreensRenderTest' --tests '*ReaderUpdateTest'
 ```
 
-APK đã giao trước đây: `dist/TruyenPlus-20261010-arm64-debug.apk`. File này **chưa có** thay đổi giao diện trung tính, sửa thanh điều hướng và updater mới. Người dùng yêu cầu chưa build APK, nên hiện chỉ sửa nguồn và kiểm tra. Đầu ra Gradle ARM64 khi được yêu cầu build: `android/build/outputs/apk/standard/debug/android-standard-arm64-v8a-debug.apk`.
+APK đã giao trước đây: `dist/TruyenPlus-20261010-arm64-debug.apk`. File này **chưa có** thay đổi giao diện trung tính, sửa thanh điều hướng và updater mới. Bản 2.0.27 (versionCode 81) đang được chuẩn bị phát hành lên GitHub Releases theo yêu cầu mới. Đầu ra Gradle ARM64 khi được yêu cầu build: `android/build/outputs/apk/standard/debug/android-standard-arm64-v8a-debug.apk`.
 
 Các script `scripts/verify-reader-scope.py`, `scripts/verify-reading-progress.py` và `scripts/verify-ui-source.py` kiểm tra phạm vi tính năng, phép tính tiến độ, cú pháp Kotlin/XML và đối chiếu các lớp nghiệp vụ với bản gốc. Test render kiểm tra tám bố cục ở chiều rộng 360 px: Trang chủ, Thư viện, Tiến độ, Sách, màn Đọc, TTS toàn chương, TTS có bìa và trạng thái chưa có sách. Test tương tác cuộn đến cuối chương TTS và kiểm tra callback chọn đúng đoạn cuối.
 
@@ -63,7 +63,7 @@ Build và render không thay thế kiểm tra các luồng này trên điện th
 
 ## Thay đổi nguồn tiếp theo — giao diện trung tính và cập nhật ứng dụng
 
-- Chưa build APK theo yêu cầu người dùng; các file cài đã giao vẫn là bản trước.
+- Bản 2.0.27 được chuẩn bị với cùng package debug và khóa ký của APK cũ, để cài cập nhật mà giữ dữ liệu.
 - Biên dịch `:presentation:compileAndroidMain`, xử lý manifest/tài nguyên Android và 14 test Desktop đều qua. Test cập nhật kiểm tra chọn ABI, chặn phiên bản cũ/sai package/không tương thích/thiếu checksum/HTTP, lỗi tải, tải lại, hủy tải và nguồn chưa cấu hình.
 - Script tạo `update.json` đã kiểm tra với APK cũ có sẵn bằng địa chỉ thử không hoạt động; xác nhận metadata, ABI, dung lượng, SHA-256 và chặn HTTP. Không có tệp nào được đăng mạng.
 - [Ảnh giao diện trung tính](docs/design/truyenplus-neutral-preview.png): Trang chủ, nghe toàn chương, nội dung bảng cập nhật. Dữ liệu và phiên bản trong ảnh là dữ liệu kiểm thử. Bảng cập nhật được render bằng thành phần nội dung thực, không phải ảnh chụp cửa sổ Android.
