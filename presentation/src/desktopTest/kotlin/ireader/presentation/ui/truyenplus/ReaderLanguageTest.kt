@@ -17,6 +17,41 @@ import org.jetbrains.skia.EncodedImageFormat
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderLanguageTest {
+    @Test fun vietnameseSourcesShowTheirOwnNamesAndLoadMore() {
+        val previous = Locale.getDefault()
+        val source = ireader.domain.models.discovery.DiscoverySource.TruyenHH
+        val book = ireader.data.discovery.NovelTrackerParser.parse(source,
+            requireNotNull(javaClass.getResourceAsStream("/discovery/truyenhh.json")).bufferedReader().use { it.readText() }).books.single()
+            .copy(recentlyUpdated = true)
+        val feed = ireader.domain.models.discovery.DiscoveryFeed(source, source.board, source.feedUrl, "2026-10-10", "2026-10-10 20:00:00 UTC",
+            listOf(book), nextPageUrls = listOf("https://truyenhh.com/truyen/page/2/"))
+        var loaded: ireader.domain.models.discovery.DiscoverySource? = null
+        try {
+            Locale.setDefault(Locale.forLanguageTag("vi"))
+            val scene = ImageComposeScene(width = 800, height = 1000, density = Density(1f)) {
+                CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                    MaterialTheme(colorScheme = TruyenPlusDarkColors) { Surface {
+                        DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = mapOf(source to feed)), {}, onLoadMore = { loaded = it })
+                    } }
+                }
+            }
+            try {
+                scene.render(0); scene.render(1_000_000_000)
+                assertTrue("TruyenYY" in texts(scene))
+                click(scene, "TruyenHH"); scene.render(2_000_000_000); scene.render(3_000_000_000)
+                val visible = texts(scene).joinToString("\n")
+                assertTrue("Đọc nhiều trong tuần" in visible)
+                assertTrue("trực tiếp từ TruyenHH" in visible)
+                assertFalse("qua novel-tracker" in visible)
+                click(scene, "Mới cập nhật"); scene.render(4_000_000_000); scene.render(5_000_000_000)
+                assertTrue("Tải thêm" in texts(scene))
+                assertFalse(texts(scene).any { it.contains("trên TruyenFull") })
+                click(scene, "Tải thêm"); assertEquals(source, loaded)
+                val output = File("build/reports/truyenplus-v2/discovery-truyenhh-800.png")
+                output.parentFile.mkdirs(); output.writeBytes(requireNotNull(scene.render(6_000_000_000).encodeToData(EncodedImageFormat.PNG)).bytes)
+            } finally { scene.close() }
+        } finally { Locale.setDefault(previous) }
+    }
     @Test fun vietnameseDiscoveryUsesNativeMetadataAndUpdatedListLabels() {
         val previous = Locale.getDefault()
         val source = ireader.domain.models.discovery.DiscoverySource.TruyenFull

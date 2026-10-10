@@ -21,6 +21,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import ireader.data.discovery.FileDiscoveryCache
 import ireader.data.discovery.NovelTrackerDiscoveryRepository
 import ireader.data.discovery.TruyenFullDiscoveryFetcher
+import ireader.data.discovery.VietnameseCatalogFetcher
 import ireader.domain.models.discovery.DiscoverySource
 import kotlin.time.Clock
 import io.ktor.client.request.header
@@ -47,12 +48,18 @@ val repositoryInjectModule = module {
             response.bodyAsText().also { check(it.length <= 2_000_000) { "Dữ liệu quá lớn" } }
         } ?: error("Nguồn phản hồi quá chậm")
         val vietnamese = TruyenFullDiscoveryFetcher(::fetchText, { Clock.System.now().toString().replace('T', ' ').replace("Z", " UTC") })
+        val catalogs = listOf(DiscoverySource.TruyenHH, DiscoverySource.TruyenYY).associateWith { source ->
+            VietnameseCatalogFetcher(source, ::fetchText, { Clock.System.now().toString().replace('T', ' ').replace("Z", " UTC") })
+        }
         NovelTrackerDiscoveryRepository(
             FileDiscoveryCache(AppDataDirectory.getPath() / "discovery", get()),
-            fetch = { source -> if (source == DiscoverySource.TruyenFull)
-                withTimeoutOrNull(120_000) { vietnamese.fetch() } ?: error("Nguồn phản hồi quá chậm")
+            fetch = { source -> if (source.language == "vi")
+                withTimeoutOrNull(120_000) { if (source == DiscoverySource.TruyenFull) vietnamese.fetch() else catalogs.getValue(source).fetch() }
+                    ?: error("Nguồn phản hồi quá chậm")
                 else fetchText(source.feedUrl) },
             now = ::currentTimeToLong,
+            fetchPage = { source, url -> withTimeoutOrNull(120_000) { catalogs.getValue(source).fetchPage(url) }
+                ?: error("Nguồn phản hồi quá chậm") },
         )
     }
     

@@ -145,10 +145,14 @@ class ReaderScreensRenderTest {
             scene.render(0); scene.render(1_000_000_000)
             fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
             fun nodes() = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            // The source list now overflows a phone. Swipe it before selecting a Chinese source.
+            val sourceRow = nodes().first { it.config.getOrNull(SemanticsProperties.HorizontalScrollAxisRange) != null }
+            assertTrue(requireNotNull(sourceRow.config.getOrNull(SemanticsActions.ScrollToIndex)?.action).invoke(4))
+            scene.render(2_000_000_000); scene.render(3_000_000_000)
             val chip = nodes().first { it.config.getOrNull(SemanticsActions.OnClick)?.action != null &&
                 it.config.getOrNull(SemanticsProperties.Text)?.any { text -> text.text == "Fanqie" } == true }
             assertTrue(requireNotNull(chip.config.getOrNull(SemanticsActions.OnClick)?.action).invoke())
-            scene.render(2_000_000_000); scene.render(3_000_000_000)
+            scene.render(4_000_000_000); scene.render(5_000_000_000)
             val text = nodes().flatMap { it.config.getOrNull(SemanticsProperties.Text).orEmpty() }.map { it.text }
             assertTrue("神通者" in text && "天蚕土豆" in text)
             assertTrue("青山" !in text)

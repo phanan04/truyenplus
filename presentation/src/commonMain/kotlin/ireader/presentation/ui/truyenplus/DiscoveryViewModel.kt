@@ -46,5 +46,6 @@ class DiscoveryViewModel(private val repository: DiscoveryRepository, private va
     }
     fun retryTranslation() { selection.update { it?.copy(retry = it.retry + 1) } }
     fun load() { scope.launch { repository.refresh() } }
+    fun loadMore(source: DiscoverySource) { scope.launch { repository.loadMore(source) } }
     fun refresh() { scope.launch { repository.refresh(force = true) }; retryTranslation() }
 }

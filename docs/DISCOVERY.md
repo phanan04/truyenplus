@@ -1,10 +1,12 @@
 # Khám phá truyện
 
-Tab Khám phá lấy thông tin tiếng Việt trực tiếp từ [TruyenFull](https://truyenfull.live/), và dữ liệu Qidian, Fanqie, Jinjiang qua [novel-tracker](https://github.com/dylan-byte-max/novel-tracker). Không cần cài nguồn/extension hoặc đăng nhập. Giao diện và bản dịch thông tin theo lựa chọn Tiếng Việt/English trong Cài đặt. Tên tác giả giữ nguyên từ nguồn; chi tiết truyện có nút xem lại tên và mô tả gốc khi có bản dịch máy.
+Tab Khám phá lấy thông tin tiếng Việt trực tiếp từ [TruyenFull](https://truyenfull.live/) và [TruyenHH](https://truyenhh.com/), cùng adapter TruyenYY đang chờ xác minh kết nối thực tế, và dữ liệu Qidian, Fanqie, Jinjiang qua [novel-tracker](https://github.com/dylan-byte-max/novel-tracker). Không cần cài nguồn/extension hoặc đăng nhập. Giao diện và bản dịch thông tin theo lựa chọn Tiếng Việt/English trong Cài đặt. Tên tác giả giữ nguyên từ nguồn; chi tiết truyện có nút xem lại tên và mô tả gốc khi có bản dịch máy.
 
 - Qidian: bảng bán chạy trong ngày.
 - Fanqie: bảng hot của thư viện.
 - Jinjiang: bảng điểm tháng.
+- TruyenHH: top 100 đọc nhiều trong tuần, truyện hot từ trang chủ, danh sách mới cập nhật có phân trang.
+- TruyenYY: adapter Kim Thánh Bảng, hot từ 10 vị trí đầu, mới cập nhật có phân trang; chưa xác minh live vì tên miền trả địa chỉ loopback trong môi trường kiểm tra, HTTP bị từ chối. Khi không tải được sẽ hiện lỗi và nút mở nguồn; không có dữ liệu giả dự phòng.
 - TruyenFull: bảng đọc nhiều trong ngày, tối đa 20 truyện hot và 20 truyện mới cập nhật chương. Chỉ lấy thứ hạng được in trong bảng bên nguồn; thứ tự danh sách hot/mới không bị gán thành hạng.
 - Truyện hot của ba nguồn Trung: tối đa 10 vị trí đầu của bảng hiện tại, riêng từng nguồn.
 - Mới lên bảng của ba nguồn Trung: bản ghi có `rank_change = "new"`. TruyenFull dùng nhãn Mới cập nhật, không coi đây là ngày xuất bản.
@@ -36,7 +38,7 @@ Bấm truyện xem bìa, tên, tác giả, tag, mô tả và liên kết trang c
 
 Thanh điều hướng gồm Trang chủ, Khám phá, Thư viện, Cài đặt. Thống kê và lịch sử đọc vẫn có trong Cài đặt → Tiến độ đọc. Lựa chọn Việt/Anh dùng `UiPreferences.language()` và `LocaleHelper` hiện có, lưu qua lần mở app và cập nhật các nhãn Compose Resources. Nội dung ebook đã nhập không tự bị dịch hoặc sửa đổi khi đổi ngôn ngữ giao diện.
 
-`DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. TruyenFull có ngôn ngữ nguồn `vi`: khi giao diện là Tiếng Việt, ViewModel bỏ qua cả đọc cache dịch, tải model và gọi dịch; không hiển thị huy hiệu Google Translate. Khi chọn English, Android dịch từ `vi` sang `en`. Ba nguồn Trung vẫn dịch từ `zh` sang `vi` hoặc `en`. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3). Lần đầu dịch cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
+`DiscoveryTranslations` nằm ở domain; `CachedDiscoveryTranslations` ở data. Ba nguồn Việt có ngôn ngữ nguồn `vi`: khi giao diện là Tiếng Việt, ViewModel bỏ qua cả đọc cache dịch, tải model và gọi dịch; không hiển thị huy hiệu Google Translate. Khi chọn English, Android dịch từ `vi` sang `en`. Ba nguồn Trung vẫn dịch từ `zh` sang `vi` hoặc `en`. Android tận dụng SDK Google ML Kit đã có trong dự án (17.0.3). Lần đầu dịch cần Wi-Fi để tải gói ngôn ngữ; không dùng API key hay endpoint Google Translate không chính thức. Desktop hiện chỉ dùng bản gốc khi chưa có cache; ML Kit on-device này chỉ có ở Android.
 
 Tên, mô tả, trạng thái và các tag chưa có nhãn cố định được dịch ngầm theo nguồn đang xem, hiện dần từng truyện. Thể loại phổ biến và các nhánh Qidian có bảng nhãn Việt/Anh cố định, gồm các giai đoạn Tống–Nguyên–Minh, Tấn–Tùy–Đường và các tag Fanqie/Jinjiang thường gặp. Các nhãn này luôn ưu tiên hơn bản dịch máy đã lưu, không cần xóa cache để sửa thể loại. ViewModel hủy hàng đợi cũ khi đổi nguồn/ngôn ngữ hoặc nội dung feed thay đổi; cache được khôi phục trước khi chờ model. Khi dịch lỗi vẫn đọc được metadata gốc và có nút thử lại.
 
@@ -53,3 +55,11 @@ Nguồn tham khảo đã đối chiếu tại commit `80f3dfaf2cc4328758f0e24e8f
 ## Nhập ebook trong nền
 
 Bỏ hộp tiến trình chắn màn hình ở ReaderShellRoute. EPUB/PDF tiếp tục dùng pipeline IReader đã chạy I/O ở luồng nền và tự cập nhật thư viện qua thông báo thay đổi cơ sở dữ liệu. Người dùng có thể chuyển tab khi đang nhập; không cần viết lại importer. Công việc này tồn tại trong tiến trình app, không cam kết tiếp tục nếu Android đóng app.
+
+## Nguồn Việt bổ sung và phân trang
+
+TruyenHH và TruyenYY dùng `VietnameseCatalogParser`/`VietnameseCatalogFetcher`, cùng Ksoup, Ktor và cache 6 giờ có sẵn. TruyenHH đọc `/bang-xep-hang/`, trang chủ và `/truyen/`; danh sách mới có nút **Tải thêm** đi theo URL trang kế tiếp thật. Chỉ chấp nhận URL phân trang thuộc đường dẫn danh sách của chính nguồn. Metadata chi tiết tải tối đa ba yêu cầu đồng thời, hủy theo coroutine, bỏ trang lỗi và báo số thiếu. Không gọi dịch khi giao diện Tiếng Việt.
+
+Trang mới gộp theo ID, giữ thứ hạng của bảng gốc và các nhóm hot/mới; cache cả danh sách và con trỏ phân trang để mở lại. Tải trang tiếp theo không gia hạn TTL của bảng ban đầu; lỗi tải hoặc hủy không xóa danh sách/con trỏ cũ. Làm mới lấy lại bảng và trang đầu. Lọc thể loại/tìm kiếm vẫn áp dụng trong dữ liệu đã tải, chưa tìm kiếm toàn bộ website. Phân trang mới áp dụng TruyenHH/TruyenYY, TruyenFull chưa đổi.
+
+Xác minh ngày 2026-10-10: loader thật đọc HTML TruyenHH đã tải công khai, nhận **134 truyện đủ metadata: 100 có hạng tuần, 12 hot, 24 mới cập nhật** (có truyện trùng giữa các nhóm), trang 2 thêm 24 bản ghi; không có trang chi tiết bị bỏ trong các yêu cầu của loader. Đây là số liệu lần kiểm tra, không phải dữ liệu đóng gói trong APK. Adapter TruyenYY chỉ qua kiểm thử hợp đồng HTML và metadata công khai trích từ trang chủ; chưa xác minh selector danh sách/chi tiết/phân trang live. Không đổi DNS, proxy hay vượt đăng nhập/chặn truy cập.

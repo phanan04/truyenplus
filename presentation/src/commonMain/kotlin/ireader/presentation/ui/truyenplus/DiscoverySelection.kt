@@ -8,7 +8,7 @@ enum class DiscoverySection { Ranking, Hot, New }
 fun filterDiscoveryBooks(feed: DiscoveryFeed?, section: DiscoverySection, genre: String, query: String, translations: Map<String, ireader.domain.data.repository.DiscoveryTranslation> = emptyMap()): List<DiscoveryBook> {
     val books = feed?.books.orEmpty()
     val selected = when (section) {
-        DiscoverySection.Ranking -> if (feed?.source == ireader.domain.models.discovery.DiscoverySource.TruyenFull) books.filter { it.rank != null }.sortedBy { it.rank } else books
+        DiscoverySection.Ranking -> if (feed?.source?.language == "vi") books.filter { it.rank != null }.sortedBy { it.rank } else books
         DiscoverySection.Hot -> books.filter { it.isHot }
         DiscoverySection.New -> books.filter { it.newOnRanking || it.recentlyUpdated }
     }

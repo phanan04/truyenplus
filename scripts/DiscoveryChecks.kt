@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
         val count = Json.parseToJsonElement(raw).jsonObject.getValue("books").jsonArray.size
         check(parsed.books.size == count)
         check(parsed.books.all { it.source == source && it.title.isNotBlank() && it.author.isNotBlank() })
-        check(filterDiscoveryBooks(parsed, DiscoverySection.New, "", "").all { it.newOnRanking })
+        check(filterDiscoveryBooks(parsed, DiscoverySection.New, "", "").all { it.newOnRanking || it.recentlyUpdated })
         verified += parsed.books.size
     }
     println("PASS: parsed $verified real book records across ${DiscoverySource.entries.size} providers")

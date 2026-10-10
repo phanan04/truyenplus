@@ -1,0 +1,22 @@
+{
+  "platform": "truyenyy",
+  "source": "Kim Thánh Bảng",
+  "source_url": "https://www.truyenyy.co/kim-thanh-bang/",
+  "update_date": "2026-10-10",
+  "update_time": "2026-10-10 20:00:00 UTC",
+  "books": [
+    {
+      "book_id": "tu-la-thien-de-ban-dich",
+      "book_name": "[Dịch] Tu La Thiên Đế",
+      "author": "Thực Nghiệm Tiểu Bạch Thử",
+      "abstract": "Tám năm trước, Lôi Đình Cổ Thành một đêm kinh biến, thiếu thành chủ Tần Mệnh bị áp giải vào Thanh Vân Tông làm nô bộc, 20 vạn dân chúng bị đuổi Đại Thanh Sơn làm nô.",
+      "book_url": "https://www.truyenyy.co/truyen/tu-la-thien-de-ban-dich",
+      "all_tags": [
+        "Huyền huyễn"
+      ],
+      "status": "",
+      "is_hot": false,
+      "recently_updated": false
+    }
+  ]
+}

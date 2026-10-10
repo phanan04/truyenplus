@@ -247,13 +247,17 @@
     <string name="tp_genre_love">Love</string>
     <string name="tp_genre_plot">Plot driven</string>
     <string name="tp_genre_modern_era">Modern era</string>
-    <string name="tp_native_novels_count">%1$d novels · directly from TruyenFull</string>
+    <string name="tp_native_novels_count">%1$d novels · directly from %2$s</string>
     <string name="tp_board_truyenfull">Most read today</string>
     <string name="tp_recently_updated">Recently updated</string>
-    <string name="tp_updated_hint">Latest chapter updates from TruyenFull, not publication dates.</string>
+    <string name="tp_updated_hint">Recently updated chapters.</string>
     <string name="tp_fetched_date">Fetched: %1$s</string>
     <string name="tp_partial_feed">Could not load details for %1$d novels. Refresh to retry.</string>
     <string name="tp_no_recent_updates">No recent updates available.</string>
     <string name="tp_board_truyenfull_hot">Hot this month</string>
     <string name="tp_rank_today"> · Daily rank %1$d</string>
+    <string name="tp_board_truyenhh">Most read this week</string>
+    <string name="tp_board_truyenyy">Kim Thánh Bảng</string>
+    <string name="tp_rank_week"> · Weekly rank %1$d</string>
+    <string name="tp_discovery_load_more">Load more</string>
 </resources>

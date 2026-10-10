@@ -114,7 +114,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     LaunchedEffect(discoveryVm) { discoveryVm.load() }
                     val translationState by discoveryVm.translated.collectAsState()
                     DiscoveryScreen(discoveryState, discoveryVm::refresh, translationState, language.code,
-                        discoveryVm::configure, discoveryVm::retryTranslation)
+                        discoveryVm::configure, discoveryVm::retryTranslation, discoveryVm::loadMore)
                 }
                 ReaderDestination.Settings -> {
                     if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->

@@ -5,7 +5,7 @@
 ## Tính năng
 
 - Quản lý thư viện và tìm kiếm sách.
-- Khám phá truyện Việt từ TruyenFull và bảng xếp hạng Qidian, Fanqie, Jinjiang; lọc thể loại và lưu cache.
+- Khám phá truyện Việt từ TruyenFull, TruyenHH và bảng xếp hạng Qidian, Fanqie, Jinjiang; lọc thể loại, tải thêm và lưu cache.
 - Đọc toàn bộ chương, tùy chỉnh font, cỡ chữ và màu nền.
 - Theo dõi tiến độ và lịch sử đọc.
 - Nghe truyện bằng TTS, chọn đoạn bắt đầu và hẹn giờ.
@@ -25,4 +25,4 @@ Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát
 
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
 
-Chọn Việt/Anh trong Cài đặt. TruyenFull hiển thị thông tin tiếng Việt nguyên bản; các nguồn khác dùng Google Translate qua [ML Kit](https://developers.google.com/ml-kit/language/translation) khi cần dịch.
+Chọn Việt/Anh trong Cài đặt. Các nguồn Việt hiển thị thông tin tiếng Việt nguyên bản; nguồn Trung dùng Google Translate qua [ML Kit](https://developers.google.com/ml-kit/language/translation) khi cần dịch.

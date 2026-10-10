@@ -1,0 +1,25 @@
+{
+  "platform": "truyenhh",
+  "source": "Đọc nhiều trong tuần",
+  "source_url": "https://truyenhh.com/bang-xep-hang/",
+  "update_date": "2026-10-10",
+  "update_time": "2026-10-10 20:00:00 UTC",
+  "books": [
+    {
+      "book_id": "cung-chieu-co-vo-quan-nhan",
+      "book_name": "Cưng Chiều Cô Vợ Quân Nhân",
+      "author": "Huỳnh Hạ",
+      "abstract": "Nữ sát thủ hàng đầu tái sinh thành tân binh quân đội, trở thành vợ của công tử bí ẩn. Một câu chuyện tái sinh, mâu thuẫn và những bí mật chờ lần hở.",
+      "book_url": "https://truyenhh.com/truyen/cung-chieu-co-vo-quan-nhan/",
+      "thumb_url": "https://truyenhh.com/wp-content/uploads/2026/09/bia-truyen-cung-chieu-co-vo-quan-nhan-0e37e3-300x420.jpg",
+      "all_tags": [
+        "Ngôn Tình",
+        "Sủng"
+      ],
+      "status": "Hoàn thành",
+      "rank": 1,
+      "is_hot": false,
+      "recently_updated": false
+    }
+  ]
+}

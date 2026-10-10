@@ -4,9 +4,15 @@ enum class DiscoverySource(val id: String, val label: String, val host: String, 
     Qidian("qidian", "Qidian", "www.qidian.com", "Bán chạy trong ngày"),
     Fanqie("fanqie", "Fanqie", "fanqienovel.com", "Hot trong thư viện"),
     Jinjiang("jjwxc", "Jinjiang", "www.jjwxc.net", "Điểm tháng"),
-    TruyenFull("truyenfull", "TruyenFull", "truyenfull.live", "Đọc nhiều trong ngày", "vi");
-    val feedUrl get() = if (this == TruyenFull) "https://$host/danh-sach/truyen-hot/"
-        else "https://raw.githubusercontent.com/dylan-byte-max/novel-tracker/main/data/$id/latest.json"
+    TruyenFull("truyenfull", "TruyenFull", "truyenfull.live", "Đọc nhiều trong ngày", "vi"),
+    TruyenHH("truyenhh", "TruyenHH", "truyenhh.com", "Đọc nhiều trong tuần", "vi"),
+    TruyenYY("truyenyy", "TruyenYY", "www.truyenyy.co", "Kim Thánh Bảng", "vi");
+    val feedUrl get() = when (this) {
+        TruyenFull -> "https://$host/danh-sach/truyen-hot/"
+        TruyenHH -> "https://$host/bang-xep-hang/"
+        TruyenYY -> "https://$host/kim-thanh-bang/"
+        else -> "https://raw.githubusercontent.com/dylan-byte-max/novel-tracker/main/data/$id/latest.json"
+    }
 }
 
 data class DiscoveryBook(
@@ -21,6 +27,7 @@ data class DiscoveryFeed(
     val source: DiscoverySource, val sourceLabel: String, val sourceUrl: String,
     val updatedDate: String, val updatedTime: String, val books: List<DiscoveryBook>,
     val unavailableBooks: Int = 0,
+    val nextPageUrls: List<String> = emptyList(),
 )
 
 data class DiscoveryState(
@@ -28,4 +35,5 @@ data class DiscoveryState(
     val checkedAt: Map<DiscoverySource, Long> = emptyMap(),
     val errors: Map<DiscoverySource, String> = emptyMap(),
     val refreshing: Boolean = false,
+    val loadingMore: Set<DiscoverySource> = emptySet(),
 )

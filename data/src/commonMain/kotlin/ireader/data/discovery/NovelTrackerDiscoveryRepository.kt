@@ -18,12 +18,47 @@ class NovelTrackerDiscoveryRepository(
     private val fetch: suspend (DiscoverySource) -> String,
     private val now: () -> Long,
     private val ttlMillis: Long = 6 * 60 * 60 * 1000L,
+    private val fetchPage: (suspend (DiscoverySource, String) -> String)? = null,
 ) : DiscoveryRepository {
     private val mutableState = MutableStateFlow(DiscoveryState())
     override val state = mutableState.asStateFlow()
     private val refreshLock = Mutex()
     private var cacheLoaded = false
     private fun key(source: DiscoverySource) = "truyenplus.discovery.v1.${source.id}"
+
+    override suspend fun loadMore(source: DiscoverySource) = withContext(Dispatchers.IO) {
+        val loader = fetchPage ?: return@withContext
+        if (!refreshLock.tryLock()) return@withContext
+        try {
+            val old = state.value.feeds[source] ?: return@withContext
+            if (old.nextPageUrls.isEmpty()) return@withContext
+            mutableState.update { it.copy(loadingMore = it.loadingMore + source) }
+            val pages = old.nextPageUrls.map { NovelTrackerParser.parse(source, loader(source, it)) }
+            val books = (old.books + pages.flatMap { it.books }).groupBy { it.id }.values.map { versions ->
+                versions.last().copy(rank = versions.firstNotNullOfOrNull { it.rank },
+                    isHot = versions.any { it.isHot }, recentlyUpdated = versions.any { it.recentlyUpdated })
+            }
+            val feed = old.copy(books = books,
+                unavailableBooks = old.unavailableBooks + pages.sumOf { it.unavailableBooks },
+                nextPageUrls = pages.flatMap { it.nextPageUrls }.distinct().filter { it !in old.nextPageUrls })
+            val raw = VietnameseCatalogParser(source).snapshot(feed.books, feed.updatedTime,
+                feed.nextPageUrls, feed.unavailableBooks)
+            val snapshot = buildJsonObject {
+                put("checkedAt", state.value.checkedAt.getValue(source)); put("feed", Json.parseToJsonElement(raw))
+            }.toString()
+            var cacheError: String? = null
+            try { cache.write(key(source), snapshot) }
+            catch (cancel: CancellationException) { throw cancel }
+            catch (_: Exception) { cacheError = "Đã tải dữ liệu, nhưng chưa lưu được cache trên máy." }
+            mutableState.update { it.copy(feeds = it.feeds + (source to feed),
+                errors = if (cacheError == null) it.errors - source else it.errors + (source to cacheError!!)) }
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (_: Exception) { mutableState.update { it.copy(errors = it.errors + (source to "Chưa tải được trang tiếp theo.")) } }
+        finally {
+            mutableState.update { it.copy(loadingMore = it.loadingMore - source) }
+            refreshLock.unlock()
+        }
+    }
 
     override suspend fun refresh(force: Boolean) = withContext(Dispatchers.IO) {
         if (!refreshLock.tryLock()) return@withContext

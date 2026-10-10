@@ -85,7 +85,7 @@ class TruyenFullDiscoveryTest {
         val loader = TruyenFullDiscoveryFetcher({ url -> if (url.endsWith("truyen-hot/")) html("hot") else if (url.endsWith("truyen-moi/")) html("new") else "<html>blocked</html>" }, { "2026-10-11 20:00:00 UTC" })
         val restarted = NovelTrackerDiscoveryRepository(cache, { source -> if (source == DiscoverySource.TruyenFull) loader.fetch() else fixture(source) }, { 130_000_000L })
         restarted.refresh(true)
-        assertEquals(4, restarted.state.value.feeds.size)
+        assertEquals(DiscoverySource.entries.size, restarted.state.value.feeds.size)
         assertEquals(first.state.value.feeds[DiscoverySource.TruyenFull], restarted.state.value.feeds[DiscoverySource.TruyenFull])
         assertEquals(100_000_000L, restarted.state.value.checkedAt[DiscoverySource.TruyenFull])
         assertEquals(setOf(DiscoverySource.TruyenFull), restarted.state.value.errors.keys)

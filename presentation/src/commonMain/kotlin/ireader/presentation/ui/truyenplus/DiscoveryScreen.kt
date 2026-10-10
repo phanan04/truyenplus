@@ -29,7 +29,8 @@ import ireader.presentation.imageloader.IImageLoader
 @Composable
 fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
     translationState: DiscoveryTranslationState = DiscoveryTranslationState(), language: String = "vi",
-    onConfigure: (DiscoverySource, String) -> Unit = { _, _ -> }, onRetryTranslation: () -> Unit = {}) {
+    onConfigure: (DiscoverySource, String) -> Unit = { _, _ -> }, onRetryTranslation: () -> Unit = {},
+    onLoadMore: (DiscoverySource) -> Unit = {}) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     var sourceIndex by rememberSaveable { mutableIntStateOf(0) }
     var sectionIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -40,8 +41,8 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
     val uriHandler = LocalUriHandler.current
     val openUrl: (String) -> Unit = { linkError = runCatching { uriHandler.openUri(it) }.isFailure }
     val source = DiscoverySource.entries[sourceIndex]
-    val sourceOptions = listOf(DiscoverySource.TruyenFull) + DiscoverySource.entries.filter { it != DiscoverySource.TruyenFull }
-    val vietnameseSource = source == DiscoverySource.TruyenFull
+    val sourceOptions = DiscoverySource.entries.filter { it.language == "vi" } + DiscoverySource.entries.filter { it.language != "vi" }
+    val vietnameseSource = source.language == "vi"
     val needsTranslation = source.language != language
     val section = DiscoverySection.entries[sectionIndex]
     val feed = state.feeds[source]
@@ -65,7 +66,7 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                     if (state.refreshing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    else IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, strings.localize(Res.string.tp_refresh)) }
+                    else IconButton(onClick = onRefresh, enabled = state.loadingMore.isEmpty()) { Icon(Icons.Outlined.Refresh, strings.localize(Res.string.tp_refresh)) }
                 }
                 ReaderChips(sourceOptions.map { it.label }, sourceOptions.indexOf(source)) { sourceIndex = sourceOptions[it].ordinal; genre = "" }
                 Spacer(Modifier.height(12.dp))
@@ -91,6 +92,11 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                         DiscoverySource.Qidian -> Res.string.tp_board_qidian
                         DiscoverySource.Fanqie -> Res.string.tp_board_fanqie
                         DiscoverySource.Jinjiang -> Res.string.tp_board_jinjiang
+                        DiscoverySource.TruyenHH, DiscoverySource.TruyenYY -> when (section) {
+                            DiscoverySection.Ranking -> if (source == DiscoverySource.TruyenHH) Res.string.tp_board_truyenhh else Res.string.tp_board_truyenyy
+                            DiscoverySection.Hot -> Res.string.tp_hot
+                            DiscoverySection.New -> Res.string.tp_recently_updated
+                        }
                         DiscoverySource.TruyenFull -> when (section) {
                             DiscoverySection.Ranking -> Res.string.tp_board_truyenfull
                             DiscoverySection.Hot -> Res.string.tp_board_truyenfull_hot
@@ -100,10 +106,11 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                     if (feed != null) {
                         Text(strings.localize(if (vietnameseSource) Res.string.tp_fetched_date else Res.string.tp_source_date, feed.updatedTime.ifBlank { feed.updatedDate }), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(strings.localize(if (vietnameseSource) Res.string.tp_native_novels_count else Res.string.tp_novels_count, books.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (vietnameseSource) strings.localize(Res.string.tp_native_novels_count, books.size, source.label)
+                            else strings.localize(Res.string.tp_novels_count, books.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (feed.unavailableBooks > 0) {
                             Text(strings.localize(Res.string.tp_partial_feed, feed.unavailableBooks), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            TextButton(onClick = onRefresh, enabled = !state.refreshing) { Text(strings.localize(Res.string.tp_retry)) }
+                            TextButton(onClick = onRefresh, enabled = !state.refreshing && state.loadingMore.isEmpty()) { Text(strings.localize(Res.string.tp_retry)) }
                         }
                     }
                     if (section == DiscoverySection.New) Text(strings.localize(if (vietnameseSource) Res.string.tp_updated_hint else Res.string.tp_new_ranking_hint),
@@ -112,7 +119,8 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
                         Text(strings.localize(if (error.contains("cache")) Res.string.tp_cache_error else Res.string.tp_feed_error), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                         if (feed != null && !error.contains("cache")) Text(strings.localize(Res.string.tp_feed_cached), style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = onRefresh, enabled = !state.refreshing) { Text(strings.localize(Res.string.tp_retry)) }
+                        TextButton(onClick = onRefresh, enabled = !state.refreshing && state.loadingMore.isEmpty()) { Text(strings.localize(Res.string.tp_retry)) }
+                        TextButton(onClick = { openUrl(source.feedUrl) }) { Text(strings.localize(Res.string.tp_open_source, source.label)) }
                     }
                     if (needsTranslation && translationState.translating) Text(strings.localize(Res.string.tp_translation_loading), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -143,6 +151,13 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
         items(books, key = { it.key }) { book ->
             DiscoveryBookCard(book, translations[book.key], Modifier.padding(horizontal = 20.dp),
                 showRank = !vietnameseSource || section == DiscoverySection.Ranking) { selected = book }
+        }
+        if (feed?.nextPageUrls?.isNotEmpty() == true && section == DiscoverySection.New) item(span = { GridItemSpan(maxLineSpan) }) {
+            TextButton(onClick = { onLoadMore(source) }, enabled = !state.refreshing && state.loadingMore.isEmpty(),
+                modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                if (source in state.loadingMore) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text(strings.localize(Res.string.tp_discovery_load_more))
+            }
         }
         if (needsTranslation) item(span = { GridItemSpan(maxLineSpan) }) {
             Text(strings.localize(Res.string.tp_translation_notice),
@@ -204,7 +219,11 @@ fun DiscoveryDetailsContent(book: DiscoveryBook, localized: ireader.domain.data.
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(translation?.title ?: book.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(book.author, style = MaterialTheme.typography.bodyMedium)
-                Text(book.source.label + (book.rank?.let { strings.localize(if (book.source == DiscoverySource.TruyenFull) Res.string.tp_rank_today else Res.string.tp_rank, it) } ?: ""), style = MaterialTheme.typography.labelMedium,
+                Text(book.source.label + (book.rank?.let { strings.localize(when (book.source) {
+                    DiscoverySource.TruyenFull -> Res.string.tp_rank_today
+                    DiscoverySource.TruyenHH -> Res.string.tp_rank_week
+                    else -> Res.string.tp_rank
+                }, it) } ?: ""), style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (book.status.isNotBlank()) Text(translation?.status ?: book.status, style = MaterialTheme.typography.bodySmall)
             }
