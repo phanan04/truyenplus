@@ -13,11 +13,11 @@
 
 ## Tải và cập nhật
 
-[Tải APK 2.0.29 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.29/TruyenPlus-v2.0.29-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
+[Tải APK 2.0.30 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.30/TruyenPlus-v2.0.30-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
 
 Hỗ trợ Android 8.0 trở lên. Cài đè bản cũ để giữ thư viện và tiến độ.
 
-Cập nhật trong app: **Trang chủ → ⋯ → Cập nhật ứng dụng**.
+Cập nhật trong app: **Cài đặt → Cập nhật ứng dụng** (bản cũ: **Trang chủ → ⋯**).
 
 ## Phát triển
 
