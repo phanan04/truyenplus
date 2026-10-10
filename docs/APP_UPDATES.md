@@ -10,7 +10,7 @@ Cấu hình mặc định dùng GitHub Releases của repo `phanan04/truyenplus`
 
 Nhập địa chỉ trong app, hoặc đặt Gradle property `truyenplusUpdateUrl` trước khi đóng gói bản phát hành. Property này được đưa vào manifest Android làm địa chỉ mặc định; không chứa khóa bí mật. Cấu hình do người dùng nhập sẽ ghi đè địa chỉ mặc định sau khi kiểm tra thành công.
 
-URL mặc định hoạt động khi release chứa `update.json` được đăng. Mỗi bản phát hành cần APK và manifest tương ứng. Trước đó app báo lỗi nguồn chưa sẵn sàng, không giả báo đang dùng bản mới nhất. Repo riêng tư cần cơ chế xác thực riêng, chưa được hỗ trợ.
+Release [v2.0.27](https://github.com/phanan04/truyenplus/releases/tag/v2.0.27) đã cung cấp `update.json` và APK ARM64 (versionCode 81). URL mặc định trỏ tới release mới nhất. Mỗi bản phát hành cần APK và manifest tương ứng. Trước đó app báo lỗi nguồn chưa sẵn sàng, không giả báo đang dùng bản mới nhất. Repo riêng tư cần cơ chế xác thực riêng, chưa được hỗ trợ.
 
 ## Chuẩn bị một bản mới
 

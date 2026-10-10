@@ -14,7 +14,7 @@ Chỉ giữ năm nhóm chức năng người dùng yêu cầu:
 
 Điều hướng có ba tab: **Trang chủ · Thư viện · Tiến độ**. Màn sách nối trực tiếp đến đọc, nghe và xuất EPUB. Không đăng ký các màn Nguồn, cập nhật chương, tìm truyện trực tuyến, tài khoản, đồng bộ cloud, cộng đồng hoặc cửa hàng plugin. Bộ đọc không còn các nút bình luận, dịch, AI và plugin. Các module nghiệp vụ gốc vẫn nằm trong mã nguồn để tránh viết lại bộ đọc.
 
-Theo yêu cầu mới, **Trang chủ → ⋯ → Cập nhật ứng dụng** cho phép kiểm tra, tải và mở trình cài bản Android mới qua HTTPS. Địa chỉ mặc định là GitHub Releases của [phanan04/truyenplus](https://github.com/phanan04/truyenplus); không dùng bản phát hành IReader. Cần đăng release chứa APK và `update.json` để URL bắt đầu hoạt động. Hướng dẫn và công cụ tạo thông tin phát hành: [APP_UPDATES.md](docs/APP_UPDATES.md).
+Theo yêu cầu mới, **Trang chủ → ⋯ → Cập nhật ứng dụng** cho phép kiểm tra, tải và mở trình cài bản Android mới qua HTTPS. Địa chỉ mặc định là GitHub Releases của [phanan04/truyenplus](https://github.com/phanan04/truyenplus); không dùng bản phát hành IReader. Bản [2.0.27](https://github.com/phanan04/truyenplus/releases/tag/v2.0.27) đã phát hành kèm APK ARM64 và `update.json`. Hướng dẫn và công cụ tạo thông tin phát hành: [APP_UPDATES.md](docs/APP_UPDATES.md).
 
 ## Giao diện
 
@@ -36,7 +36,7 @@ Cấu hình SDK cục bộ, khóa ký, Firebase và API không được đưa l�
 ./gradlew :presentation:desktopTest --tests '*ReaderAppScopeTest' --tests '*BookReadingProgressTest' --tests '*ReaderScreensRenderTest' --tests '*ReaderUpdateTest'
 ```
 
-APK đã giao trước đây: `dist/TruyenPlus-20261010-arm64-debug.apk`. File này **chưa có** thay đổi giao diện trung tính, sửa thanh điều hướng và updater mới. Bản 2.0.27 (versionCode 81) đang được chuẩn bị phát hành lên GitHub Releases theo yêu cầu mới. Đầu ra Gradle ARM64 khi được yêu cầu build: `android/build/outputs/apk/standard/debug/android-standard-arm64-v8a-debug.apk`.
+APK đã giao trước đây: `dist/TruyenPlus-20261010-arm64-debug.apk`. File này **chưa có** thay đổi giao diện trung tính, sửa thanh điều hướng và updater mới. Bản [2.0.27 (versionCode 81)](https://github.com/phanan04/truyenplus/releases/tag/v2.0.27) đã phát hành. [Tải APK ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.27/TruyenPlus-v2.0.27-arm64-v8a.apk); bản sao cục bộ: `dist/v2.0.27/TruyenPlus-v2.0.27-arm64-v8a.apk`. Cài đè bản cũ một lần để nhận updater; các bản sau dùng menu cập nhật trong app. Đầu ra Gradle ARM64: `android/build/outputs/apk/standard/debug/android-standard-arm64-v8a-debug.apk`.
 
 Các script `scripts/verify-reader-scope.py`, `scripts/verify-reading-progress.py` và `scripts/verify-ui-source.py` kiểm tra phạm vi tính năng, phép tính tiến độ, cú pháp Kotlin/XML và đối chiếu các lớp nghiệp vụ với bản gốc. Test render kiểm tra tám bố cục ở chiều rộng 360 px: Trang chủ, Thư viện, Tiến độ, Sách, màn Đọc, TTS toàn chương, TTS có bìa và trạng thái chưa có sách. Test tương tác cuộn đến cuối chương TTS và kiểm tra callback chọn đúng đoạn cuối.
 
@@ -61,10 +61,10 @@ Build và render không thay thế kiểm tra các luồng này trên điện th
 - [Ảnh render giao diện](docs/design/truyenplus-simpmusic-preview.png) dùng dữ liệu kiểm thử, không phải ảnh chụp thiết bị.
 - Chưa chạy kiểm tra toàn bộ luồng nhập/đọc/nghe/xuất trên điện thoại thật.
 
-## Thay đổi nguồn tiếp theo — giao diện trung tính và cập nhật ứng dụng
+## Bản phát hành 2.0.27 — giao diện trung tính và cập nhật ứng dụng
 
-- Bản 2.0.27 được chuẩn bị với cùng package debug và khóa ký của APK cũ, để cài cập nhật mà giữ dữ liệu.
-- Biên dịch `:presentation:compileAndroidMain`, xử lý manifest/tài nguyên Android và 14 test Desktop đều qua. Test cập nhật kiểm tra chọn ABI, chặn phiên bản cũ/sai package/không tương thích/thiếu checksum/HTTP, lỗi tải, tải lại, hủy tải và nguồn chưa cấu hình.
-- Script tạo `update.json` đã kiểm tra với APK cũ có sẵn bằng địa chỉ thử không hoạt động; xác nhận metadata, ABI, dung lượng, SHA-256 và chặn HTTP. Không có tệp nào được đăng mạng.
+- Bản 2.0.27 đã build và phát hành với cùng package debug và khóa ký của APK cũ. Đã đối chiếu chữ ký v2, versionCode 81, ARM64, minSdk 26 và địa chỉ cập nhật trong APK; không kèm cấu hình Firebase của IReader.
+- Build `:android:assembleStandardDebug` và 14 test Desktop đều qua. Test cập nhật kiểm tra chọn ABI, chặn phiên bản cũ/sai package/không tương thích/thiếu checksum/HTTP, lỗi tải, tải lại, hủy tải và nguồn chưa cấu hình.
+- Đã tạo `update.json` từ APK mới, đăng kèm `SHA256SUMS`. GitHub xác nhận dung lượng và SHA-256 của cả ba tệp tải lên.
 - [Ảnh giao diện trung tính](docs/design/truyenplus-neutral-preview.png): Trang chủ, nghe toàn chương, nội dung bảng cập nhật. Dữ liệu và phiên bản trong ảnh là dữ liệu kiểm thử. Bảng cập nhật được render bằng thành phần nội dung thực, không phải ảnh chụp cửa sổ Android.
-- Đã đặt địa chỉ GitHub Releases mặc định của `phanan04/truyenplus`; chưa đăng release hoặc thử tải/cài trên điện thoại. Xem [hướng dẫn phát hành](docs/APP_UPDATES.md).
+- Đã phát hành [v2.0.27](https://github.com/phanan04/truyenplus/releases/tag/v2.0.27) từ commit `c55cec6`. Chưa thử cài và chạy các luồng trên điện thoại thật. Xem [hướng dẫn phát hành](docs/APP_UPDATES.md).
