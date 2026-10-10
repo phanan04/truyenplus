@@ -1,0 +1,162 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+import java.util.Date;
+
+CREATE TABLE IF NOT EXISTS history(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL UNIQUE,
+    last_read INTEGER,
+    time_read INTEGER NOT NULL,
+    progress REAL DEFAULT 0.0,
+    FOREIGN KEY(chapter_id) REFERENCES chapter (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_history_last_read ON history(last_read DESC);
+CREATE INDEX IF NOT EXISTS idx_history_chapter_id ON history(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_history_chapter_last_read ON history(chapter_id, last_read DESC);
+CREATE INDEX IF NOT EXISTS idx_history_time_read ON history(time_read DESC);
+
+
+findHistoryByChapterId:
+SELECT * FROM history WHERE chapter_id = :chapterId ORDER BY history.last_read DESC LIMIT 1;
+
+findHistoryByBookId:
+SELECT history.*
+FROM history
+JOIN chapter ON history.chapter_id = chapter._id
+WHERE chapter.book_id = :bookId
+ORDER BY history.last_read DESC
+LIMIT 1;
+
+findHistoriesByBookId:
+SELECT history.*
+FROM history
+JOIN chapter ON history.chapter_id = chapter._id
+WHERE chapter.book_id = :bookId
+ORDER BY history.last_read DESC;
+
+
+findHistories:
+SELECT * FROM history;
+
+
+searchHistories:
+SELECT history.*,
+book.title, book.source, book.thumbnail_url, book.favorite, chapter.name,
+date(ROUND(last_read / 1000), 'unixepoch', 'localtime') AS date, chapter.chapter_number
+    FROM history
+    JOIN chapter ON history.chapter_id = chapter._id
+    JOIN book ON chapter.book_id = book._id
+    WHERE book.title LIKE '%' || :query || '%'
+    ORDER BY history.last_read DESC;
+
+deleteHistoryByChapterId:
+DELETE FROM history WHERE chapter_id = :id;
+
+deleteAllHistories:
+DELETE FROM history;
+
+
+update:
+UPDATE history SET
+    chapter_id = coalesce(:chapter_id, chapter_id),
+    time_read = coalesce(:readAt, time_read),
+    last_read = coalesce(:progress, last_read),
+    progress = coalesce(:reading_progress, progress)
+WHERE chapter_id = :chapter_id;
+
+
+findAllWithRelations:
+SELECT history._id
+FROM history
+JOIN book ON history._id = book._id
+JOIN chapter ON history.chapter_id = chapter._id
+ORDER BY last_read DESC;
+
+--
+CREATE INDEX IF NOT EXISTS history_history_chapter_id_index ON history(chapter_id);
+
+-- Additional performance indexes
+CREATE INDEX IF NOT EXISTS idx_history_chapter_last_read ON history(chapter_id, last_read DESC);
+CREATE INDEX IF NOT EXISTS idx_history_progress_last_read ON history(progress, last_read DESC);
+-- Index for recent history queries
+CREATE INDEX IF NOT EXISTS idx_history_last_read_active ON history(last_read DESC) WHERE last_read > 0;
+-- Index for time tracking
+CREATE INDEX IF NOT EXISTS idx_history_time_read ON history(time_read DESC);
+
+getHistoryByMangaId:
+SELECT
+H._id,
+H.chapter_id,
+H.last_read,
+H.time_read,
+H.progress
+FROM history H
+JOIN chapter C
+ON H.chapter_id = C._id
+WHERE C.book_id = :mangaId AND C._id = H.chapter_id;
+
+getHistoryByChapterUrl:
+SELECT
+H._id,
+H.chapter_id,
+H.last_read,
+H.time_read,
+H.progress
+FROM history H
+JOIN chapter C
+ON H.chapter_id = C._id
+WHERE C.url = :chapterUrl AND C._id = H.chapter_id;
+
+resetHistoryById:
+UPDATE history
+SET last_read = 0, progress = 0.0
+WHERE _id = :historyId;
+
+resetHistoryByMangaId:
+UPDATE history
+SET last_read = 0, progress = 0.0
+WHERE _id IN (
+    SELECT H._id
+    FROM book M
+    INNER JOIN chapter C
+    ON M._id = C.book_id
+    INNER JOIN history H
+    ON C._id = H.chapter_id
+    WHERE M._id = :mangaId
+);
+
+removeAllHistory:
+DELETE FROM history;
+
+removeResettedHistory:
+DELETE FROM history
+WHERE last_read = 0;
+
+-- Legacy upsert replaced for SQLite 3.22 compatibility (Android 9)
+-- Note: For history, we need special handling since time_read should accumulate
+-- Using INSERT OR REPLACE - caller must handle time_read accumulation
+upsert:
+INSERT OR REPLACE INTO history(chapter_id, last_read, time_read, progress) 
+VALUES (:chapterId, :readAt, :time_read, :reading_progress);
+
+deleteByBookId:
+DELETE FROM history WHERE chapter_id IN (SELECT chapter._id FROM chapter WHERE chapter.book_id = :bookId);
+
+-- Optimized query for sync: Get progress with chapter info in single query (Task 10.1.2)
+getProgressWithChapters:
+SELECT 
+    h.chapter_id,
+    h.progress,
+    h.last_read,
+    h.time_read,
+    c.book_id,
+    c.source_order,
+    c.last_page_read
+FROM history h
+JOIN chapter c ON h.chapter_id = c._id
+ORDER BY h.last_read DESC;

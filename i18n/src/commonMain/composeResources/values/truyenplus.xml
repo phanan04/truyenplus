@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="truyenplus_library_search">Search books, authors…</string>
+    <string name="truyenplus_import_title">Import books</string>
+    <string name="truyenplus_import_description">Bring your favorite ebooks into your library.</string>
+    <string name="truyenplus_select_device">Choose a file from your device</string>
+    <string name="truyenplus_supported_formats">Supports EPUB and PDF</string>
+    <string name="truyenplus_reading_progress">Reading progress</string>
+    <string name="truyenplus_export_title">Export &amp; share</string>
+    <string name="truyenplus_font_preview">A quiet moment, a new chapter.</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background -->
+    <item>
+        <color android:color="#FFFFFF" />
+    </item>
+    
+    <!-- Logo centered -->
+    <item
+        android:drawable="@drawable/ic_eternity_light"
+        android:gravity="center">
+    </item>
+</layer-list>

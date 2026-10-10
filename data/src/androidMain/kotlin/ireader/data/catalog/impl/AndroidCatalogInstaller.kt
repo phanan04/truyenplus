@@ -1,0 +1,144 @@
+package ireader.data.catalog.impl
+
+import android.app.Application
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.utils.io.*
+import ireader.core.http.HttpClients
+import ireader.core.http.forceRefresh
+import ireader.core.io.saveTo
+import ireader.core.log.Log
+import ireader.core.os.InstallStep
+import ireader.core.os.PackageInstaller
+import ireader.domain.catalogs.service.CatalogInstaller
+import ireader.domain.models.entities.CatalogRemote
+import ireader.domain.usecases.files.GetSimpleStorage
+import ireader.i18n.LocalizeHelper
+import ireader.i18n.UiText
+import ireader.i18n.asString
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import okio.Path.Companion.toPath
+import java.io.File
+
+/**
+ * The installer which installs, updates and uninstalls the extensions.
+ *
+ * @param context The application context.
+ */
+class AndroidCatalogInstaller(
+    private val context: Application,
+    private val httpClient: HttpClients,
+    private val installationChanges: AndroidCatalogInstallationChanges,
+    private val packageInstaller: PackageInstaller,
+    private val getSimpleStorage: GetSimpleStorage,
+    private val localizeHelper: LocalizeHelper,
+    private val uiPreferences: ireader.domain.preferences.prefs.UiPreferences
+) : CatalogInstaller {
+
+    /**
+     * The client used for http requests.
+     */
+    private val client get() = httpClient.default
+    
+    /**
+     * Get the JS plugins directory based on user preference.
+     * Uses SecureStorageHelper to get the secure storage folder if available.
+     */
+    private fun getJSPluginsDirectory(): File {
+        return ireader.domain.storage.SecureStorageHelper.getJsPluginsDir(context)
+    }
+
+    /**
+     * Adds the given extension to the downloads queue and returns an observable containing its
+     * step in the installation process.
+     *
+     * @param catalog The catalog to install.
+     */
+    override fun install(catalog: CatalogRemote): Flow<InstallStep> =
+        flow {
+            emit(InstallStep.Downloading)
+            
+            // This installer only handles APK installations using Package Installer
+            // JS plugins should be routed to AndroidLocalInstaller by InstallCatalogImpl
+            val secureCache = ireader.domain.storage.SecureStorageHelper.getBaseCacheDir(context)
+            val tmpApkFile = File(secureCache, "${catalog.pkgName}.apk")
+            val tmpIconFile = File(secureCache, "${catalog.pkgName}.png")
+            try {
+                    val apkResponse: ByteReadChannel = client.get(catalog.pkgUrl) {
+                        forceRefresh()
+                    }.body()
+                    val iconResponse: ByteReadChannel = client.get(catalog.iconUrl) {
+                        forceRefresh()
+                    }.body()
+                    apkResponse.saveTo(tmpApkFile.absolutePath.toPath(), okio.FileSystem.SYSTEM)
+                    
+                    // Save the icon to storage
+                    iconResponse.saveTo(tmpIconFile.absolutePath.toPath(), okio.FileSystem.SYSTEM)
+                    val extDir = File(secureCache, catalog.pkgName).apply { mkdirs() }
+                    val iconFile = File(extDir, tmpIconFile.name)
+                    tmpIconFile.copyRecursively(iconFile, true)
+                    
+                    // Create a secure directory in the code cache directory for installation
+                    val secureApkDir = File(context.codeCacheDir, "secure_installations")
+                    secureApkDir.mkdirs()
+                    val secureApkFile = File(secureApkDir, "${catalog.pkgName}.apk")
+                    
+                    // Copy the APK to the secure location
+                    if (secureApkFile.exists()) {
+                        secureApkFile.delete()
+                    }
+                    tmpApkFile.copyTo(secureApkFile, overwrite = true)
+                    
+                    // Make sure the file is readable but not set to read-only
+                    // Android 14 (API 34) needs the file to be writable
+                    secureApkFile.setReadable(true)
+                    secureApkFile.setWritable(true)
+                    
+                    emit(InstallStep.Idle)
+                    // Use the secure file for installation
+                    val result = packageInstaller.install(secureApkFile, catalog.pkgName)
+                    if (result is InstallStep.Success) {
+                        installationChanges.notifyAppInstall(catalog.pkgName)
+                    }
+                    emit(result)
+                } catch (e: Throwable) {
+                    Log.warn(e, "Error installing package")
+                    emit(InstallStep.Error(UiText.ExceptionString(e).asString(localizeHelper)))
+                } finally {
+                    tmpApkFile.delete()
+                }
+        }
+
+    /**
+     * Starts an intent to uninstall the extension by the given package name.
+     * Uses SAF (Storage Access Framework) when available.
+     *
+     * @param pkgName The package name of the extension to uninstall
+     */
+    override suspend fun uninstall(pkgName: String): InstallStep {
+        return try {
+            var deleted = false
+            
+            // Try to uninstall traditional APK
+            val apkResult = packageInstaller.uninstall(pkgName)
+            if (apkResult is InstallStep.Success) {
+                deleted = true
+            }
+            
+            // Delete JS plugin files using SecureStorageHelper (handles SAF + fallback)
+            val jsFileName = "$pkgName.js"
+            val metaFileName = "$pkgName.meta.json"
+            val iconFileName = "$pkgName.png"
+            
+            deleted = ireader.domain.storage.SecureStorageHelper.deleteJsPlugin(context, jsFileName) || deleted
+            ireader.domain.storage.SecureStorageHelper.deleteJsPlugin(context, metaFileName)
+            ireader.domain.storage.SecureStorageHelper.deleteJsPlugin(context, iconFileName)
+            
+            installationChanges.notifyAppUninstall(pkgName)
+            if (deleted) InstallStep.Success else apkResult
+        } catch (e: Throwable) {
+            InstallStep.Error(UiText.ExceptionString(e).asString(localizeHelper))
+        }
+    }
+}

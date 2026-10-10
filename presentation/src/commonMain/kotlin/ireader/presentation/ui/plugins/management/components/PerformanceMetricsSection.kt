@@ -1,0 +1,200 @@
+package ireader.presentation.ui.plugins.management.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import ireader.domain.plugins.PluginInfo
+import ireader.domain.plugins.PluginResourceUsage
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.i18n.resources.*
+import ireader.i18n.resources.Res
+
+/**
+ * Section displaying performance metrics for all plugins
+ * Requirements: 11.1, 11.2
+ */
+@Composable
+fun PerformanceMetricsSection(
+    plugins: List<PluginInfo>,
+    resourceUsage: Map<String, PluginResourceUsage>,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    
+    // Cache plugin lookup map for O(1) access instead of O(n) find on each iteration
+    val pluginsById = androidx.compose.runtime.remember(plugins) { plugins.associateBy { it.id } }
+    
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = localizeHelper.localize(Res.string.performance_metrics),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                IconButton(onClick = onRefresh) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = localizeHelper.localize(Res.string.refresh_metrics)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Metrics for each plugin with resource usage
+            resourceUsage.forEach { (pluginId, usage) ->
+                val plugin = pluginsById[pluginId]
+                if (plugin != null) {
+                    PluginMetricItem(
+                        pluginName = plugin.manifest.name,
+                        usage = usage
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+            
+            // Summary
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            val totalMemory = resourceUsage.values.sumOf { it.memoryUsageMB }
+            val avgCpu = if (resourceUsage.isNotEmpty()) {
+                resourceUsage.values.sumOf { it.cpuUsagePercent } / resourceUsage.size
+            } else 0.0
+
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = localizeHelper.localize(Res.string.total_memory),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${totalMemory.toInt()} MB",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.avg_cpu),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${avgCpu.toInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Individual plugin metric item
+ */
+@Composable
+private fun PluginMetricItem(
+    pluginName: String,
+    usage: PluginResourceUsage,
+    modifier: Modifier = Modifier
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = pluginName,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Memory
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.memory),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${usage.memoryUsageMB.toInt()} MB",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { (usage.memoryUsageMB / usage.memoryLimitMB).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (usage.memoryUsageMB > usage.memoryLimitMB * 0.8f) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            }
+            
+            // CPU
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.cpu),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${usage.cpuUsagePercent.toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { (usage.cpuUsagePercent / 100.0).toFloat().coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (usage.cpuUsagePercent > 80f) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+
+            }
+        }
+    }
+}

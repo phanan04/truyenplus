@@ -1,0 +1,53 @@
+package ireader.presentation.ui.book.components
+
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import ireader.domain.models.entities.Chapter
+import ireader.presentation.ui.component.loading.DotsFlashing
+import ireader.presentation.ui.component.text_related.CardTile
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.i18n.resources.*
+import ireader.i18n.resources.Res
+
+@Composable
+fun ChapterContentHeader(
+    onChapterContent: () -> Unit,
+    isChapterLoading: Boolean,
+    chapters: List<Chapter>
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    CardTile(
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .fillMaxWidth(),
+        onClick = onChapterContent,
+        title = localizeHelper.localize(Res.string.contents),
+        subtitle = "${chapters.size} Chapters",
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                DotsFlashing(isChapterLoading)
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = localizeHelper.localize(Res.string.contents_detail),
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        }
+    )
+}

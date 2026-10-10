@@ -1,0 +1,447 @@
+package ireader.domain.services.downloaderService
+import ireader.domain.utils.extensions.ioDispatcher
+
+import ireader.domain.catalogs.CatalogStore
+import ireader.domain.data.repository.BookRepository
+import ireader.domain.data.repository.ChapterRepository
+import ireader.domain.models.entities.Chapter
+import ireader.domain.models.entities.SavedDownload
+import ireader.domain.models.entities.buildSavedDownload
+import ireader.domain.notification.NotificationsIds.ID_DOWNLOAD_CHAPTER_PROGRESS
+import ireader.domain.usecases.download.DownloadUseCases
+import ireader.domain.usecases.remote.RemoteUseCases
+import ireader.domain.notification.PlatformNotificationManager
+import ireader.i18n.LocalizeHelper
+import ireader.i18n.asString
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.first
+
+/**
+ * Main download service function with proper pause/resume support.
+ * 
+ * @deprecated This function is deprecated and will be removed in a future version.
+ * Use [ireader.domain.services.download.DownloadManager] instead, which provides:
+ * - Queue persistence across app restarts
+ * - Filesystem cache for fast "is downloaded" checks
+ * - Parallel downloads per source
+ * - Exponential backoff retry (2s, 4s, 8s)
+ * - Network-aware downloads (WiFi-only option)
+ * - Disk space validation
+ * 
+ * Migration: Replace calls to runDownloadService() with DownloadManager.startDownloads()
+ * after adding chapters to the queue via DownloadManager.addToQueue().
+ */
+@Deprecated(
+    message = "Use DownloadManager.startDownloads() instead for enhanced download functionality",
+    replaceWith = ReplaceWith(
+        "downloadManager.startDownloads()",
+        "ireader.domain.services.download.DownloadManager"
+    ),
+    level = DeprecationLevel.WARNING
+)
+suspend fun runDownloadService(
+    inputtedChapterIds: LongArray?,
+    inputtedBooksIds: LongArray?,
+    inputtedDownloaderMode: Boolean,
+    bookRepo: BookRepository,
+    chapterRepo: ChapterRepository,
+    remoteUseCases: RemoteUseCases,
+    localizeHelper: LocalizeHelper,
+    extensions: CatalogStore,
+    insertUseCases: ireader.domain.usecases.local.LocalInsertUseCases,
+    downloadUseCases: DownloadUseCases,
+    downloadServiceState: DownloadStateHolder,
+    notificationManager: PlatformNotificationManager,
+    updateProgress: (max: Int, current: Int, inProgress: Boolean) -> Unit,
+    updateTitle: (String) -> Unit,
+    updateSubtitle: (String) -> Unit,
+    onCancel: (error: Throwable, bookName: String) -> Unit,
+    onSuccess: () -> Unit,
+    updateNotification: (Int) -> Unit,
+    downloadDelayMs: Long = 1000L,
+    checkCancellation: () -> Boolean = { false }
+): Boolean {
+    try {
+        val failedChapterIds = mutableSetOf<Long>()
+        var completedCount = 0
+        var isFirstBatch = true
+
+        withContext(Dispatchers.Main) {
+            downloadServiceState.setRunning(true)
+            downloadServiceState.setPaused(false)
+        }
+
+        while (downloadServiceState.isRunning.value && !checkCancellation()) {
+            val chapters: List<Chapter> = withContext(ioDispatcher) {
+                when {
+                    inputtedBooksIds != null -> {
+                        if (!isFirstBatch) emptyList()
+                        else inputtedBooksIds.toList().flatMap { bookId ->
+                            chapterRepo.findChaptersByBookId(bookId)
+                        }
+                    }
+                    inputtedChapterIds != null -> {
+                        if (!isFirstBatch) emptyList()
+                        else inputtedChapterIds.toList().mapNotNull { chapterId ->
+                            chapterRepo.findChapterById(chapterId)
+                        }
+                    }
+                    inputtedDownloaderMode -> {
+                        val pending = downloadUseCases.subscribeDownloadsUseCase().first()
+                            .filter { it.chapterId !in failedChapterIds }
+                        pending.mapNotNull { download ->
+                            chapterRepo.findChapterById(download.chapterId)
+                        }
+                    }
+                    else -> emptyList()
+                }
+            }
+
+            isFirstBatch = false
+
+            if (chapters.isEmpty()) {
+                break
+            }
+
+            // Get books and sources
+            val distinctBookIds = chapters.map { it.bookId }.distinct()
+            val books = withContext(ioDispatcher) {
+                distinctBookIds.mapNotNull { bookId -> bookRepo.findBookById(bookId) }
+            }
+            val distinctSources = books.mapNotNull { it.sourceId }.distinct()
+            val sources = extensions.catalogs.filter { it.sourceId in distinctSources }
+
+            // Filter chapters that need downloading
+            val downloads = chapters
+                .filter { chapter ->
+                    val contentText = chapter.content.joinToString("")
+                    contentText.isEmpty() || contentText.length < 50
+                }
+                .mapNotNull { chapter ->
+                    val book = books.find { it.id == chapter.bookId }
+                    book?.let { buildSavedDownload(it, chapter) }
+                }
+
+            if (downloads.isEmpty()) {
+                if (!inputtedDownloaderMode) break
+                // Clean up any already downloaded chapters that remained in the database
+                withContext(ioDispatcher) {
+                    chapters.forEach { chapter ->
+                        val book = books.find { it.id == chapter.bookId }
+                        if (book != null) {
+                            downloadUseCases.deleteSavedDownload(buildSavedDownload(book, chapter).toDownload())
+                        }
+                    }
+                }
+                break
+            }
+
+            // Update state atomically
+            downloadServiceState.updateDownloads { current ->
+                (current + downloads).distinctBy { it.chapterId }
+            }
+            downloadServiceState.updateDownloadProgress { existingProgress ->
+                val newProgress = downloads.associate {
+                    it.chapterId to (existingProgress[it.chapterId] ?: DownloadProgress(
+                        chapterId = it.chapterId,
+                        status = DownloadStatus.QUEUED
+                    ))
+                }
+                existingProgress + newProgress
+            }
+
+            // Insert downloads into database so they appear in the download screen
+            withContext(ioDispatcher) {
+                downloadUseCases.insertDownloads(downloads.map { it.toDownload() })
+            }
+            updateProgress(downloads.size, completedCount, true)
+            updateNotification(ID_DOWNLOAD_CHAPTER_PROGRESS)
+
+            // Download chapters sequentially
+            for (download in downloads) {
+                if (!downloadServiceState.isRunning.value || !withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                    break
+                }
+
+                // Wait while paused
+                while (downloadServiceState.isPaused.value && downloadServiceState.isRunning.value) {
+                    delay(500)
+                    if (!withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                        break
+                    }
+                }
+
+                if (!downloadServiceState.isRunning.value || !withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                    break
+                }
+
+                val chapter = chapters.find { it.id == download.chapterId } ?: continue
+                val book = books.find { it.id == chapter.bookId } ?: continue
+                val source = sources.find { it.sourceId == book.sourceId } ?: continue
+
+                // Double-check if chapter is already downloaded
+                val freshChapter = withContext(ioDispatcher) {
+                    chapterRepo.findChapterById(download.chapterId)
+                }
+                if (freshChapter != null) {
+                    val freshContent = freshChapter.content.joinToString("")
+                    if (freshContent.isNotEmpty() && freshContent.length >= 50) {
+                        downloadServiceState.updateChapterProgress(
+                            download.chapterId,
+                            DownloadProgress(
+                                chapterId = download.chapterId,
+                                status = DownloadStatus.COMPLETED,
+                                progress = 1f
+                            )
+                        )
+                        withContext(ioDispatcher) {
+                            downloadUseCases.deleteSavedDownload(download.toDownload())
+                        }
+                        completedCount++
+                        updateProgress(downloads.size, completedCount, false)
+                        continue
+                    }
+                }
+
+                // Update status to downloading
+                downloadServiceState.updateChapterProgress(
+                    download.chapterId,
+                    DownloadProgress(
+                        chapterId = download.chapterId,
+                        status = DownloadStatus.DOWNLOADING,
+                        progress = 0f
+                    )
+                )
+
+                updateTitle("${download.bookName} - ${chapter.name}")
+                updateSubtitle("${completedCount + 1}/${downloads.size}")
+                updateNotification(ID_DOWNLOAD_CHAPTER_PROGRESS)
+
+                var success = false
+                var lastError: Exception? = null
+                val maxRetries = 3
+
+                for (attempt in 1..maxRetries) {
+                    if (!downloadServiceState.isRunning.value || !withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                        break
+                    }
+
+                    while (downloadServiceState.isPaused.value && downloadServiceState.isRunning.value) {
+                        delay(500)
+                        if (!withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                            break
+                        }
+                    }
+
+                    try {
+                        var downloadedChapter: Chapter? = null
+                        var downloadError: Exception? = null
+
+                        remoteUseCases.getRemoteReadingContent(
+                            chapter = chapter,
+                            catalog = source,
+                            onSuccess = { content ->
+                                downloadedChapter = content
+                            },
+                            onError = { message ->
+                                val errorMsg = message?.asString(localizeHelper) ?: "Download failed"
+                                downloadError = Exception(errorMsg)
+                            }
+                        )
+
+                        if (!downloadServiceState.isRunning.value || !withContext(Dispatchers.Main) { isActive } || checkCancellation()) {
+                            break
+                        }
+
+                        if (downloadError != null) throw downloadError
+                        if (downloadedChapter == null) throw Exception("No content received from source")
+
+                        val downloadedContent = downloadedChapter?.content?.joinToString("") ?: ""
+                        if (downloadedContent.isEmpty() || downloadedContent.length < 50) {
+                            throw Exception("Downloaded content is too short or empty")
+                        }
+
+                        val finalChapter = chapter.copy(
+                            content = downloadedChapter?.content ?: emptyList()
+                        )
+
+                        withContext(ioDispatcher) {
+                            insertUseCases.insertChapter(chapter = finalChapter)
+                        }
+
+                        withContext(ioDispatcher) {
+                            downloadUseCases.deleteSavedDownload(download.toDownload())
+                        }
+
+                        completedCount++
+                        updateProgress(downloads.size, completedCount, false)
+                        updateNotification(ID_DOWNLOAD_CHAPTER_PROGRESS)
+
+                        downloadServiceState.updateChapterProgress(
+                            download.chapterId,
+                            DownloadProgress(
+                                chapterId = download.chapterId,
+                                status = DownloadStatus.COMPLETED,
+                                progress = 1f
+                            )
+                        )
+
+                        success = true
+                        ireader.core.log.Log.debug { "Successfully downloaded ${download.bookName} - ${download.chapterName}" }
+                        break
+
+                    } catch (e: Exception) {
+                        lastError = e
+                        ireader.core.log.Log.error { "Download attempt $attempt/$maxRetries failed: ${e.message}" }
+
+                        if (attempt < maxRetries) {
+                            downloadServiceState.updateChapterProgress(
+                                download.chapterId,
+                                DownloadProgress(
+                                    chapterId = download.chapterId,
+                                    status = DownloadStatus.DOWNLOADING,
+                                    progress = 0f,
+                                    retryCount = attempt
+                                )
+                            )
+                            delay(1000L * attempt)
+                        }
+                    }
+                }
+
+                if (!success) {
+                    val errorMessage = getUserFriendlyErrorMessage(lastError ?: Exception("Unknown error"))
+                    failedChapterIds.add(download.chapterId)
+
+                    downloadServiceState.updateChapterProgress(
+                        download.chapterId,
+                        DownloadProgress(
+                            chapterId = download.chapterId,
+                            status = DownloadStatus.FAILED,
+                            progress = 0f,
+                            errorMessage = errorMessage,
+                            retryCount = maxRetries
+                        )
+                    )
+
+                    withContext(ioDispatcher) {
+                        downloadUseCases.insertDownload(
+                            download.copy(priority = 0).toDownload()
+                        )
+                    }
+
+                    ireader.core.log.Log.error { "Failed to download ${download.chapterName}: $errorMessage" }
+                }
+
+                // Delay between chapter downloads with responsive pause/cancel checking
+                if (downloadDelayMs > 0L && !checkCancellation() && downloadServiceState.isRunning.value) {
+                    var remaining = downloadDelayMs
+                    while (remaining > 0L && !checkCancellation() && downloadServiceState.isRunning.value) {
+                        val step = minOf(remaining, 200L)
+                        delay(step)
+                        remaining -= step
+                        while (downloadServiceState.isPaused.value && downloadServiceState.isRunning.value && !checkCancellation()) {
+                            delay(500L)
+                        }
+                    }
+                }
+            }
+
+            if (!inputtedDownloaderMode) {
+                break
+            }
+        }
+
+        // Clean up
+        withContext(Dispatchers.Main) {
+            downloadServiceState.setRunning(false)
+            downloadServiceState.setPaused(false)
+        }
+
+        val wasCancelled = checkCancellation()
+        notificationManager.cancel(ID_DOWNLOAD_CHAPTER_PROGRESS)
+
+        if (!wasCancelled) {
+            onSuccess()
+        } else {
+            ireader.core.log.Log.info { "Download service was cancelled, skipping onSuccess callback" }
+        }
+
+        return !wasCancelled
+
+    } catch (e: Throwable) {
+        ireader.core.log.Log.error { "Download service error: ${e.message}" }
+        
+        withContext(Dispatchers.Main) {
+            downloadServiceState.setRunning(false)
+            downloadServiceState.setPaused(false)
+        }
+
+        notificationManager.cancel(ID_DOWNLOAD_CHAPTER_PROGRESS)
+        onCancel(e, "")
+        return false
+    }
+}
+
+/**
+ * Convert technical error messages to user-friendly messages
+ */
+private fun getUserFriendlyErrorMessage(error: Throwable): String {
+    val message = error.message ?: "Unknown error"
+    
+    return when {
+        message.contains("Unable to resolve host", ignoreCase = true) ||
+        message.contains("No address associated with hostname", ignoreCase = true) ||
+        message.contains("nodename nor servname provided", ignoreCase = true) ->
+            "No internet connection"
+        
+        message.contains("timeout", ignoreCase = true) ||
+        message.contains("timed out", ignoreCase = true) ->
+            "Connection timed out"
+        
+        message.contains("connection refused", ignoreCase = true) ||
+        message.contains("failed to connect", ignoreCase = true) ->
+            "Cannot connect to server"
+        
+        message.contains("content is too short", ignoreCase = true) ||
+        message.contains("content is empty", ignoreCase = true) ||
+        message.contains("no content received", ignoreCase = true) ->
+            "Chapter content not available"
+        
+        message.contains("404", ignoreCase = true) ||
+        message.contains("not found", ignoreCase = true) ->
+            "Chapter not found"
+        
+        message.contains("401", ignoreCase = true) ||
+        message.contains("unauthorized", ignoreCase = true) ->
+            "Authentication required"
+        
+        message.contains("403", ignoreCase = true) ||
+        message.contains("forbidden", ignoreCase = true) ->
+            "Access denied"
+        
+        message.contains("500", ignoreCase = true) ||
+        message.contains("502", ignoreCase = true) ||
+        message.contains("503", ignoreCase = true) ||
+        message.contains("server error", ignoreCase = true) ->
+            "Source server error"
+        
+        message.contains("429", ignoreCase = true) ||
+        message.contains("too many requests", ignoreCase = true) ||
+        message.contains("rate limit", ignoreCase = true) ->
+            "Too many requests"
+        
+        message.contains("no space", ignoreCase = true) ||
+        message.contains("storage full", ignoreCase = true) ->
+            "Not enough storage space"
+        
+        message.contains("permission denied", ignoreCase = true) ->
+            "Storage permission denied"
+        
+        else -> "Download failed: ${message.take(100)}"
+    }
+}

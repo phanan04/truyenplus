@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="truyenplus_library_search">Tìm truyện, tác giả…</string>
+    <string name="truyenplus_import_title">Nhập sách</string>
+    <string name="truyenplus_import_description">Thêm những cuốn sách yêu thích vào thư viện của bạn.</string>
+    <string name="truyenplus_select_device">Chọn tệp từ thiết bị</string>
+    <string name="truyenplus_supported_formats">Hỗ trợ EPUB và PDF</string>
+    <string name="truyenplus_reading_progress">Tiến độ đọc</string>
+    <string name="truyenplus_export_title">Xuất &amp; Chia sẻ</string>
+    <string name="truyenplus_font_preview">Một khoảng lặng, một chương sách mới.</string>
+</resources>

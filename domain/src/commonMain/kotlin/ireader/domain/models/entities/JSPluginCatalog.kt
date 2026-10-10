@@ -1,0 +1,60 @@
+package ireader.domain.models.entities
+
+import ireader.core.source.HttpSource
+import ireader.domain.js.bridge.JSPluginSource
+import ireader.domain.js.models.PluginMetadata
+import okio.Path
+
+/**
+ * Catalog implementation for JavaScript plugins.
+ * Wraps a JSPluginSource or converted native HttpSource as a CatalogInstalled for integration with IReader's catalog system.
+ * Uses Okio Path for KMP compatibility.
+ */
+data class JSPluginCatalog(
+    override val source: HttpSource,
+    val metadata: PluginMetadata,
+    val pluginFile: Path,
+    override val name: String = metadata.name,
+    override val description: String = metadata.site,
+    override val pkgName: String = metadata.id,
+    override val versionName: String = metadata.version,
+    override val versionCode: Int = metadata.version.replace(".", "").toIntOrNull() ?: 100,
+    // Convert relative icon paths to LNReader GitHub URLs
+    override val iconUrl: String = when {
+        metadata.icon.startsWith("http") -> metadata.icon
+        metadata.icon.isNotBlank() -> {
+            // LNReader plugins use GitHub raw URLs
+            // Format: https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/public/static/{icon_path}
+            // Keep the full path including "src/" prefix
+            val iconPath = metadata.icon.removePrefix("/")
+            "https://raw.githubusercontent.com/LNReader/lnreader-plugins/plugins/v3.0.0/public/static/$iconPath"
+        }
+        else -> "https://via.placeholder.com/300x300?text=${metadata.id}"
+    },
+    override val installDir: Path? = pluginFile.parent,
+    override val nsfw: Boolean = false,
+    override val isPinned: Boolean = false,
+    override val hasUpdate: Boolean = false
+) : CatalogInstalled() {
+    
+    /**
+     * Plugin site URL.
+     */
+    val site: String get() = metadata.site
+    
+    /**
+     * Equality based on source ID (plugin ID hash).
+     */
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is JSPluginCatalog) return false
+        return sourceId == other.sourceId
+    }
+    
+    /**
+     * Hash code based on source ID.
+     */
+    override fun hashCode(): Int {
+        return sourceId.hashCode()
+    }
+}

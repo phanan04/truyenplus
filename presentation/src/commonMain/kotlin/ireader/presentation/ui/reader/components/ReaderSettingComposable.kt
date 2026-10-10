@@ -1,0 +1,1574 @@
+package ireader.presentation.ui.reader.components
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
+import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.FormatAlignCenter
+import androidx.compose.material.icons.filled.FormatAlignJustify
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.foundation.layout.size
+
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import ireader.domain.data.engines.TranslateEngine
+import ireader.domain.models.prefs.PreferenceValues
+import ireader.domain.models.theme.ReaderTheme
+import ireader.domain.preferences.models.FontType
+import ireader.domain.preferences.prefs.ReadingMode
+import ireader.domain.utils.extensions.launchIO
+import ireader.i18n.UiText
+import ireader.presentation.core.toComposeColor
+import ireader.presentation.ui.component.components.ColorPickerDialog
+import ireader.i18n.localize
+import ireader.i18n.resources.*
+import ireader.i18n.resources.alignment
+import ireader.i18n.resources.auto_translate_next_chapter
+import ireader.i18n.resources.auto_translate_next_chapter_summary
+import ireader.i18n.resources.autoscroll
+import ireader.i18n.resources.background_color
+import ireader.i18n.resources.background_webview_mode
+import ireader.i18n.resources.bilingual_layout
+import ireader.i18n.resources.bionic_reading
+import ireader.i18n.resources.bottom
+import ireader.i18n.resources.bypass_bot_detection_invisibly_without
+import ireader.i18n.resources.colors
+import ireader.i18n.resources.content_padding
+import ireader.i18n.resources.continues
+import ireader.i18n.resources.custom
+import ireader.i18n.resources.custom_background_color
+import ireader.i18n.resources.custom_brightness
+import ireader.i18n.resources.custom_text_color
+import ireader.i18n.resources.default_reading_mode_for_new_books
+import ireader.i18n.resources.delete_custom_theme
+import ireader.i18n.resources.disable
+import ireader.i18n.resources.enable_bilingual_mode
+import ireader.i18n.resources.font
+import ireader.i18n.resources.font_size
+import ireader.i18n.resources.font_weight
+import ireader.i18n.resources.full
+import ireader.i18n.resources.general
+import ireader.i18n.resources.horizontal
+import ireader.i18n.resources.immersive_mode
+import ireader.i18n.resources.interval
+import ireader.i18n.resources.left
+import ireader.i18n.resources.letter
+import ireader.i18n.resources.line
+import ireader.i18n.resources.line_height
+import ireader.i18n.resources.manage_glossary
+import ireader.i18n.resources.margins
+import ireader.i18n.resources.offset
+import ireader.i18n.resources.origin_language
+import ireader.i18n.resources.padding
+import ireader.i18n.resources.page
+import ireader.i18n.resources.paragraph
+import ireader.i18n.resources.paragraph_distance
+import ireader.i18n.resources.paragraph_indent
+import ireader.i18n.resources.paragraph_translation_menu
+import ireader.i18n.resources.partial
+import ireader.i18n.resources.presents
+import ireader.i18n.resources.preview
+import ireader.i18n.resources.reader
+import ireader.i18n.resources.reading_mode
+import ireader.i18n.resources.right
+import ireader.i18n.resources.save_custom_theme
+import ireader.i18n.resources.screen_always_on
+import ireader.i18n.resources.scrollIndicator
+import ireader.i18n.resources.scroll_mode
+import ireader.i18n.resources.scrollbar_mode
+import ireader.i18n.resources.select
+import ireader.i18n.resources.selectable_mode
+import ireader.i18n.resources.show_reading_time
+import ireader.i18n.resources.show_scrollbar
+import ireader.i18n.resources.show_webView_during_fetching
+import ireader.i18n.resources.target_language
+import ireader.i18n.resources.text_align
+import ireader.i18n.resources.text_align_center
+import ireader.i18n.resources.text_align_justify
+import ireader.i18n.resources.text_align_left
+import ireader.i18n.resources.text_align_right
+import ireader.i18n.resources.text_color_1
+import ireader.i18n.resources.theme_was_deleted
+import ireader.i18n.resources.theme_was_saved
+import ireader.i18n.resources.top
+import ireader.i18n.resources.translate_now
+import ireader.i18n.resources.translating
+import ireader.i18n.resources.translation_engine
+import ireader.i18n.resources.translation_settings
+import ireader.i18n.resources.tts_with_translated_text
+import ireader.i18n.resources.use_translated_text_for_text
+import ireader.i18n.resources.vertical
+import ireader.i18n.resources.volume_key_navigation
+import ireader.i18n.resources.width
+import ireader.presentation.ui.component.components.Build
+import ireader.presentation.ui.component.components.ChipChoicePreference
+import ireader.presentation.ui.component.components.ChipPreference
+import ireader.presentation.ui.component.components.Components
+import ireader.presentation.ui.component.components.PreferenceRow
+import ireader.presentation.ui.component.components.SwitchPreference
+import ireader.presentation.ui.component.reusable_composable.AppIconButton
+import ireader.presentation.ui.component.reusable_composable.MidSizeTextComposable
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.presentation.ui.core.theme.ReaderTheme
+import ireader.presentation.ui.reader.viewmodel.ReaderScreenViewModel
+import ireader.presentation.core.NavigationRoutes
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ReaderSettingMainLayout(
+        modifier: Modifier = Modifier,
+        vm: ReaderScreenViewModel,
+        onFontSelected: (Int) -> Unit,
+        onToggleAutoBrightness: () -> Unit,
+        onChangeBrightness: (Float) -> Unit,
+        onBackgroundChange: (themeId: Long) -> Unit,
+        onTextAlign: (PreferenceValues.PreferenceTextAlignment) -> Unit,
+        onNavigate: (String) -> Unit = {}
+) {
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    val tabs = remember {
+        listOf(TabItem("Đọc") { ReaderScreenTab(vm, onTextAlign) },
+            TabItem("Màu nền") { ColorScreenTab(vm, onChangeBrightness, onBackgroundChange) },
+            TabItem("Phông chữ") { FontPickerTab(vm) })
+    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        Tabs(libraryTabs = tabs, pagerState = pagerState)
+        TabsContent(libraryTabs = tabs, pagerState = pagerState)
+    }
+}
+
+
+@Composable
+fun ReaderScreenTab(
+        vm: ReaderScreenViewModel,
+        onTextAlign: (PreferenceValues.PreferenceTextAlignment) -> Unit
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    LazyColumn(
+        verticalArrangement = Arrangement.Top,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        item {
+            // Reading Presets Section
+            Text(
+                text = "Reading Presets",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+            
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(vm.presets.size) { index ->
+                    val preset = vm.presets[index]
+                    val isSelected = vm.isPresetActive(preset)
+                    
+                    Button(
+                        onClick = { vm.applyPreset(preset) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSelected) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = preset.name,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (isSelected) 
+                                    MaterialTheme.colorScheme.onPrimary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = preset.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isSelected) 
+                                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        
+        item {
+            // Font Size Control
+            PreferenceRow(
+                title = localizeHelper.localize(Res.string.font_size),
+                action = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { vm.decreaseFontSize() },
+                            enabled = vm.fontSize.value > 8
+                        ) {
+                            Text("-")
+                        }
+                        Text(
+                            text = "${vm.fontSize.value}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Button(
+                            onClick = { vm.increaseFontSize() },
+                            enabled = vm.fontSize.value < 40
+                        ) {
+                            Text("+")
+                        }
+                    }
+                }
+            )
+        }
+        
+        item {
+            // Font Picker Button
+            PreferenceRow(
+                title = localizeHelper.localize(Res.string.font),
+                action = {
+                    TextButton(onClick = { vm.toggleFontPicker() }) {
+                        Text(vm.font.value.name)
+                    }
+                }
+            )
+        }
+        
+        item {
+            PreferenceRow(
+                title = localizeHelper.localize(Res.string.text_align),
+                action = {
+                    LazyRow {
+                        item {
+                            AppIconButton(
+                                imageVector = Icons.AutoMirrored.Filled.FormatAlignLeft,
+                                contentDescription = localize(Res.string.text_align_left),
+                                onClick = {
+                                    onTextAlign(PreferenceValues.PreferenceTextAlignment.Left)
+                                },
+                                tint = if (vm.textAlignment.value == PreferenceValues.PreferenceTextAlignment.Left) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            )
+                            AppIconButton(
+                                imageVector = Icons.Default.FormatAlignCenter,
+                                contentDescription = localize(Res.string.text_align_center),
+                                onClick = {
+                                    onTextAlign(PreferenceValues.PreferenceTextAlignment.Center)
+                                },
+                                tint = if (vm.textAlignment.value == PreferenceValues.PreferenceTextAlignment.Center) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            )
+                            AppIconButton(
+                                imageVector = Icons.Default.FormatAlignJustify,
+                                contentDescription = localize(Res.string.text_align_justify),
+                                onClick = {
+                                    onTextAlign(PreferenceValues.PreferenceTextAlignment.Justify)
+                                },
+                                tint = if (vm.textAlignment.value == PreferenceValues.PreferenceTextAlignment.Justify) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            )
+                            AppIconButton(
+                                imageVector = Icons.AutoMirrored.Filled.FormatAlignRight,
+                                contentDescription = localize(Res.string.text_align_right),
+                                onClick = {
+                                    onTextAlign(PreferenceValues.PreferenceTextAlignment.Right)
+                                },
+                                tint = if (vm.textAlignment.value == PreferenceValues.PreferenceTextAlignment.Right) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+
+                    }
+                }
+            )
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.fontSize,
+                title = localizeHelper.localize(Res.string.font_size),
+                trailingFormatter = { value -> "${value.toInt()} sp" },
+                valueRange = 8.0F..180.0F,
+                onValueChange = {
+                    // Real-time update - no need to make transparent
+                    // The change is immediately reflected in the reader
+                }
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.textWeight,
+                title = localizeHelper.localize(Res.string.font_weight),
+                trailingFormatter = { value -> value.toInt().toString() },
+                valueRange = 1f..900F,
+                onValueChange = {
+                    // Real-time update - no need to make transparent
+                }
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.paragraph)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.paragraphsIndent,
+                title = localizeHelper.localize(Res.string.paragraph_indent),
+                trailingFormatter = { value -> value.toInt().toString() },
+                valueRange = 0.0F..100.0F,
+                onValueChange = {
+                    // Real-time update
+                }
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.distanceBetweenParagraphs,
+                title = localizeHelper.localize(Res.string.paragraph_distance),
+                trailingFormatter = { value -> value.toInt().toString() },
+                valueRange = 0.0F..10.0F,
+                onValueChange = {
+                    // Real-time update
+                }
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.line)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.lineHeight,
+                title = localizeHelper.localize(Res.string.line_height),
+                trailingFormatter = { value -> "${value.toInt()} sp" },
+                valueRange = 22.0F..100.0F,
+                onValueChange = {
+                    // Real-time update with smooth transition
+                }
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.autoscroll)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsLong = vm.autoScrollInterval,
+                title = localizeHelper.localize(Res.string.interval),
+                trailing = (vm.autoScrollInterval.lazyValue / 1000).toInt().toString(),
+                valueRange = 500.0F..10000.0F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.autoScrollOffset,
+                title = localizeHelper.localize(Res.string.offset),
+                trailing = (vm.autoScrollOffset.lazyValue / 100).toString(),
+                valueRange = 1.0F..8F
+
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.scrollIndicator)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.scrollIndicatorPadding,
+                title = localizeHelper.localize(Res.string.padding),
+                trailing = vm.scrollIndicatorPadding.lazyValue.toString(),
+                valueRange = 0F..32F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.scrollIndicatorWith,
+                title = localizeHelper.localize(Res.string.width),
+                trailing = vm.scrollIndicatorWith.lazyValue.toString(),
+                valueRange = 0F..32F
+            ).Build()
+        }
+        item {
+            Components.Chip(
+                preference = listOf(
+                    localizeHelper.localize(Res.string.right),
+                    localizeHelper.localize(Res.string.left),
+                ),
+                title = localizeHelper.localize(Res.string.alignment),
+                onValueChange = {
+                    when (it) {
+                        0 -> vm.scrollIndicatorAlignment.value =
+                            PreferenceValues.PreferenceTextAlignment.Right
+                        1 -> vm.scrollIndicatorAlignment.value =
+                            PreferenceValues.PreferenceTextAlignment.Left
+                    }
+                },
+                selected = vm.scrollIndicatorAlignment.value.ordinal
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.margins)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.topMargin,
+                title = localizeHelper.localize(Res.string.top),
+                trailing = vm.topMargin.lazyValue.toString(),
+                valueRange = 0F..200F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.bottomMargin,
+                title = localizeHelper.localize(Res.string.bottom),
+                trailing = vm.bottomMargin.lazyValue.toString(),
+                valueRange = 0F..200F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.leftMargin,
+                title = localizeHelper.localize(Res.string.left),
+                trailing = vm.leftMargin.lazyValue.toString(),
+                valueRange = 0F..200F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.rightMargin,
+                title = localizeHelper.localize(Res.string.right),
+                trailing = vm.rightMargin.lazyValue.toString(),
+                valueRange = 0F..200F
+            ).Build()
+        }
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.content_padding)
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.topContentPadding,
+                title = localizeHelper.localize(Res.string.top),
+                trailing = vm.topContentPadding.lazyValue.toString(),
+                valueRange = 0F..32F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.bottomContentPadding,
+                title = localizeHelper.localize(Res.string.bottom),
+                trailing = vm.bottomContentPadding.lazyValue.toString(),
+                valueRange = 0F..32F
+            ).Build()
+        }
+        item {
+            Components.Slider(
+                preferenceAsInt = vm.betweenLetterSpaces,
+                title = localizeHelper.localize(Res.string.letter),
+                trailing = vm.betweenLetterSpaces.lazyValue.toString(),
+                valueRange = 0F..32F
+            ).Build()
+        }
+        item {
+            Components.Space.Build()
+        }
+
+
+    }
+}
+
+
+@Composable
+fun GeneralScreenTab(
+        vm: ReaderScreenViewModel,
+        onNavigate: (String) -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    LazyColumn(
+        verticalArrangement = Arrangement.Top,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            Components.Header(
+                localizeHelper.localize(Res.string.translation_settings)
+            ).Build()
+        }
+        item {
+            // Requirements: 6.6, 6.7 - Use stable API to get and set translation engine preference
+            val engines = vm.translationEnginesManager.getAvailableEngines()
+            val engineChoices = engines.mapNotNull { source ->
+                when (source) {
+                    is ireader.domain.usecases.translate.TranslationEngineSource.BuiltIn -> 
+                        source.engine.id to source.engine.engineName
+                    is ireader.domain.usecases.translate.TranslationEngineSource.Plugin -> {
+                        // Include plugin engines with their manifest ID hash as the engine ID
+                        val pluginId = source.plugin.manifest.id.hashCode().toLong()
+                        pluginId to "${source.plugin.manifest.name} (Plugin)"
+                    }
+                }
+            }.toMap()
+            
+            ChipChoicePreference(
+                preference = vm.translatorEngine,
+                choices = engineChoices,
+                title = localize(
+                    Res.string.translation_engine
+                )
+            )
+        }
+        item {
+            val currentEngine = remember(vm.translatorEngine.value) {
+                vm.translationEnginesManager.get()
+            }
+            TranslationEngineStatusCard(
+                engine = currentEngine,
+                vm = vm
+            )
+        }
+        item {
+            val currentEngine = remember(vm.translatorEngine.value) {
+                vm.translationEnginesManager.get()
+            }
+            val originChoices = remember(currentEngine) {
+                val langs = currentEngine.supportedLanguages.associate { it.first to it.second }
+                if (!langs.containsKey("auto")) {
+                    mapOf("auto" to "Auto-detect") + langs
+                } else {
+                    langs
+                }
+            }
+            ChipChoicePreference(
+                preference = vm.translatorOriginLanguage,
+                choices = originChoices,
+                title = localize(
+                    Res.string.origin_language
+                )
+            )
+        }
+        item {
+            val currentEngine = remember(vm.translatorEngine.value) {
+                vm.translationEnginesManager.get()
+            }
+            val targetChoices = remember(currentEngine) {
+                currentEngine.supportedLanguages.associate { it.first to it.second }
+            }
+            ChipChoicePreference(
+                preference = vm.translatorTargetLanguage,
+                choices = targetChoices,
+                title = localize(
+                    Res.string.target_language
+                )
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.showTranslatedContent.value,
+                title = "Show Translated Content",
+                subtitle = "Display translated chapter text instead of original source text",
+                onValueChange = { vm.showTranslatedContent.value = it }
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.bilingualModeEnabled.value,
+                title = "Bilingual Mode",
+                subtitle = "Show original and translated text together",
+                onValueChange = { vm.bilingualModeEnabled.value = it }
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.autoTranslateNextChapter,
+                title = localizeHelper.localize(Res.string.auto_translate_next_chapter),
+                subtitle = localizeHelper.localize(Res.string.auto_translate_next_chapter_summary)
+            )
+        }
+        
+        item {
+            val currentEngine = remember(vm.translatorEngine.value) {
+                vm.translationEnginesManager.get()
+            }
+            TranslateButton(
+                onClick = { forceRetranslate ->
+                    vm.translateCurrentChapter(forceRetranslate = forceRetranslate)
+                },
+                isTranslating = vm.translationViewModel.isTranslating,
+                translationProgress = vm.translationViewModel.translationProgress,
+                engine = currentEngine,
+                vm = vm
+            )
+        }
+        
+        // Glossary button
+        item {
+            PreferenceRow(
+                onClick = {
+                    vm.loadGlossary()
+                    vm.translationViewModel.translationState.showGlossaryDialog = true
+                },
+                title = localizeHelper.localize(Res.string.manage_glossary)
+            )
+        }
+        
+        item {
+            Components.Header(
+                "Reading Settings"
+            ).Build()
+        }
+        item {
+            val isDesktop = ireader.domain.di.getPlatformType() == ireader.domain.services.platform.PlatformType.DESKTOP
+            val modeChoices = listOf(
+                localizeHelper.localize(Res.string.page),
+                localizeHelper.localize(Res.string.continues),
+                "Infinite",
+            )
+            val currentMode = vm.readingMode.value
+            val selectedOrdinal = when (currentMode) {
+                ReadingMode.Page -> 0
+                ReadingMode.Continues -> 1
+                ReadingMode.InfiniteScroll -> 2
+            }
+            ChipPreference(
+                preference = modeChoices,
+                selected = selectedOrdinal,
+                onValueChange = {
+                    val mode = when (it) {
+                        0 -> ReadingMode.Page
+                        1 -> ReadingMode.Continues
+                        2 -> ReadingMode.InfiniteScroll
+                        else -> ReadingMode.Continues
+                    }
+                    vm.readingMode.value = mode
+                    vm.readerPreferences.defaultReadingMode().set(mode)
+                },
+                title = localizeHelper.localize(Res.string.scroll_mode)
+            )
+        }
+        item {
+            Components.Header(
+                "Display Settings"
+            ).Build()
+        }
+        item {
+            ChipPreference(
+                preference = listOf(
+                    localizeHelper.localize(Res.string.full),
+                    localizeHelper.localize(Res.string.partial),
+                    localizeHelper.localize(Res.string.disable),
+                ),
+                selected = vm.isScrollIndicatorDraggable.value.ordinal,
+                onValueChange = {
+                    vm.isScrollIndicatorDraggable.value =
+                        PreferenceValues.ScrollbarSelectionMode.valueOf(it)
+                },
+                title = localizeHelper.localize(Res.string.scrollbar_mode)
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.autoScrollMode,
+                title = localizeHelper.localize(Res.string.autoscroll),
+                onValueChange = { vm.autoScrollMode = it }
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.immersiveMode,
+                title = localizeHelper.localize(Res.string.immersive_mode),
+                subtitle = "Hide system status/navigation bars and controls while reading. Tap center to reveal."
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.bionicReadingMode,
+                title = localizeHelper.localize(Res.string.bionic_reading),
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.webViewIntegration,
+                title = localizeHelper.localize(Res.string.show_webView_during_fetching),
+            )
+        }
+        if (vm.webViewIntegration.value) {
+            item {
+                SwitchPreference(
+                    preference = vm.webViewBackgroundMode,
+                    title = localizeHelper.localize(Res.string.background_webview_mode),
+                    subtitle = localizeHelper.localize(Res.string.bypass_bot_detection_invisibly_without)
+                )
+            }
+        }
+        item {
+            SwitchPreference(
+                preference = vm.screenAlwaysOn,
+                title = localizeHelper.localize(Res.string.screen_always_on),
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.selectableMode,
+                title = localizeHelper.localize(Res.string.selectable_mode),
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.showScrollIndicator,
+                title = localizeHelper.localize(Res.string.show_scrollbar),
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.showReadingTimeIndicator,
+                title = localizeHelper.localize(Res.string.show_reading_time),
+            )
+        }
+        item {
+            SwitchPreference(
+                preference = vm.volumeKeyNavigation,
+                title = localizeHelper.localize(Res.string.volume_key_navigation),
+            )
+        }
+        if (vm.volumeKeyNavigation.value) {
+            item {
+                SwitchPreference(
+                    preference = vm.volumeKeyInverted,
+                    title = localizeHelper.localize(Res.string.invert_volume_keys),
+                )
+            }
+        }
+        item {
+            SwitchPreference(
+                preference = vm.paragraphTranslationEnabled,
+                title = localizeHelper.localize(Res.string.paragraph_translation_menu),
+            )
+        }
+        item {
+            Components.Header(
+                "Performance"
+            ).Build()
+        }
+        item {
+            // Reduced animations toggle for older devices
+            SwitchPreference(
+                preference = vm.readerPreferences.reducedAnimations().get(),
+                title = localizeHelper.localize(Res.string.reduced_animations),
+                subtitle = localizeHelper.localize(Res.string.disable_animations_for_better_performance),
+                onValueChange = { enabled ->
+                    vm.readerPreferences.reducedAnimations().set(enabled)
+                }
+            )
+        }
+        item {
+            Components.Header(
+                "Text Replacement"
+            ).Build()
+        }
+        item {
+            PreferenceRow(
+                title = "Manage Text Replacements",
+                subtitle = "Replace text patterns (e.g., 'khan' → 'khaaan')",
+                onClick = {
+                    onNavigate(ireader.presentation.core.NavigationRoutes.textReplacement)
+                }
+            )
+        }
+        item {
+            Components.Header(
+                "Text-to-Speech Settings"
+            ).Build()
+        }
+        item {
+            SwitchPreference(
+                preference = vm.useTTSWithTranslatedText,
+                title = localizeHelper.localize(Res.string.tts_with_translated_text),
+                subtitle = localizeHelper.localize(Res.string.use_translated_text_for_text)
+            )
+        }
+        item {
+            Components.Header(
+                "Bilingual Mode"
+            ).Build()
+        }
+        item {
+            SwitchPreference(
+                preference = vm.bilingualModeEnabled,
+                title = localizeHelper.localize(Res.string.enable_bilingual_mode)
+            )
+        }
+        item {
+            ChipPreference(
+                preference = listOf(
+                    "Side by Side",
+                    "Paragraph by Paragraph",
+                ),
+                selected = vm.bilingualModeLayout.value,
+                onValueChange = {
+                    vm.switchBilingualLayout()
+                },
+                title = localizeHelper.localize(Res.string.bilingual_layout)
+            )
+        }
+        item {
+            Components.Header(
+                "Actions"
+            ).Build()
+        }
+        item {
+            PreferenceRow(
+                onClick = {
+                    vm.enterCopyMode()
+                },
+                title = "Copy Quote",
+                subtitle = "Enable text selection to copy quotes from this chapter"
+            )
+        }
+        item {
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+fun ColorScreenTab(
+        vm: ReaderScreenViewModel,
+        onChangeBrightness: (Float) -> Unit,
+        onBackgroundChange: (themeId: Long) -> Unit,
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    val scope = rememberCoroutineScope()
+    var showBackgroundColorPicker by remember { mutableStateOf(false) }
+    var showTextColorPicker by remember { mutableStateOf(false) }
+    
+    LazyColumn(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+    ) {
+        item {
+            Components.Dynamic {
+                Spacer(modifier = Modifier.height(16.dp))
+            }.Build()
+        }
+        item {
+            Components.Switch(
+                preference = vm.autoBrightnessMode,
+                title = localizeHelper.localize(Res.string.custom_brightness),
+            ).Build()
+        }
+        item {
+            Components.Dynamic {
+                BrightnessSliderComposable(
+                    viewModel = vm,
+                    onChangeBrightness = onChangeBrightness
+                )
+            }.Build()
+        }
+        item {
+            Components.Dynamic {
+                ReaderBackgroundComposable(
+                    viewModel = vm,
+                    onBackgroundChange = { id ->
+                        onBackgroundChange(id)
+                        vm.readerThemeSavable = false
+                    },
+                    themes = vm.readerColors,
+                )
+            }.Build()
+        }
+        
+        // Custom Background Color Picker
+        item {
+            Components.Dynamic {
+                Spacer(modifier = Modifier.height(8.dp))
+            }.Build()
+        }
+        item {
+            Components.Dynamic {
+                PreferenceRow(
+                    title = localizeHelper.localize(Res.string.background_color),
+                    subtitle = localizeHelper.localize(Res.string.custom_background_color),
+                    onClick = {
+                        showBackgroundColorPicker = true
+                    }
+                )
+            }.Build()
+        }
+        
+        // Custom Text Color Picker
+        item {
+            Components.Dynamic {
+                PreferenceRow(
+                    title = localizeHelper.localize(Res.string.text_color_1),
+                    subtitle = localizeHelper.localize(Res.string.custom_text_color),
+                    onClick = {
+                        showTextColorPicker = true
+                    }
+                )
+            }.Build()
+        }
+        
+        item {
+            Components.Dynamic {
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (vm.readerThemeSavable) {
+                        TextButton(onClick = {
+                            vm.readerThemeSavable = false
+                            scope.launchIO {
+                                vm.readerThemeRepository.insert(
+                                    ReaderTheme(
+                                        backgroundColor = vm.backgroundColor.value.toArgb(),
+                                        onTextColor = vm.textColor.value.toArgb(),
+                                    )
+                                )
+                                vm.showSnackBar(UiText.MStringResource(Res.string.theme_was_saved))
+                            }
+                        }) {
+                            MidSizeTextComposable(text = localizeHelper.localize(Res.string.save_custom_theme))
+                        }
+                    } else if (!vm.readerTheme.value.isDefault) {
+                        TextButton(onClick = {
+                            scope.launchIO {
+                                vm.readerThemeRepository.delete(
+                                    vm.readerTheme.value.ReaderTheme()
+                                )
+                                vm.showSnackBar(UiText.MStringResource(Res.string.theme_was_deleted))
+                            }
+                        }) {
+                            MidSizeTextComposable(text = localizeHelper.localize(Res.string.delete_custom_theme))
+                        }
+                    }
+                }
+            }.Build()
+        }
+        item {
+            Components.Space.Build()
+        }
+    }
+    
+    // Background Color Picker Dialog
+    if (showBackgroundColorPicker) {
+        ColorPickerDialog(
+            title = { Text(localizeHelper.localize(Res.string.background_color)) },
+            onDismissRequest = { showBackgroundColorPicker = false },
+            onSelected = { color ->
+                vm.settingsViewModel.setReaderBackgroundColor(color)
+                vm.readerThemeSavable = true
+                showBackgroundColorPicker = false
+            },
+            initialColor = vm.backgroundColor.value.toComposeColor(),
+        )
+    }
+    
+    // Text Color Picker Dialog
+    if (showTextColorPicker) {
+        ColorPickerDialog(
+            title = { Text(localizeHelper.localize(Res.string.text_color_1)) },
+            onDismissRequest = { showTextColorPicker = false },
+            onSelected = { color ->
+                vm.settingsViewModel.setReaderTextColor(color)
+                vm.readerThemeSavable = true
+                showTextColorPicker = false
+            },
+            initialColor = vm.textColor.value.toComposeColor(),
+        )
+    }
+}
+
+data class TabItem(
+    val name: String,
+    val screen: @Composable () -> Unit
+)
+
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Tabs(libraryTabs: List<TabItem>, pagerState: androidx.compose.foundation.pager.PagerState) {
+    val scope = rememberCoroutineScope()
+    TabRow(
+        selectedTabIndex = pagerState.currentPage,
+    ) {
+        libraryTabs.forEachIndexed { index, tab ->
+            Tab(
+                text = { MidSizeTextComposable(text = tab.name) },
+                selected = pagerState.currentPage == index,
+                onClick = {
+                    scope.launch { pagerState.animateScrollToPage(index) }
+                },
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun TabsContent(
+    libraryTabs: List<TabItem>,
+    pagerState: androidx.compose.foundation.pager.PagerState,
+) {
+    HorizontalPager(
+        modifier = Modifier.fillMaxSize(),
+        state = pagerState,
+        pageSpacing = 0.dp,
+        userScrollEnabled = true,
+        reverseLayout = false,
+        contentPadding = PaddingValues(0.dp),
+        pageSize = PageSize.Fill,
+        key = null,
+
+        pageContent =  { page ->
+            libraryTabs[page].screen()
+        }
+    )
+}
+
+fun Boolean.isTrue(): Int {
+    return if (this) {
+        1
+    } else {
+        0
+    }
+}
+
+@Composable
+fun TranslationEngineStatusCard(
+    engine: TranslateEngine,
+    vm: ReaderScreenViewModel
+) {
+    val currentKey = when (engine.id) {
+        2L -> vm.openAIApiKey.value
+        3L -> vm.deepSeekApiKey.value
+        8L -> vm.geminiApiKey.value
+        9L -> vm.openRouterApiKey.value
+        10L -> vm.nvidiaApiKey.value
+        13L -> vm.claudeApiKey.value
+        else -> null
+    }
+
+    var showKeyInputDialog by remember { mutableStateOf(false) }
+    var tempKey by remember(currentKey) { mutableStateOf(currentKey ?: "") }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        ),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (engine.supportsAI) Icons.Default.SmartToy else if (engine.isOffline) Icons.Default.CloudOff else Icons.Default.Cloud,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = engine.engineName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = if (engine.supportsAI) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = if (engine.supportsAI) "AI Engine" else if (engine.isOffline) "Offline" else "Online Free",
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        color = if (engine.supportsAI) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+
+            if (engine.requiresApiKey) {
+                val isSet = !currentKey.isNullOrBlank()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
+                            tint = if (isSet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = if (isSet) "API Key Set (${currentKey.take(4)}...)" else "API Key Required",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isSet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { showKeyInputDialog = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(if (isSet) "Change Key" else "Set Key")
+                    }
+                }
+            }
+        }
+    }
+
+    if (showKeyInputDialog) {
+        AlertDialog(
+            onDismissRequest = { showKeyInputDialog = false },
+            title = { Text("Set ${engine.engineName} API Key") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Enter your API key below. The key is saved locally in preferences.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedTextField(
+                        value = tempKey,
+                        onValueChange = { tempKey = it },
+                        label = { Text("API Key") },
+                        placeholder = { Text("sk-...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val key = tempKey.trim()
+                        when (engine.id) {
+                            2L -> vm.openAIApiKey.value = key
+                            3L -> vm.deepSeekApiKey.value = key
+                            8L -> vm.geminiApiKey.value = key
+                            9L -> vm.openRouterApiKey.value = key
+                            10L -> vm.nvidiaApiKey.value = key
+                            13L -> vm.claudeApiKey.value = key
+                        }
+                        showKeyInputDialog = false
+                    }
+                ) {
+                    Text("Save Key")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showKeyInputDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun TranslateButton(
+    onClick: (forceRetranslate: Boolean) -> Unit,
+    isTranslating: Boolean,
+    translationProgress: Float,
+    engine: TranslateEngine,
+    vm: ReaderScreenViewModel,
+) {
+    val successState = vm.state.value as? ireader.presentation.ui.reader.viewmodel.ReaderState.Success
+    val hasExistingTranslation = successState?.hasTranslation == true
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (isTranslating) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Translating with ${engine.engineName}...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${(translationProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                LinearProgressIndicator(
+                    progress = { translationProgress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                )
+            } else {
+                Button(
+                    onClick = { onClick(false) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (hasExistingTranslation) "Re-translate Chapter" else "Translate Chapter Now",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+
+                if (hasExistingTranslation) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "✓ Translation ready",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        TextButton(
+                            onClick = { onClick(true) },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text("Force Cloud Refresh", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+/**
+ * Font Picker Tab for selecting custom fonts and Google Fonts
+ */
+@Composable
+fun FontPickerTab(
+    vm: ReaderScreenViewModel
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    
+    // Convert Google Fonts list to CustomFont format for display
+    val googleFonts = remember(vm.fonts) {
+        vm.fonts.map { fontName ->
+            ireader.domain.models.fonts.CustomFont(
+                id = "google_${fontName.lowercase().replace(" ", "_")}",
+                name = fontName,
+                filePath = "", // Empty for Google Fonts
+                isSystemFont = true,
+                dateAdded = 0L
+            )
+        }
+    }
+    
+    // Determine the currently selected font ID
+    // Check both the selectedFontId (for custom fonts) and the font preference (for Google Fonts)
+    val fontPref = vm.font
+    val currentSelectedId = remember(vm.selectedFontId.value, fontPref.value) {
+        val customFontId = vm.selectedFontId.value
+        val googleFontName = fontPref.value.name
+        
+        when {
+            customFontId.isNotEmpty() -> customFontId
+            googleFontName.isNotEmpty() -> "google_${googleFontName.lowercase().replace(" ", "_")}"
+            else -> ""
+        }
+    }
+
+    
+    FontPicker(
+        selectedFontId = currentSelectedId,
+        customFonts = vm.customFonts,
+        systemFonts = googleFonts, // Use Google Fonts as system fonts
+        onFontSelected = { fontId ->
+            // If it's a Google Font, download and apply it asynchronously
+            if (fontId.startsWith("google_")) {
+                val fontName = googleFonts.find { it.id == fontId }?.name
+                if (fontName != null) {
+                    vm.selectGoogleFont(fontName)
+                }
+            } else {
+                // Custom font - clear Google Font preference and set custom font
+                vm.platformUiPreferences.font().set(
+                    ireader.domain.preferences.models.FontType(
+                        name = "Default",
+                        fontFamily = ireader.domain.models.common.FontFamilyModel.Default
+                    )
+                )
+                vm.selectFont(fontId)
+            }
+        },
+        onImportFont = { /* Import button removed */ },
+        onDeleteFont = { fontId ->
+            vm.deleteFont(fontId)
+        },
+        isLoading = vm.fontsLoading,
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+
+/**
+ * Content Filter Patterns Editor
+ * Allows users to add/edit regex patterns to remove unwanted text from chapters.
+ */
+@Composable
+fun ContentFilterPatternsEditor(
+    patterns: String,
+    onPatternsChange: (String) -> Unit,
+    contentFilterUseCase: ireader.domain.usecases.reader.ContentFilterUseCase,
+    modifier: Modifier = Modifier
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    var editedPatterns by remember { mutableStateOf(patterns) }
+    var testText by remember { mutableStateOf("") }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    
+    androidx.compose.runtime.LaunchedEffect(patterns) {
+        editedPatterns = patterns
+    }
+    
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        val hasValidationError = validationError != null
+        val errorText = validationError ?: ""
+        androidx.compose.material3.OutlinedTextField(
+            value = editedPatterns,
+            onValueChange = { newValue: String ->
+                editedPatterns = newValue
+                val lines = newValue.split("\n").filter { line -> line.isNotBlank() }
+                val errors = lines.mapNotNull { pattern ->
+                    contentFilterUseCase.validatePattern(pattern.trim())?.let { err -> "$pattern: $err" }
+                }
+                validationError = if (errors.isNotEmpty()) errors.joinToString("\n") else null
+            },
+            label = { Text(localizeHelper.localize(Res.string.regex_patterns_one_per_line)) },
+            placeholder = { Text(localizeHelper.localize(Res.string.use_arrow_keyschapternadchapternread_more_at)) },
+            modifier = Modifier.fillMaxWidth().height(150.dp),
+            isError = hasValidationError,
+            supportingText = if (hasValidationError) {
+                { Text(errorText, color = MaterialTheme.colorScheme.error) }
+            } else null,
+            maxLines = 8
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = {
+                    if (validationError == null) {
+                        onPatternsChange(editedPatterns)
+                    }
+                },
+                enabled = validationError == null && editedPatterns != patterns
+            ) {
+                Text(localizeHelper.localize(Res.string.save_patterns))
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = localizeHelper.localize(Res.string.test_filter),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        androidx.compose.material3.OutlinedTextField(
+            value = testText,
+            onValueChange = { newValue: String -> testText = newValue },
+            label = { Text(localizeHelper.localize(Res.string.sample_text)) },
+            placeholder = { Text(localizeHelper.localize(Res.string.paste_text_to_test_the_filter)) },
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            maxLines = 3
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = {
+                    testResult = contentFilterUseCase.testPatterns(testText, editedPatterns)
+                },
+                enabled = testText.isNotBlank() && editedPatterns.isNotBlank()
+            ) {
+                Text(localizeHelper.localize(Res.string.test))
+            }
+            
+            val hasTestResult = testResult != null
+            if (hasTestResult) {
+                TextButton(onClick = { testResult = null }) {
+                    Text(localizeHelper.localize(Res.string.clear_1))
+                }
+            }
+        }
+        
+        val currentTestResult: String? = testResult
+        if (currentTestResult != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = localizeHelper.localize(Res.string.result),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            val isEmpty = currentTestResult.isEmpty()
+            val resultText: String = if (isEmpty) "(empty - all text removed)" else currentTestResult
+            val resultColor = if (isEmpty) 
+                MaterialTheme.colorScheme.error 
+            else 
+                MaterialTheme.colorScheme.onSurfaceVariant
+            
+            androidx.compose.material3.Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = resultText,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = resultColor
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = localizeHelper.localize(Res.string.tip_use_regex_patterns_to_remove_unwanted_textn) +
+                   "• .* = any characters\n" +
+                   "• (?:A|B) = A or B\n" +
+                   "• \\\\[ and \\\\] = literal brackets\n\n" +
+                   "Examples:\n" +
+                   "• \"Use arrow keys.*chapter\" - navigation hints\n" +
+                   "• \"(?:A|D|←|→).*chapter\" - keyboard shortcuts\n" +
+                   "• \"Read more at.*\" - promotions\n" +
+                   "• \"\\\\[TL:.*?\\\\]\" - translator notes",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+    }
+}

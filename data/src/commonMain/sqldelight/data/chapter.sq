@@ -1,0 +1,265 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+
+import ireader.core.source.model.Page;
+import kotlin.collections.List;
+
+CREATE TABLE IF NOT EXISTS chapter(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT ,
+    book_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    name TEXT NOT NULL,
+    scanlator TEXT,
+    read INTEGER AS Boolean NOT NULL,
+    bookmark INTEGER AS Boolean NOT NULL,
+    last_page_read INTEGER NOT NULL,
+    chapter_number REAL AS Float NOT NULL,
+    source_order INTEGER NOT NULL,
+    date_fetch INTEGER AS Long NOT NULL,
+    date_upload INTEGER AS Long NOT NULL,
+    content TEXT AS List<Page> NOT NULL ,
+    type INTEGER AS Long NOT NULL,
+    FOREIGN KEY(book_id) REFERENCES book (_id)
+    ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS chapters_manga_id_index ON chapter(book_id);
+CREATE INDEX IF NOT EXISTS chapters_unread_by_manga_index ON chapter(book_id, read) WHERE read = 0;
+-- Performance optimization indexes
+CREATE INDEX IF NOT EXISTS idx_chapter_book_read ON chapter(book_id, read);
+CREATE INDEX IF NOT EXISTS idx_chapter_read ON chapter(read);
+-- Advanced indexes for sorting and filtering
+CREATE INDEX IF NOT EXISTS idx_chapter_book_number ON chapter(book_id, chapter_number);
+CREATE INDEX IF NOT EXISTS idx_chapter_date_upload ON chapter(date_upload DESC);
+CREATE INDEX IF NOT EXISTS idx_chapter_date_fetch ON chapter(date_fetch DESC);
+CREATE INDEX IF NOT EXISTS idx_chapter_book_date_upload ON chapter(book_id, date_upload DESC);
+CREATE INDEX IF NOT EXISTS idx_chapter_book_date_fetch ON chapter(book_id, date_fetch DESC);
+CREATE INDEX IF NOT EXISTS idx_chapter_bookmark ON chapter(bookmark) WHERE bookmark = 1;
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_chapter_book_source_order ON chapter(book_id, source_order);
+CREATE INDEX IF NOT EXISTS idx_chapter_book_read_number ON chapter(book_id, read, chapter_number);
+CREATE INDEX IF NOT EXISTS idx_chapter_book_read_order ON chapter(book_id, read, source_order);
+-- Index for content existence check (downloaded chapters)
+CREATE INDEX IF NOT EXISTS idx_chapter_has_content ON chapter(book_id) WHERE LENGTH(content) > 10;
+-- Unique constraint to prevent duplicate chapters per book (based on URL/key)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_book_url_unique ON chapter(book_id, url);
+
+getChapterById:
+SELECT *
+FROM chapter
+WHERE _id = :id;
+
+findAll:
+SELECT * FROM chapter
+ORDER BY book_id, source_order ASC;
+
+-- Lightweight query without content field to prevent OOM
+findAllLight:
+SELECT chapter._id, chapter.book_id, chapter.url, chapter.name, chapter.scanlator, chapter.read, chapter.bookmark, 
+       chapter.last_page_read, chapter.chapter_number, chapter.source_order, chapter.date_fetch, 
+       chapter.date_upload, chapter.type, CASE WHEN LENGTH(chapter.content) > 10 THEN 1 ELSE 0 END AS is_downloaded
+FROM chapter
+ORDER BY book_id, source_order ASC;
+
+findInLibrary:
+SELECT chapter._id,book_id,chapter.url,name,scanlator,read,bookmark, last_page_read,chapter_number,source_order,date_fetch,date_upload,content,type
+        FROM chapter
+               LEFT JOIN book ON book._id == chapter.book_id
+        GROUP BY chapter._id
+        HAVING book.favorite = 1
+        ORDER BY chapter.book_id, chapter.source_order ASC;
+
+-- Lightweight query without content field to prevent OOM
+findInLibraryLight:
+SELECT chapter._id, chapter.book_id, chapter.url, chapter.name, chapter.scanlator, chapter.read, chapter.bookmark, 
+       chapter.last_page_read, chapter.chapter_number, chapter.source_order, chapter.date_fetch, chapter.date_upload, chapter.type,
+       CASE WHEN LENGTH(chapter.content) > 10 THEN 1 ELSE 0 END AS is_downloaded
+FROM chapter
+LEFT JOIN book ON book._id == chapter.book_id
+GROUP BY chapter._id
+HAVING book.favorite = 1
+ORDER BY chapter.book_id, chapter.source_order ASC;
+getChaptersByMangaId:
+SELECT *
+FROM chapter
+WHERE book_id = :mangaId
+ORDER BY source_order ASC;
+
+-- Lightweight query without content field to prevent OOM
+getChaptersByMangaIdLight:
+SELECT chapter._id, chapter.book_id, chapter.url, chapter.name, chapter.scanlator, chapter.read, chapter.bookmark, 
+       chapter.last_page_read, chapter.chapter_number, chapter.source_order, chapter.date_fetch, 
+       chapter.date_upload, chapter.type, CASE WHEN LENGTH(chapter.content) > 10 THEN 1 ELSE 0 END AS is_downloaded
+FROM chapter
+WHERE chapter.book_id = :mangaId
+ORDER BY source_order ASC;
+
+getChapterByUrl:
+SELECT *
+FROM chapter
+WHERE url = :chapterUrl;
+
+getChapterByUrlAndMangaId:
+SELECT *
+FROM chapter
+WHERE url = :chapterUrl
+AND book_id = :mangaId;
+
+removeChaptersWithIds:
+DELETE FROM chapter
+WHERE _id IN :chapterIds;
+
+insert:
+INSERT INTO chapter(book_id,url,name,scanlator,read,bookmark,last_page_read,chapter_number,source_order,date_fetch,date_upload,content,type)
+VALUES (:mangaId,:url,:name,:scanlator,:read,:bookmark,:lastPageRead,:chapterNumber,:sourceOrder,:dateFetch,:dateUpload,:content,:type);
+
+update:
+UPDATE chapter
+SET book_id = coalesce(:mangaId, book_id),
+    url = coalesce(:url, url),
+    name = coalesce(:name, name),
+    scanlator = coalesce(:scanlator, scanlator),
+    read = coalesce(:read, read),
+    bookmark = coalesce(:bookmark, bookmark),
+    last_page_read = coalesce(:lastPageRead, last_page_read),
+    chapter_number = coalesce(:chapterNumber, chapter_number),
+    source_order = coalesce(:sourceOrder, source_order),
+    date_fetch = coalesce(:dateFetch, date_fetch),
+    date_upload = coalesce(:dateUpload, date_upload)
+WHERE _id = :chapterId;
+
+-- Update only the lastPageRead field for scroll position saving
+updateLastPageRead:
+UPDATE chapter
+SET last_page_read = :lastPageRead
+WHERE _id = :chapterId;
+
+-- Clear content for specific chapters (for delete downloaded content feature)
+-- This intentionally sets content to empty, unlike upsert which preserves content
+clearChapterContent:
+UPDATE chapter
+SET content = '[]'
+WHERE _id IN :chapterIds;
+
+-- Clear content for all chapters of a book
+clearBookChapterContent:
+UPDATE chapter
+SET content = '[]'
+WHERE book_id = :bookId;
+
+
+delelteAllChapters:
+DELETE FROM chapter;
+
+deleteChaptersByBookId:
+DELETE FROM chapter WHERE book_id = :bookId;
+
+delete:
+DELETE FROM chapter WHERE _id = :chapterId;
+
+getLastChapter:
+SELECT chapter._id,book_id,url,name,scanlator,read,bookmark, last_page_read,chapter_number,source_order,date_fetch,date_upload,content,type
+        FROM chapter
+               LEFT JOIN history ON history.chapter_id == chapter._id
+        GROUP BY chapter._id
+        HAVING chapter.book_id == :bookId AND history.last_read != 0
+        ORDER BY last_read DESC
+        LIMIT 1;
+
+-- Safe upsert that doesn't trigger ON DELETE CASCADE
+-- Uses INSERT ... ON CONFLICT DO UPDATE (SQLite 3.24+, Android 10+)
+-- For older devices, the repository implementation handles the fallback
+-- Uses (book_id, url) unique constraint to properly handle remote chapters with id=0
+-- IMPORTANT: content uses COALESCE to preserve existing content when new content is empty
+-- This prevents accidental content loss when updating metadata (read status, bookmark, etc.)
+upsert:
+INSERT INTO chapter(_id, book_id, url, name, scanlator, read, bookmark, last_page_read, chapter_number, source_order, date_fetch, date_upload, content, type) 
+VALUES (:id, :bookId, :key, :name, :translator, :read, :bookmark, :last_page_read, :chapter_number, :source_order, :date_fetch, :date_upload, :content, :type)
+ON CONFLICT(book_id, url) DO UPDATE SET
+    name = excluded.name,
+    scanlator = excluded.scanlator,
+    read = excluded.read,
+    bookmark = excluded.bookmark,
+    last_page_read = excluded.last_page_read,
+    chapter_number = excluded.chapter_number,
+    source_order = excluded.source_order,
+    date_fetch = excluded.date_fetch,
+    date_upload = excluded.date_upload,
+    content = CASE 
+        WHEN excluded.content IS NULL 
+          OR excluded.content = '' 
+          OR excluded.content = '[]' 
+          OR excluded.content LIKE '%PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER%' 
+          OR excluded.content LIKE '%DOWNLOADED_CONTENT_PLACEHOLDER%' 
+        THEN chapter.content
+        ELSE excluded.content
+    END,
+    type = excluded.type;
+
+selectLastInsertedRowId:
+SELECT LAST_INSERT_ROWID() AS Long;
+
+-- Query to manually refresh all book chapter counts (run after migration or data import)
+refreshAllBookChapterCounts:
+UPDATE book SET
+    cached_total_chapters = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = book._id), 0),
+    cached_unread_count = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = book._id AND read = 0), 0),
+    cached_read_count = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = book._id AND read = 1), 0);
+
+-- Query to refresh chapter counts for a single book
+refreshBookChapterCounts:
+UPDATE book SET
+    cached_total_chapters = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = :bookId), 0),
+    cached_unread_count = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = :bookId AND read = 0), 0),
+    cached_read_count = COALESCE((SELECT COUNT(*) FROM chapter WHERE book_id = :bookId AND read = 1), 0)
+WHERE _id = :bookId;
+
+-- Optimized query for sync: Get only bookmarked chapters (Task 10.1.2)
+getBookmarkedChapters:
+SELECT * FROM chapter 
+WHERE bookmark = 1
+ORDER BY book_id, source_order ASC;
+
+
+-- Sync-specific queries
+getAllChapters:
+SELECT * FROM chapter
+ORDER BY book_id, source_order ASC;
+
+findChapterByBookAndUrl:
+SELECT * FROM chapter
+WHERE book_id = :bookId AND url = :url
+LIMIT 1;
+
+findChapterByUrl:
+SELECT * FROM chapter
+WHERE url = :url;
+
+insertForSync:
+INSERT INTO chapter(_id, book_id, url, name, scanlator, read, bookmark, last_page_read, chapter_number, source_order, date_fetch, date_upload, content, type)
+VALUES (:id, :bookId, :url, :name, :scanlator, :read, :bookmark, :lastPageRead, :chapterNumber, :sourceOrder, :dateFetch, :dateUpload, '', :type);
+
+-- Upsert for sync that auto-generates _id for new chapters
+-- Uses (book_id, url) unique constraint to detect conflicts
+-- Preserves existing content when synced content is empty
+upsertForSync:
+INSERT INTO chapter(book_id, url, name, scanlator, read, bookmark, last_page_read, chapter_number, source_order, date_fetch, date_upload, content, type) 
+VALUES (:bookId, :key, :name, :translator, :read, :bookmark, :last_page_read, :chapter_number, :source_order, :date_fetch, :date_upload, :content, :type)
+ON CONFLICT(book_id, url) DO UPDATE SET
+    name = excluded.name,
+    scanlator = excluded.scanlator,
+    read = excluded.read,
+    bookmark = excluded.bookmark,
+    last_page_read = excluded.last_page_read,
+    chapter_number = excluded.chapter_number,
+    source_order = excluded.source_order,
+    date_fetch = excluded.date_fetch,
+    date_upload = excluded.date_upload,
+    content = CASE 
+        WHEN excluded.content IS NULL OR excluded.content = '' OR excluded.content = '[]' THEN chapter.content
+        ELSE excluded.content
+    END,
+    type = excluded.type;

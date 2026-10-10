@@ -1,0 +1,405 @@
+package ireader.presentation.ui.book.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import ireader.domain.models.BookCover
+import ireader.presentation.ui.component.components.IBookImageComposable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import ireader.domain.models.entities.Book
+import ireader.domain.models.entities.Chapter
+import ireader.i18n.localize
+import ireader.i18n.resources.Res
+import ireader.i18n.resources.*
+
+/**
+ * Data class representing EPUB export options
+ */
+data class ExportOptions(
+    val includeCover: Boolean,
+    val selectedChapters: List<Long>,
+    val formatOptions: FormatOptions,
+    /** When true, export translated content instead of original content */
+    val useTranslatedContent: Boolean = false,
+    /** Target language for translated content */
+    val translationTargetLanguage: String = "en"
+)
+
+/**
+ * Data class representing formatting options for EPUB export
+ */
+data class FormatOptions(
+    val paragraphSpacing: Float,
+    val chapterHeadingSize: Float,
+    val typography: Typography
+)
+
+/**
+ * Typography options for EPUB export
+ */
+enum class Typography {
+    DEFAULT,
+    SERIF,
+    SANS_SERIF
+}
+
+/**
+ * Dialog for configuring EPUB export options.
+ * Allows users to select chapters, formatting, and other export settings.
+ * 
+ * @param book The book to export
+ * @param chapters The chapters available for export
+ * @param hasTranslations Whether the book has any translated chapters available
+ * @param translationTargetLanguage The target language for translations (e.g., "en", "es")
+ * @param onExport Callback when export is confirmed with options
+ * @param onDismiss Callback when dialog is dismissed
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EpubExportDialog(
+    book: Book,
+    chapters: List<Chapter>,
+    hasTranslations: Boolean = false,
+    translationTargetLanguage: String = "en",
+    onExport: (ExportOptions) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var includeCover by remember { mutableStateOf(true) }
+    var useTranslatedContent by remember { mutableStateOf(false) }
+    var selectAllChapters by remember { mutableStateOf(true) }
+    var selectedChapterIds by remember(chapters) { mutableStateOf(chapters.map { it.id }.toSet()) }
+    var paragraphSpacing by remember { mutableStateOf(1.0f) }
+    var chapterHeadingSize by remember { mutableStateOf(2.0f) }
+    var typography by remember { mutableStateOf(Typography.DEFAULT) }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .widthIn(max = 640.dp)
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Book,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = localize(Res.string.truyenplus_export_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = localize(Res.string.close)
+                        )
+                    }
+                }
+                
+                Divider()
+                
+                // Content
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                            Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                IBookImageComposable(image = BookCover.from(book), contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(width = 52.dp, height = 76.dp).clip(RoundedCornerShape(8.dp)))
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text(book.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text("${chapters.size} ${localize(Res.string.chapters)}", style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("EPUB", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                    // Include cover option
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = localize(Res.string.include_cover_image),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Switch(
+                                checked = includeCover,
+                                onCheckedChange = { includeCover = it }
+                            )
+                        }
+                    }
+                    
+                    // Use translated content option (only shown if translations are available)
+                    if (hasTranslations) {
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = localize(Res.string.export_translated_content),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    Text(
+                                        text = localize(Res.string.export_translated_content_description),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Switch(
+                                    checked = useTranslatedContent,
+                                    onCheckedChange = { useTranslatedContent = it }
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Chapter selection
+                    item {
+                        Text(
+                            text = localize(Res.string.chapter_selection),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectAllChapters,
+                                onClick = {
+                                    selectAllChapters = true
+                                    selectedChapterIds = chapters.map { it.id }.toSet()
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = localize(Res.string.all_chapters),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                    
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = !selectAllChapters,
+                                onClick = { selectAllChapters = false }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = localize(Res.string.select_chapters),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                    
+                    // Chapter list (only shown when "Select Chapters" is chosen)
+                    if (!selectAllChapters) {
+                        items(chapters, key = { it.id }) { chapter ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 32.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = chapter.id in selectedChapterIds,
+                                    onCheckedChange = { checked ->
+                                        selectedChapterIds = if (checked) {
+                                            selectedChapterIds + chapter.id
+                                        } else {
+                                            selectedChapterIds - chapter.id
+                                        }
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = chapter.name,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Formatting section
+                    item {
+                        Text(
+                            text = localize(Res.string.formatting),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    // Paragraph spacing
+                    item {
+                        Column {
+                            Text(
+                                text = "${localize(Res.string.paragraph_spacing)}: ${ireader.domain.utils.toDecimalString(paragraphSpacing.toDouble(), 1)}em",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Slider(
+                                value = paragraphSpacing,
+                                onValueChange = { paragraphSpacing = it },
+                                valueRange = 0.5f..2.0f,
+                                steps = 14
+                            )
+                        }
+                    }
+                    
+                    // Chapter heading size
+                    item {
+                        Column {
+                            Text(
+                                text = "${localize(Res.string.chapter_heading_size)}: ${ireader.domain.utils.toDecimalString(chapterHeadingSize.toDouble(), 1)}em",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Slider(
+                                value = chapterHeadingSize,
+                                onValueChange = { chapterHeadingSize = it },
+                                valueRange = 1.5f..3.0f,
+                                steps = 14
+                            )
+                        }
+                    }
+                    
+                    // Typography dropdown
+                    item {
+                        var expanded by remember { mutableStateOf(false) }
+                        
+                        Column {
+                            Text(
+                                text = localize(Res.string.typography),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ExposedDropdownMenuBox(
+                                expanded = expanded,
+                                onExpandedChange = { expanded = it }
+                            ) {
+                                OutlinedTextField(
+                                    value = typography.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor()
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    Typography.values().forEach { option ->
+                                        DropdownMenuItem(
+                                            text = { Text(option.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }) },
+                                            onClick = {
+                                                typography = option
+                                                expanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(localize(Res.string.cancel))
+                    }
+                    Button(
+                        onClick = {
+                            val options = ExportOptions(
+                                includeCover = includeCover,
+                                selectedChapters = selectedChapterIds.toList(),
+                                formatOptions = FormatOptions(
+                                    paragraphSpacing = paragraphSpacing,
+                                    chapterHeadingSize = chapterHeadingSize,
+                                    typography = typography
+                                ),
+                                useTranslatedContent = useTranslatedContent,
+                                translationTargetLanguage = translationTargetLanguage
+                            )
+                            onExport(options)
+                        },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        enabled = selectedChapterIds.isNotEmpty()
+                    ) {
+                        Icon(Icons.Default.IosShare, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(localize(Res.string.export))
+                    }
+                }
+            }
+        }
+    }
+}

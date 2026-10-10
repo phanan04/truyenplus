@@ -1,0 +1,49 @@
+# Library: search, filter/sort/display sheet, options menu, back handling
+appId: ir.kazemcodes.infinityreader.debug
+tags: [library]
+---
+- runFlow: common/launch.yaml
+- takeScreenshot: library_01_home
+
+# --- Search open/type/close ---
+- tapOn:
+    text: "Search"
+- waitForAnimationToEnd
+- inputText: "zzz_nomatch"
+- waitForAnimationToEnd
+- takeScreenshot: library_02_search_empty
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Library"
+
+# --- Filter & Sort sheet ---
+- tapOn:
+    text: "Filter"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Filter & Sort"
+- takeScreenshot: library_03_filter_sheet
+# Toggle a filter chip twice (apply + revert must not crash)
+- tapOn:
+    text: "Unread"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Unread"
+- waitForAnimationToEnd
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Library"
+
+# --- Options menu ---
+- tapOn:
+    text: "More Options"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Update Library"
+- takeScreenshot: library_04_options_menu
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Library"

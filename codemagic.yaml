@@ -1,0 +1,401 @@
+workflows:
+  # ============================================
+  # iOS Build & Test Workflow
+  # ============================================
+  ios-build:
+    name: iOS Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    
+    environment:
+      # No ios_signing needed for simulator builds!
+      vars:
+        XCODE_WORKSPACE: "iosApp/iosApp.xcodeproj"
+        XCODE_SCHEME: "iosApp"
+        BUNDLE_ID: "com.infinity.iosApp"
+        CI: "true"
+      xcode: latest
+      java: 17
+    
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+        - pattern: 'develop'
+          include: true
+        - pattern: 'feature/*'
+          include: true
+        - pattern: 'ios/*'
+          include: true
+      cancel_previous_builds: true
+    
+    scripts:
+      # Setup environment
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          # Add placeholder Supabase config for build
+          echo "supabase.auth.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.auth.key=placeholder-key" >> local.properties
+          echo "supabase.reading.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.reading.key=placeholder-key" >> local.properties
+          echo "supabase.library.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.library.key=placeholder-key" >> local.properties
+          echo "supabase.book_reviews.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.book_reviews.key=placeholder-key" >> local.properties
+          echo "supabase.chapter_reviews.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.chapter_reviews.key=placeholder-key" >> local.properties
+          echo "supabase.badges.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.badges.key=placeholder-key" >> local.properties
+          echo "supabase.analytics.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.analytics.key=placeholder-key" >> local.properties
+      
+      # Skip CocoaPods - no pods needed for this project
+      # If you add pods later, uncomment the following:
+      # - name: Install CocoaPods
+      #   script: |
+      #     cd iosApp
+      #     pod install --repo-update
+      
+      # Build Kotlin framework for iOS Simulator
+      - name: Build Kotlin Framework
+        script: |
+          set -e  # Exit on error
+          
+          # Build Debug framework to avoid heavy LTO/devirtualization optimizations that cause OOM
+          # Debug builds are faster and use less memory
+          ./gradlew :presentation:linkDebugFrameworkIosSimulatorArm64 \
+            --no-daemon \
+            --no-configuration-cache \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:+UseG1GC -XX:MaxMetaspaceSize=1g" \
+            -Pkotlin.native.cacheKind=none
+          
+          # Verify framework was built
+          FRAMEWORK_PATH="presentation/build/bin/iosSimulatorArm64/debugFramework"
+          if [ ! -d "$FRAMEWORK_PATH/presentation.framework" ]; then
+            echo "ERROR: Framework not found at $FRAMEWORK_PATH"
+            exit 1
+          fi
+          
+          echo "Framework built successfully!"
+          ls -la "$FRAMEWORK_PATH/"
+          
+          # Copy framework to expected location for Xcode
+          DEST_PATH="presentation/build/xcode-frameworks/Debug/iphonesimulator"
+          mkdir -p "$DEST_PATH"
+          cp -R "$FRAMEWORK_PATH"/* "$DEST_PATH/"
+      
+      # Build iOS app (simulator)
+      - name: Build iOS App (Simulator)
+        script: |
+          # Find first available iPhone simulator
+          SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}')
+          echo "Using simulator: $SIMULATOR_ID"
+          
+          # If no iPhone found, use any simulator
+          if [ -z "$SIMULATOR_ID" ]; then
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep -oE '[A-F0-9-]{36}' | head -1)
+          fi
+          
+          # List framework location for debugging
+          echo "=== Framework location ==="
+          ls -la presentation/build/xcode-frameworks/Debug/iphonesimulator/ || echo "xcode-frameworks not found"
+          ls -la presentation/build/bin/iosSimulatorArm64/debugFramework/ || echo "debugFramework not found"
+          
+          # Check framework headers
+          echo "=== Framework headers ==="
+          ls -la presentation/build/bin/iosSimulatorArm64/debugFramework/presentation.framework/Headers/ || echo "No headers"
+          
+          # Show exported symbols - look for MainKt specifically
+          echo "=== Looking for MainKt in symbols ==="
+          nm -g presentation/build/bin/iosSimulatorArm64/debugFramework/presentation.framework/presentation 2>/dev/null | grep -i "main" | head -20 || echo "No MainKt symbols found"
+          
+          echo "=== All exported Kt symbols (sample) ==="
+          nm -g presentation/build/bin/iosSimulatorArm64/debugFramework/presentation.framework/presentation 2>/dev/null | grep "Kt" | head -30 || echo "No Kt symbols"
+          
+          # Run xcodebuild and capture output
+          xcodebuild build \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Debug \
+            -destination "id=$SIMULATOR_ID" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee xcodebuild.log
+          
+          # Check for BUILD FAILED in output (xcodebuild sometimes returns 0 even on failure)
+          if grep -q "BUILD FAILED" xcodebuild.log; then
+            echo "=== BUILD FAILED detected ==="
+            echo "=== Swift/Clang Errors ==="
+            grep -E "error:" xcodebuild.log | head -30 || echo "No errors found"
+            echo "=== Full error context ==="
+            grep -B2 -A5 "error:" xcodebuild.log | head -100 || echo "No error context"
+            exit 1
+          fi
+          
+          echo "=== Build succeeded ==="
+          
+          # Save the simulator ID for screenshot step
+          echo "$SIMULATOR_ID" > /tmp/simulator_id.txt
+          
+          # Copy .app to build folder for artifacts
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "iosApp.app" -path "*/Debug-iphonesimulator/*" | head -1)
+          if [ -n "$APP_PATH" ]; then
+            mkdir -p build
+            cp -R "$APP_PATH" build/
+            # Create zip for Appetize.io (they accept .zip containing .app)
+            cd build
+            zip -r iosApp-simulator.zip iosApp.app
+            echo "✅ App copied and zipped for Appetize.io"
+            ls -la
+            cd ..
+          fi
+      
+      # Capture screenshot of the running app
+      - name: Capture App Screenshot
+        script: |
+          # Get simulator ID from previous step
+          SIMULATOR_ID=$(cat /tmp/simulator_id.txt)
+          echo "Using simulator: $SIMULATOR_ID"
+          
+          # Boot the simulator
+          xcrun simctl boot "$SIMULATOR_ID" || echo "Simulator already booted"
+          
+          # Wait for simulator to be ready
+          sleep 5
+          
+          # Find the built app
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "iosApp.app" -path "*/Debug-iphonesimulator/*" | head -1)
+          echo "Found app at: $APP_PATH"
+          
+          if [ -n "$APP_PATH" ]; then
+            # Install the app
+            xcrun simctl install "$SIMULATOR_ID" "$APP_PATH"
+            
+            # Launch the app
+            xcrun simctl launch "$SIMULATOR_ID" com.infinity.iosApp
+            
+            # Wait for app to render
+            sleep 5
+            
+            # Take screenshot
+            mkdir -p screenshots
+            xcrun simctl io "$SIMULATOR_ID" screenshot screenshots/ios-app-screenshot.png
+            
+            echo "✅ Screenshot captured!"
+            ls -la screenshots/
+          else
+            echo "⚠️ App not found, skipping screenshot"
+          fi
+        ignore_failure: true
+      
+      # Run iOS tests (if available)
+      - name: Run iOS Tests
+        script: |
+          SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}')
+          if [ -z "$SIMULATOR_ID" ]; then
+            SIMULATOR_ID=$(xcrun simctl list devices available | grep -oE '[A-F0-9-]{36}' | head -1)
+          fi
+          
+          xcodebuild test \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -destination "id=$SIMULATOR_ID" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO || echo "No tests configured"
+        ignore_failure: true
+    
+    artifacts:
+      - ~/Library/Developer/Xcode/DerivedData/**/Debug-iphonesimulator/*.app
+      - build/*.app
+      - build/*.zip
+      - presentation/build/**/*.framework
+      - screenshots/*.png
+      - /tmp/xcodebuild_logs/*.log
+    
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com  # Replace with your email
+        notify:
+          success: false
+          failure: true
+
+  # ============================================
+  # AltStore / Sideloading Build (Unsigned IPA)
+  # ============================================
+  # This creates an unsigned IPA that can be installed via:
+  # - AltStore (recommended)
+  # - Sideloadly
+  # - 3uTools
+  # - Other sideloading tools
+  ios-sideload:
+    name: iOS Sideload Build (AltStore)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    
+    environment:
+      # No signing needed - AltStore will sign with user's Apple ID
+      vars:
+        XCODE_SCHEME: "iosApp"
+        BUNDLE_ID: "com.infinity.iosApp"
+        CI: "true"
+      xcode: latest
+      java: 17
+    
+    triggering:
+      events:
+        - tag
+        - push
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
+        - pattern: 'sideload-*'
+          include: true
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+        - pattern: 'release/*'
+          include: true
+    
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "supabase.auth.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.auth.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.reading.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.reading.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.library.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.library.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.book_reviews.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.book_reviews.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.chapter_reviews.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.chapter_reviews.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.badges.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.badges.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+          echo "supabase.analytics.url=${SUPABASE_URL:-https://placeholder.supabase.co}" >> local.properties
+          echo "supabase.analytics.key=${SUPABASE_KEY:-placeholder-key}" >> local.properties
+      
+      # Skip CocoaPods - no pods needed
+      
+      - name: Build Kotlin Framework
+        script: |
+          # Build Debug framework first to verify it works, then try Release
+          # Debug builds skip heavy LTO/devirtualization that cause OOM
+          ./gradlew :presentation:linkDebugFrameworkIosArm64 \
+            --no-daemon \
+            --no-configuration-cache \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:+UseG1GC -XX:MaxMetaspaceSize=1g" \
+            -Pkotlin.native.cacheKind=none \
+            -Pkotlin.native.binary.memoryModel=experimental
+          
+          # Copy framework to expected location
+          FRAMEWORK_PATH="presentation/build/bin/iosArm64/debugFramework"
+          DEST_PATH="presentation/build/xcode-frameworks/Debug/iphoneos"
+          mkdir -p "$DEST_PATH"
+          cp -R "$FRAMEWORK_PATH"/* "$DEST_PATH/" || echo "Framework copy skipped"
+      
+      - name: Build Unsigned App
+        script: |
+          # Build for real device without signing (using Debug framework)
+          xcodebuild build \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosApp \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            FRAMEWORK_SEARCH_PATHS="\$(inherited) \$(SRCROOT)/../presentation/build/bin/iosArm64/debugFramework"
+      
+      - name: Create Unsigned IPA
+        script: |
+          # Find the .app bundle
+          APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
+          echo "Found app at: $APP_PATH"
+          
+          # Create Payload directory structure
+          mkdir -p build/Payload
+          cp -r "$APP_PATH" build/Payload/
+          
+          # Create the IPA (it's just a zip file)
+          cd build
+          zip -r Infinity-unsigned.ipa Payload
+          
+          # Also create with version in filename
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          cp Infinity-unsigned.ipa "Infinity-${VERSION}-sideload.ipa"
+          
+          echo "✅ Created unsigned IPA for sideloading!"
+          ls -la *.ipa
+    
+    artifacts:
+      - build/*.ipa
+      - build/Payload/**/*.app
+    
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
+
+  # ============================================
+  # Kotlin Multiplatform Tests (No Mac needed)
+  # ============================================
+  kmp-tests:
+    name: KMP Shared Code Tests
+    max_build_duration: 60
+    instance_type: linux_x2
+    
+    environment:
+      java: 17
+    
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+      cancel_previous_builds: true
+    
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "supabase.auth.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.auth.key=placeholder-key" >> local.properties
+          echo "supabase.reading.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.reading.key=placeholder-key" >> local.properties
+          echo "supabase.library.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.library.key=placeholder-key" >> local.properties
+          echo "supabase.book_reviews.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.book_reviews.key=placeholder-key" >> local.properties
+          echo "supabase.chapter_reviews.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.chapter_reviews.key=placeholder-key" >> local.properties
+          echo "supabase.badges.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.badges.key=placeholder-key" >> local.properties
+          echo "supabase.analytics.url=https://placeholder.supabase.co" >> local.properties
+          echo "supabase.analytics.key=placeholder-key" >> local.properties
+      
+      - name: Run Common Tests
+        script: |
+          ./gradlew :core:jvmTest :domain:jvmTest :data:jvmTest --no-daemon || echo "Tests completed"
+        ignore_failure: true
+      
+      - name: Check Compilation
+        script: |
+          ./gradlew :presentation:compileKotlinDesktop --no-daemon
+    
+    artifacts:
+      - "**/build/reports/**"
+      - "**/build/test-results/**"

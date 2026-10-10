@@ -1,0 +1,30 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+import java.lang.Integer;
+
+CREATE TABLE
+IF NOT EXISTS `reader_theme`
+(`_id` INTEGER NOT NULL PRIMARY KEY,
+`background_color` INTEGER AS Int NOT NULL,
+`on_textcolor` INTEGER AS Int NOT NULL);
+
+
+subscribe:
+SELECT * FROM reader_theme;
+
+delete:
+DELETE FROM reader_theme WHERE _id =:id;
+
+deleteAll:
+DELETE FROM reader_theme;
+
+-- Legacy upsert replaced for SQLite 3.22 compatibility (Android 9)
+upsert:
+INSERT OR REPLACE INTO reader_theme(_id, background_color, on_textcolor) 
+VALUES (:id, :backgroundColor, :onTextColor);
+
+selectLastInsertedRowId:
+SELECT LAST_INSERT_ROWID();

@@ -1,0 +1,870 @@
+package ireader.presentation.ui.home.explore.viewmodel
+
+import androidx.compose.runtime.Stable
+import ireader.core.log.Log
+import ireader.core.source.model.Filter
+import ireader.core.source.model.Listing
+import ireader.core.source.model.MangasPageInfo
+import ireader.domain.catalogs.interactor.GetLocalCatalogs
+import ireader.domain.data.repository.CategoryRepository
+import ireader.domain.models.DisplayMode
+import ireader.domain.models.entities.Book
+import ireader.domain.models.entities.BookItem
+import ireader.domain.models.entities.Category
+import ireader.domain.models.entities.toBook
+import ireader.domain.preferences.prefs.LibraryPreferences
+import ireader.domain.usecases.category.SetBookCategories
+import ireader.domain.usecases.explore.ExploreUseCases
+import ireader.domain.usecases.translate.TranslateBookMetadataUseCase
+import ireader.domain.utils.exceptionHandler
+import ireader.domain.utils.extensions.ioDispatcher
+import ireader.i18n.UiText
+import ireader.i18n.resources.*
+import ireader.i18n.resources.the_source_is_not_found
+import ireader.presentation.ui.core.viewmodel.BaseViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.math.min
+
+/**
+ * ViewModel for the Explore screen following Mihon's StateScreenModel pattern.
+ * 
+ * Key improvements:
+ * - Immutable state with atomic updates via MutableStateFlow
+ * - Efficient deduplication using HashSet
+ * - Proper job cancellation and lifecycle management
+ * - Optimized for low-end devices with minimal allocations
+ * - Simplified constructor using ExploreUseCases aggregate (Requirements: 4.2, 4.4)
+ */
+@Stable
+class ExploreViewModel(
+    private val exploreUseCases: ExploreUseCases,
+    private val catalogStore: GetLocalCatalogs,
+    private val param: Param,
+    private val libraryPreferences: LibraryPreferences,
+    private val categoryRepository: CategoryRepository,
+    private val setBookCategories: SetBookCategories,
+    private val syncUseCases: ireader.domain.usecases.sync.SyncUseCases? = null,
+    private val filterStateManager: ireader.domain.filters.FilterStateManager? = null,
+    private val translateBookMetadataUseCase: TranslateBookMetadataUseCase? = null
+) : BaseViewModel() {
+    
+    // Expose insertUseCases for backward compatibility with UI code
+    val insertUseCases get() = exploreUseCases.insert
+    
+    // Expose exploreUseCases for the new explore book architecture
+    val exploreBookUseCases get() = exploreUseCases.exploreBook
+    
+    data class Param(val sourceId: Long?, val query: String?)
+    
+    // Immutable state flow following Mihon's pattern
+    private val _state = MutableStateFlow(ExploreScreenState())
+    val state: StateFlow<ExploreScreenState> = _state.asStateFlow()
+    
+    // Track seen books for deduplication (like Mihon's seenManga)
+    private val seenBooks = hashSetOf<String>()
+    
+    // Current loading job for cancellation
+    private var loadJob: Job? = null
+    
+    // Convenience accessors for backward compatibility
+    val isLoading: Boolean get() = _state.value.isLoading
+    val error: UiText? get() = _state.value.error
+    val layout: DisplayMode get() = _state.value.layout
+    val isSearchModeEnable: Boolean get() = _state.value.isSearchModeEnabled
+    var searchQuery: String?
+        get() = _state.value.searchQuery
+        set(value) { _state.update { it.copy(searchQuery = value) } }
+    val source: ireader.core.source.CatalogSource? get() = _state.value.source
+    val catalog: ireader.domain.models.entities.CatalogLocal? get() = _state.value.catalog
+    val isFilterEnable: Boolean get() = _state.value.isFilterEnabled
+    var modifiedFilter: List<Filter<*>>
+        get() = _state.value.modifiedFilters
+        set(value) { _state.update { it.copy(modifiedFilters = value) } }
+    val page: Int get() = _state.value.page
+    var endReached: Boolean
+        get() = _state.value.endReached
+        set(value) { _state.update { it.copy(endReached = value) } }
+    var stateFilters: List<Filter<*>>?
+        get() = _state.value.appliedFilters
+        set(value) { _state.update { it.copy(appliedFilters = value) } }
+    var stateListing: Listing?
+        get() = _state.value.currentListing
+        set(value) { _state.update { it.copy(currentListing = value) } }
+    var savedScrollIndex: Int
+        get() = _state.value.savedScrollIndex
+        set(value) { _state.update { it.copy(savedScrollIndex = value) } }
+    var savedScrollOffset: Int
+        get() = _state.value.savedScrollOffset
+        set(value) { _state.update { it.copy(savedScrollOffset = value) } }
+    
+    // Books state for backward compatibility
+    val booksState = BooksStateHolder(_state)
+    
+    init {
+        initializeSource()
+    }
+
+    private fun initializeSource() {
+        val sourceId = param.sourceId
+        val query = param.query
+
+        val catalog = catalogStore.find(sourceId)
+
+        if (catalog == null) {
+            Log.error { "[ExploreViewModel] Catalog not found for sourceId: $sourceId" }
+            scope.launch {
+                showSnackBar(UiText.MStringResource(Res.string.the_source_is_not_found))
+            }
+            return
+        }
+
+        _state.update { it.copy(catalog = catalog) }
+
+        val source = _state.value.source
+        if (sourceId != null && source != null) {
+            try {
+                // Initialize filters from source - wrapped in try-catch for plugin compatibility
+                val filters = try {
+                    source.getFilters()
+                } catch (e: Exception) {
+                    // Plugin compatibility error (IllegalAccessError, NoSuchMethodError, etc.)
+                    Log.error { "[ExploreViewModel] Plugin compatibility error loading filters: ${e.message}" }
+                    handlePluginCompatibilityError(catalog.name, e)
+                    return
+                }
+                
+                _state.update { it.copy(modifiedFilters = filters) }
+                
+                if (!query.isNullOrBlank()) {
+                    // Start in search mode with query
+                    _state.update { 
+                        it.copy(
+                            isSearchModeEnabled = true,
+                            searchQuery = query
+                        )
+                    }
+                    loadItems()
+                } else {
+                    // Start with default listing - also wrapped for safety
+                    val listings = try {
+                        source.getListings()
+                    } catch (e: Exception) {
+                        Log.error { "[ExploreViewModel] Plugin error getting listings: ${e.message}" }
+                        handlePluginCompatibilityError(catalog.name, e)
+                        return
+                    }
+                    
+                    if (listings.isNotEmpty()) {
+                        _state.update { it.copy(currentListing = listings.first()) }
+                        loadItems()
+                        scope.launch { readLayoutType() }
+                    } else {
+                        scope.launch {
+                            showSnackBar(UiText.MStringResource(Res.string.the_source_is_not_found))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Catch-all for any other plugin errors
+                Log.error { "[ExploreViewModel] Unexpected error initializing source: ${e.message}" }
+                _state.update { 
+                    it.copy(
+                        error = UiText.DynamicString("Plugin error: ${e.message ?: "Unknown error"}"),
+                        isSourceBroken = true
+                    )
+                }
+            }
+        } else {
+            scope.launch {
+                showSnackBar(UiText.MStringResource(Res.string.the_source_is_not_found))
+            }
+        }
+    }
+    
+    /**
+     * Handle plugin compatibility errors gracefully.
+     * These occur when a plugin is compiled with a different Kotlin version.
+     */
+    private fun handlePluginCompatibilityError(sourceName: String, error: Throwable) {
+        val errorMessage = buildString {
+            append("Plugin '$sourceName' is incompatible with this app version. ")
+            append("Please update the plugin or reinstall it.")
+        }
+        
+        Log.error { "[ExploreViewModel] $errorMessage\nCause: ${error.message}" }
+        
+        _state.update { 
+            it.copy(
+                error = UiText.DynamicString(errorMessage),
+                isSourceBroken = true,
+                isPluginIncompatible = true
+            )
+        }
+        
+        scope.launch {
+            showSnackBar(UiText.DynamicString(errorMessage))
+        }
+    }
+
+    /**
+     * Called when the screen becomes visible / resumed.
+     * On first entry, init already started loadItems so loadJob is active — this is a no-op.
+     * On re-entry, loadJob is inactive — detects stuck loading or empty books and reloads.
+     */
+    fun onScreenResumed() {
+        // Don't interfere if a load is already in progress (e.g. from init)
+        if (loadJob?.isActive == true) return
+
+        val currentState = _state.value
+
+        // Fix stuck loading: isLoading=true but no active job means it was cancelled
+        if (currentState.isLoading) {
+            _state.update { it.copy(isLoading = false) }
+        }
+
+        val hasNoCatalog = currentState.catalog == null || currentState.source == null
+        val hasNoBooks = currentState.books.isEmpty() && !currentState.endReached && currentState.error == null
+
+        if (hasNoCatalog) {
+            initializeSource()
+        } else if (hasNoBooks) {
+            if (currentState.currentListing != null || !currentState.searchQuery.isNullOrBlank()) {
+                loadItems(reset = true)
+            } else {
+                initializeSource()
+            }
+        }
+    }
+
+    /**
+     * Load items with proper pagination and deduplication.
+     * Following Mihon's pattern of efficient data loading.
+     */
+    fun loadItems(reset: Boolean = false) {
+        // Cancel any existing load job
+        loadJob?.cancel()
+
+        if (reset) {
+            // Reset pagination state
+            seenBooks.clear()
+            _state.update {
+                it.copy(
+                    page = 1,
+                    books = emptyList(),
+                    endReached = false,
+                    error = null,
+                    isLoading = true
+                )
+            }
+        } else {
+            _state.update { it.copy(isLoading = true, error = null) }
+        }
+
+        loadJob = scope.launch {
+            val currentState = _state.value
+            val catalog = currentState.catalog ?: run {
+                _state.update { it.copy(isLoading = false) }
+                return@launch
+            }
+
+            try {
+                // ponytail: 60s ceiling on source fetches - a hung HTTP/plugin call previously
+                // stranded isLoading=true forever (no timeout existed anywhere in the chain).
+                // Upgrade path: per-request timeouts in the http client once confirmed.
+                val result = withTimeout(60_000L) {
+                    fetchBooks(
+                        catalog = catalog,
+                        query = currentState.searchQuery,
+                        listing = currentState.currentListing,
+                        filters = currentState.appliedFilters,
+                        page = currentState.page
+                    )
+                }
+
+                // Check if job was cancelled during fetch
+                if (!isActive) return@launch
+
+                result.fold(
+                    onSuccess = { pageInfo ->
+                        processSuccessResult(pageInfo)
+                    },
+                    onFailure = { error ->
+                        processErrorResult(error)
+                    }
+                )
+            } catch (e: TimeoutCancellationException) {
+                processErrorResult(e)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                processErrorResult(e)
+            } finally {
+                // Always reset isLoading when this job finishes or is cancelled
+                withContext(NonCancellable) {
+                    _state.update { it.copy(isLoading = false) }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Fetch books from remote source
+     */
+    private suspend fun fetchBooks(
+        catalog: ireader.domain.models.entities.CatalogLocal,
+        query: String?,
+        listing: Listing?,
+        filters: List<Filter<*>>?,
+        page: Int
+    ): Result<MangasPageInfo> = withContext(ioDispatcher) {
+        try {
+            // Check for cancellation before starting
+            currentCoroutineContext().ensureActive()
+
+            var result = MangasPageInfo(emptyList(), false)
+
+            exploreUseCases.remote.getRemoteBooks(
+                query = query,
+                listing = listing,
+                filters = filters,
+                catalog = catalog,
+                page = page,
+                onError = { error ->
+                    // Don't throw cancellation exceptions as errors
+                    if (error is CancellationException) {
+                        throw error
+                    }
+                    throw error
+                },
+                onSuccess = { res -> result = res }
+            )
+
+            // Check for cancellation after fetch
+            currentCoroutineContext().ensureActive()
+            
+            Result.success(result)
+        } catch (e: CancellationException) {
+            // Re-throw cancellation to be handled by the caller
+            throw e
+        } catch (e: Throwable) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Process successful fetch result with deduplication
+     * 
+     * NOTE: We do NOT check for duplicates in the database here.
+     * This is intentional - we want to show fresh data from the source.
+     * When the user clicks on a book, we'll insert/upsert it then.
+     * This fixes the issue where stale database entries caused BookDetail to fail.
+     */
+    private suspend fun processSuccessResult(pageInfo: MangasPageInfo) {
+        val sourceId = source?.id ?: return
+        
+        // Auto-translate book names (NOT descriptions) if enabled
+        // Descriptions are translated later in book details screen
+        val translatedPageInfo = if (translateBookMetadataUseCase != null) {
+            val translateNames = translateBookMetadataUseCase.isAutoTranslateNamesEnabled()
+            
+            if (translateNames) {
+                try {
+                    translateBookMetadataUseCase.translateMangasPage(
+                        page = pageInfo,
+                        translateTitles = true,
+                        translateDescriptions = false // Don't translate descriptions in explore screen
+                    )
+                } catch (e: Exception) {
+                    Log.error { "[ExploreViewModel] Auto-translation failed: ${e.message}" }
+                    pageInfo // Return original on error
+                }
+            } else {
+                pageInfo
+            }
+        } else {
+            pageInfo
+        }
+        
+        // Convert and deduplicate books efficiently (in-memory only)
+        val newBooks = withContext(Dispatchers.Default) {
+            translatedPageInfo.mangas
+                .filter { manga -> 
+                    // Deduplicate by URL (like Mihon's seenManga) - in-memory only
+                    val key = "${manga.key}_$sourceId"
+                    seenBooks.add(key)
+                }
+                .map { manga -> 
+                    // Just convert to Book, don't check database
+                    // Database check happens when user clicks on the book
+                    manga.toBook(sourceId = sourceId)
+                }
+        }
+        
+        _state.update { currentState ->
+            currentState.copy(
+                books = currentState.books + newBooks,
+                page = currentState.page + 1,
+                endReached = !translatedPageInfo.hasNextPage,
+                error = null
+            )
+        }
+    }
+    
+    /**
+     * Process error result
+     */
+    private fun processErrorResult(error: Throwable) {
+        // Silently ignore cancellation exceptions - these are expected during navigation
+        if (error is CancellationException) {
+            return
+        }
+        
+        Log.error { "[ExploreViewModel] Error loading books: ${error.message}" }
+        
+        val errorText = exceptionHandler(error)
+        
+        // Detect if this is a broken source (parsing error vs network error)
+        val isBrokenSource = isParsingError(error)
+        
+        _state.update { currentState ->
+            currentState.copy(
+                error = errorText,
+                endReached = true,
+                isSourceBroken = isBrokenSource
+            )
+        }
+    }
+    
+    /**
+     * Detect if an error is a parsing/broken source error vs a network error.
+     * 
+     * Parsing errors indicate the source website has changed and needs developer update.
+     * Network errors are temporary and can be retried by the user.
+     */
+    private fun isParsingError(error: Throwable): Boolean {
+        // Check for explicit parsing exceptions
+        if (error is ireader.i18n.SourceBrokenException || 
+            error is ireader.i18n.ParsingException) {
+            return true
+        }
+        
+        // Check error message patterns that indicate parsing issues
+        val message = error.message?.lowercase() ?: ""
+        val cause = error.cause?.message?.lowercase() ?: ""
+        
+        val parsingIndicators = listOf(
+            "parse", "parsing",
+            "selector", "css selector",
+            "element not found", "no such element",
+            "null", "nullpointer",
+            "index out of bounds", "indexoutofbounds",
+            "json", "jsonexception", "malformed json",
+            "unexpected token", "unexpected character",
+            "cannot deserialize", "deserialization",
+            "class cast", "classcast",
+            "number format", "numberformat",
+            "illegal argument", "illegalargument",
+            "no value", "missing value",
+            "empty response", "empty body",
+            "invalid format", "format error"
+        )
+        
+        // Network error indicators - these are NOT parsing errors
+        val networkIndicators = listOf(
+            "timeout", "timed out",
+            "connection", "connect",
+            "socket", "network",
+            "unreachable", "host",
+            "ssl", "certificate",
+            "dns", "resolve",
+            "refused", "reset",
+            "interrupted", "abort"
+        )
+        
+        // Check if it's a network error first
+        val isNetworkError = networkIndicators.any { indicator ->
+            message.contains(indicator) || cause.contains(indicator)
+        }
+        
+        if (isNetworkError) {
+            return false
+        }
+        
+        // Check if it's a parsing error
+        val isParsingIndicator = parsingIndicators.any { indicator ->
+            message.contains(indicator) || cause.contains(indicator)
+        }
+        
+        // Also consider it a parsing error if we got an empty result with no network issues
+        // This often happens when selectors don't match anymore
+        val isEmptyResultError = message.contains("empty") || 
+            message.contains("no results") ||
+            message.contains("not found")
+        
+        return isParsingIndicator || isEmptyResultError
+    }
+    
+    /**
+     * Add book to favorites using the new explore book architecture.
+     * This promotes the book to the library and toggles the favorite status.
+     * If the book already exists in the library, it toggles its current favorite status.
+     * 
+     * Following Mihon's pattern:
+     * - If book is already in library, toggle favorite status
+     * - If adding new book and default category is set, auto-assign
+     * - If adding new book and no default category, show category dialog
+     */
+    suspend fun addToFavorite(bookItem: BookItem, onFavorite: (Book) -> Unit) {
+        val book = bookItem.toBook()
+        
+        // First check if book already exists in library to get current favorite status
+        val existingBook = exploreUseCases.exploreBook.promoteToLibrary.findExisting(book.key, book.sourceId)
+        
+        if (existingBook != null) {
+            // Book exists - toggle favorite status
+            val newFavorite = !existingBook.favorite
+            
+            val result = exploreUseCases.exploreBook.promoteToLibrary.fromBookWithStatus(
+                book = book,
+                favorite = newFavorite
+            )
+            
+            if (result != null) {
+                val (bookId, isFavorite) = result
+                val updatedBook = book.copy(id = bookId, favorite = isFavorite)
+                updateBookInState(updatedBook)
+                
+                if (isFavorite) {
+                    syncUseCases?.syncBookToRemote?.invoke(updatedBook)
+                }
+                
+                onFavorite(updatedBook)
+            }
+        } else {
+            // New book - check default category preference
+            val defaultCategoryId = libraryPreferences.defaultCategory().get()
+            // Filter out ALL system categories (ALL_ID and UNCATEGORIZED_ID)
+            val userCategories = categoryRepository.getAll().filter { !it.isSystemCategory }
+            
+            when {
+                // No user categories exist - just add to library directly (like detail screen)
+                userCategories.isEmpty() -> {
+                    addBookToLibraryWithCategories(book, emptyList(), onFavorite)
+                }
+                // Default category is set (not "Always ask" which is UNCATEGORIZED_ID)
+                defaultCategoryId != Category.UNCATEGORIZED_ID -> {
+                    val categoryIds = if (defaultCategoryId == Category.ALL_ID) {
+                        emptyList() // "Default" means no specific category
+                    } else {
+                        listOf(defaultCategoryId)
+                    }
+                    addBookToLibraryWithCategories(book, categoryIds, onFavorite)
+                }
+                // Show category selection dialog only when user has created categories
+                else -> {
+                    showCategoryDialog(book, userCategories)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Show category selection dialog for a book.
+     */
+    private fun showCategoryDialog(book: Book, categories: List<Category>) {
+        _state.update { 
+            it.copy(
+                dialog = ExploreDialog.ChangeMangaCategory(
+                    book = book,
+                    categories = categories,
+                    preselectedIds = emptySet()
+                )
+            )
+        }
+    }
+    
+    /**
+     * Dismiss the current dialog.
+     */
+    fun dismissDialog() {
+        _state.update { it.copy(dialog = null) }
+    }
+    
+    /**
+     * Add book to library with specified categories.
+     * Called from category dialog confirmation or when default category is set.
+     */
+    fun addBookToLibraryWithCategories(
+        book: Book,
+        categoryIds: List<Long>,
+        onFavorite: (Book) -> Unit
+    ) {
+        scope.launch {
+            // First add book to library
+            val result = exploreUseCases.exploreBook.promoteToLibrary.fromBookWithStatus(
+                book = book,
+                favorite = true
+            )
+            
+            if (result != null) {
+                val (bookId, isFavorite) = result
+                val updatedBook = book.copy(id = bookId, favorite = isFavorite)
+                
+                // Set categories if any were selected
+                if (categoryIds.isNotEmpty()) {
+                    setBookCategories.await(bookId, categoryIds)
+                }
+                
+                // Update state with new book
+                updateBookInState(updatedBook)
+                
+                // Sync to remote
+                syncUseCases?.syncBookToRemote?.invoke(updatedBook)
+                
+                onFavorite(updatedBook)
+            }
+            
+            // Dismiss dialog
+            dismissDialog()
+        }
+    }
+    
+    /**
+     * Update a book in the current state
+     */
+    private fun updateBookInState(book: Book) {
+        _state.update { currentState ->
+            val updatedBooks = currentState.books.map { existingBook ->
+                if (existingBook.key == book.key) book else existingBook
+            }
+            currentState.copy(books = updatedBooks)
+        }
+    }
+    
+    /**
+     * Toggle search mode
+     */
+    fun toggleSearchMode(enabled: Boolean) {
+        val currentState = _state.value
+
+        if (enabled) {
+            // Save pre-search state before entering search mode
+            val preSearchState = PreSearchState(
+                books = currentState.books,
+                currentListing = currentState.currentListing,
+                appliedFilters = currentState.appliedFilters,
+                page = currentState.page,
+                endReached = currentState.endReached
+            )
+            _state.update {
+                it.copy(
+                    isSearchModeEnabled = true,
+                    preSearchState = preSearchState
+                )
+            }
+        } else {
+            _state.update { it.copy(isSearchModeEnabled = false) }
+            if (source != null) {
+                exitSearchMode()
+            }
+        }
+    }
+
+    private fun exitSearchMode() {
+        val currentState = _state.value
+        val preSearchState = currentState.preSearchState
+
+        if (preSearchState != null) {
+            // Restore pre-search state without refetching
+            seenBooks.clear()
+            preSearchState.books.forEach { seenBooks.add(it.key) }
+
+            _state.update {
+                it.copy(
+                    searchQuery = null,
+                    appliedFilters = preSearchState.appliedFilters,
+                    currentListing = preSearchState.currentListing,
+                    isLoading = false,
+                    error = null,
+                    endReached = preSearchState.endReached,
+                    page = preSearchState.page,
+                    books = preSearchState.books,
+                    preSearchState = null
+                )
+            }
+        } else {
+            // Fallback: reload from default listing if no pre-search state saved
+            seenBooks.clear()
+            val defaultListing = source?.getListings()?.firstOrNull()
+
+            _state.update {
+                it.copy(
+                    searchQuery = null,
+                    appliedFilters = null,
+                    currentListing = defaultListing,
+                    isLoading = false,
+                    error = null,
+                    endReached = false,
+                    page = 1,
+                    books = emptyList(),
+                    preSearchState = null
+                )
+            }
+
+            loadItems(reset = true)
+        }
+    }
+    
+    /**
+     * Save layout type preference
+     */
+    fun saveLayoutType(layoutType: DisplayMode) {
+        _state.update { it.copy(layout = layoutType) }
+        scope.launch {
+            exploreUseCases.browseScreenPref.browseLayoutTypeUseCase.save(layoutType)
+        }
+    }
+    
+    private suspend fun readLayoutType() {
+        val layout = exploreUseCases.browseScreenPref.browseLayoutTypeUseCase.read()
+        _state.update { it.copy(layout = layout) }
+    }
+    
+    /**
+     * Toggle filter mode
+     */
+    fun toggleFilterMode(enable: Boolean? = null) {
+        _state.update { 
+            it.copy(isFilterEnabled = enable ?: !it.isFilterEnabled)
+        }
+    }
+    
+    /**
+     * Get columns for orientation with proper flow handling
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun getColumnsForOrientation(isLandscape: Boolean, scope: CoroutineScope): StateFlow<Int> {
+        val layout = _state.value.layout
+        val defaultColumns = if (isLandscape) {
+            if (layout == DisplayMode.ComfortableGrid) 3 else 2
+        } else {
+            2
+        }
+        
+        val columns = if (isLandscape) {
+            libraryPreferences.columnsInLandscape()
+        } else {
+            if (layout == DisplayMode.ComfortableGrid) {
+                libraryPreferences.columnsInPortrait()
+            } else {
+                libraryPreferences.columnsInPortraitCompact()
+            }
+        }.stateIn(scope)
+        
+        return if (layout != DisplayMode.ComfortableGrid) {
+            val maxColumns = if (isLandscape) 3 else 2
+            columns.mapLatest { min(it, maxColumns) }
+                .stateIn(scope, SharingStarted.Eagerly, defaultColumns)
+        } else {
+            columns
+        }
+    }
+    
+    /**
+     * Open local folder action
+     */
+    fun openLocalFolderAction(): Boolean {
+        return try {
+            exploreUseCases.openLocalFolder.open()
+        } catch (e: Exception) {
+            Log.error { "Failed to open local folder" }
+            false
+        }
+    }
+    
+    fun getLocalFolderPath(): String = exploreUseCases.openLocalFolder.getPath()
+    
+    /**
+     * Save JS plugin filter state
+     */
+    fun saveJSPluginFilterState(filters: Map<String, Any>) {
+        val sourceId = catalog?.sourceId ?: return
+        scope.launch {
+            filterStateManager?.saveFilterState(sourceId, filters)
+        }
+    }
+    
+    /**
+     * Load JS plugin filter state
+     */
+    suspend fun loadJSPluginFilterState(): Map<String, Any> {
+        val sourceId = catalog?.sourceId ?: return emptyMap()
+        return filterStateManager?.loadFilterState(sourceId) ?: emptyMap()
+    }
+    
+    /**
+     * Clear JS plugin filter state
+     */
+    fun clearJSPluginFilterState() {
+        val sourceId = catalog?.sourceId ?: return
+        scope.launch {
+            filterStateManager?.clearFilterState(sourceId)
+        }
+    }
+    
+    override fun onDestroy() {
+        loadJob?.cancel()
+        seenBooks.clear()
+        super.onDestroy()
+    }
+}
+
+/**
+ * Books state holder for backward compatibility with existing UI code.
+ * Provides mutable-like interface over immutable state.
+ */
+@Stable
+class BooksStateHolder(private val stateFlow: MutableStateFlow<ExploreScreenState>) {
+    
+    var books: List<Book>
+        get() = stateFlow.value.books
+        set(value) { stateFlow.update { it.copy(books = value) } }
+    
+    var book: Book? = null
+    
+    fun replaceBook(book: Book?) {
+        if (book != null) {
+            stateFlow.update { currentState ->
+                val updatedBooks = currentState.books.map { existingBook ->
+                    if (existingBook.key == book.key) book else existingBook
+                }
+                currentState.copy(books = updatedBooks)
+            }
+            this.book = book
+        }
+    }
+    
+    fun empty() {
+        stateFlow.update { it.copy(books = emptyList()) }
+        book = null
+    }
+}

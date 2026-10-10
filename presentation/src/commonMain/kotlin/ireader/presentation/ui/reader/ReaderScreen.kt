@@ -1,0 +1,509 @@
+package ireader.presentation.ui.reader
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import coil3.compose.LocalPlatformContext
+import ireader.domain.models.entities.Chapter
+import ireader.domain.preferences.prefs.ReadingMode
+import ireader.i18n.resources.Res
+import ireader.i18n.resources.analyzing_chapter_with_gemini_ai
+import ireader.i18n.resources.generating_art_prompt
+import ireader.presentation.core.toComposeColor
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.presentation.ui.reader.components.AutoScrollSpeedControl
+import ireader.presentation.ui.reader.components.ChapterArtErrorDialog
+import ireader.presentation.ui.reader.components.ChapterArtFocusDialog
+import ireader.presentation.ui.reader.components.ChapterArtGeneratingDialog
+import ireader.presentation.ui.reader.components.ChapterArtPromptResultDialog
+import ireader.presentation.ui.reader.components.FindInChapterBar
+import ireader.presentation.ui.reader.components.FindInChapterState
+import ireader.presentation.ui.reader.components.GlossaryDialogWithFilePickers
+import ireader.presentation.ui.reader.components.MainBottomSettingComposable
+import ireader.presentation.ui.reader.components.PreloadIndicator
+import ireader.presentation.ui.reader.components.ReaderSettingsBottomSheet
+import ireader.presentation.ui.reader.components.ReadingTimeEstimator
+import ireader.presentation.ui.reader.components.ReadingTimeIndicator
+import ireader.presentation.ui.reader.components.ReadingTimeIndicator
+import ireader.presentation.ui.reader.components.ReportBrokenChapterDialog
+import ireader.presentation.ui.reader.components.TranslationProgressIndicator
+import ireader.presentation.ui.reader.components.TranslationToggleButton
+import ireader.presentation.ui.reader.reverse_swip_refresh.SwipeRefreshState
+import ireader.presentation.ui.reader.viewmodel.ReaderScreenViewModel
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
+
+/**
+ * Pre-computed modifiers for ReaderScreen to avoid recreation on each recomposition
+ */
+private object ReaderScreenModifiers {
+    val fillMaxSize = Modifier.fillMaxSize()
+    val loadingIndicator = Modifier.size(48.dp)
+    val bottomSheetHandle = Modifier
+        .width(40.dp)
+        .height(4.dp)
+        .clip(RoundedCornerShape(2.dp))
+}
+
+@ExperimentalAnimationApi
+@OptIn(
+
+    ExperimentalMaterial3Api::class
+)
+@Composable
+fun ReadingScreen(
+    vm: ReaderScreenViewModel,
+    scrollState: ScrollState,
+    lazyListState: LazyListState,
+    swipeState: SwipeRefreshState,
+    onNext: (reset: Boolean) -> Unit,
+    onPrev: (reset: Boolean) -> Unit,
+    readerScreenPreferencesState: ReaderScreenViewModel,
+    toggleReaderMode: () -> Unit,
+    onBackgroundColorAndTextColorApply: (bgColor: String, txtColor: String) -> Unit,
+    snackBarHostState: SnackbarHostState,
+    drawerState: DrawerState,
+    onReaderBottomOnSetting: () -> Unit,
+    onSliderFinished: () -> Unit,
+    onSliderChange: (index: Float) -> Unit,
+    onReaderPlay: () -> Unit,
+    onChapterShown: (chapter: Chapter) -> Unit,
+    paddingValues: PaddingValues,
+    onNavigateToTranslationSettings: () -> Unit,
+    onNavigateToCharacterArtUpload: (bookTitle: String, chapterTitle: String, prompt: String) -> Unit = { _, _, _ -> },
+    onChangeBrightness: (Float) -> Unit = {},
+    onToggleAutoBrightness: () -> Unit = {},
+    onNavigateToQuoteCreation: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
+    onNavigate: ((String) -> Unit)
+) {
+
+    val scope = rememberCoroutineScope()
+    val context = LocalPlatformContext.current
+    val readerState by vm.state.collectAsState()
+    val infiniteScrollChapter by vm.contentVM.infiniteScrollVisibleChapter.collectAsState()
+    val chapter = if (vm.readingMode.value == ireader.domain.preferences.prefs.ReadingMode.InfiniteScroll && infiniteScrollChapter != null) {
+        infiniteScrollChapter
+    } else {
+        (readerState as? ireader.presentation.ui.reader.viewmodel.ReaderState.Success)?.currentChapter ?: vm.stateChapter
+    }
+    var showChapterReviews =
+        androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // Handle status bar for reading screen with proper colors based on background
+    ireader.presentation.ui.core.theme.CustomSystemColor(
+        enable = true,
+        statusBar = vm.backgroundColor.value.toComposeColor(),
+        navigationBar = vm.backgroundColor.value.toComposeColor()
+    ) {
+        ReadingScreenContent(
+            vm = vm,
+            scrollState = scrollState,
+            lazyListState = lazyListState,
+            swipeState = swipeState,
+            onNext = onNext,
+            onPrev = onPrev,
+            readerScreenPreferencesState = readerScreenPreferencesState,
+            toggleReaderMode = toggleReaderMode,
+            snackBarHostState = snackBarHostState,
+            drawerState = drawerState,
+            onSliderFinished = onSliderFinished,
+            onSliderChange = onSliderChange,
+            onReaderPlay = onReaderPlay,
+            onChapterShown = onChapterShown,
+            paddingValues = paddingValues,
+            onNavigateToTranslationSettings = onNavigateToTranslationSettings,
+            onNavigateToCharacterArtUpload = onNavigateToCharacterArtUpload,
+            scope = scope,
+            chapter = chapter,
+            showChapterReviews = showChapterReviews,
+            onChangeBrightness = onChangeBrightness,
+            onToggleAutoBrightness = onToggleAutoBrightness,
+            onNavigateToQuoteCreation = onNavigateToQuoteCreation,
+            onNavigate = onNavigate
+        )
+    }
+}
+
+@ExperimentalAnimationApi
+@OptIn(
+
+    ExperimentalMaterial3Api::class
+)
+@Composable
+private fun ReadingScreenContent(
+    vm: ReaderScreenViewModel,
+    scrollState: ScrollState,
+    lazyListState: LazyListState,
+    swipeState: SwipeRefreshState,
+    onNext: (reset: Boolean) -> Unit,
+    onPrev: (reset: Boolean) -> Unit,
+    readerScreenPreferencesState: ReaderScreenViewModel,
+    toggleReaderMode: () -> Unit,
+    snackBarHostState: SnackbarHostState,
+    drawerState: DrawerState,
+    onSliderFinished: () -> Unit,
+    onSliderChange: (index: Float) -> Unit,
+    onReaderPlay: () -> Unit,
+    onChapterShown: (chapter: Chapter) -> Unit,
+    paddingValues: PaddingValues,
+    onNavigateToTranslationSettings: () -> Unit,
+    onNavigateToCharacterArtUpload: (bookTitle: String, chapterTitle: String, prompt: String) -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope,
+    chapter: Chapter?,
+    showChapterReviews: androidx.compose.runtime.MutableState<Boolean>,
+    onChangeBrightness: (Float) -> Unit,
+    onToggleAutoBrightness: () -> Unit,
+    onNavigateToQuoteCreation: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
+    onNavigate: ((String) -> Unit),
+) {
+    val localizeHelper =
+        requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    // Pre-compute background color to avoid repeated conversions
+    val backgroundColor = remember(vm.backgroundColor.value) {
+        vm.backgroundColor.value.toComposeColor()
+    }
+
+    // Derive loading state for efficient Crossfade
+    val isContentLoading by remember(vm.isLoading, vm.readingMode.value, vm.chapterShell) {
+        derivedStateOf {
+            vm.isLoading && if (vm.readingMode.value == ReadingMode.Continues) vm.chapterShell.isEmpty() else true
+        }
+    }
+
+    // Use rememberUpdatedState to always have the latest callback references
+    // This ensures the callbacks use the current state values, not stale captured values
+    val currentOnNext by rememberUpdatedState(onNext)
+    val currentOnPrev by rememberUpdatedState(onPrev)
+
+    // Create stable callback wrappers that always call the latest callback
+    val onNextWithReset = remember { { currentOnNext(true) } }
+    val onPrevWithReset = remember { { currentOnPrev(true) } }
+    val onNextWithoutReset = remember { { currentOnNext(false) } }
+    val onPrevWithoutReset = remember { { currentOnPrev(false) } }
+
+    // Calculate reading time when chapter changes
+    LaunchedEffect(key1 = chapter?.id, key2 = vm.isLoading) {
+        if (chapter != null && !vm.isLoading && vm.initialized) {
+            vm.updateReadingTimeEstimation(0f)
+        }
+    }
+
+    // No complex syncing needed - Material3 ModalBottomSheet is controlled by boolean condition
+    // The sheet visibility is controlled by !vm.isReaderModeEnable
+
+    fun handleVolumeAction(isVolumeUp: Boolean) {
+        val action = determineVolumeKeyAction(
+            isVolumeUp = isVolumeUp,
+            volumeKeyInverted = vm.volumeKeyInverted.value,
+            readingMode = vm.readingMode.value,
+            canScrollForward = lazyListState.canScrollForward,
+            canScrollBackward = lazyListState.canScrollBackward,
+        )
+        when (action) {
+            VolumeKeyAction.PAGE_NEXT -> vm.navigatePageNext()
+            VolumeKeyAction.PAGE_PREV -> vm.navigatePagePrev()
+            VolumeKeyAction.NEXT_CHAPTER -> onNextWithReset()
+            VolumeKeyAction.PREV_CHAPTER -> onPrevWithReset()
+            VolumeKeyAction.SCROLL_FORWARD -> {
+                scope.launch {
+                    if (!vm.verticalScrolling.value && scrollState.maxValue > 0) {
+                        val viewportWidth = scrollState.maxValue.toFloat()
+                        val scrollDistance = (viewportWidth * 0.85f).coerceAtLeast(300f)
+                        scrollState.animateScrollBy(scrollDistance)
+                    } else {
+                        val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+                        val scrollDistance = if (viewportHeight > 0) (viewportHeight * 0.85f) else 600f
+                        lazyListState.animateScrollBy(scrollDistance)
+                    }
+                }
+            }
+            VolumeKeyAction.SCROLL_BACKWARD -> {
+                scope.launch {
+                    if (!vm.verticalScrolling.value && scrollState.maxValue > 0) {
+                        val viewportWidth = scrollState.maxValue.toFloat()
+                        val scrollDistance = (viewportWidth * 0.85f).coerceAtLeast(300f)
+                        scrollState.animateScrollBy(-scrollDistance)
+                    } else {
+                        val viewportHeight = lazyListState.layoutInfo.viewportSize.height
+                        val scrollDistance = if (viewportHeight > 0) (viewportHeight * 0.85f) else 600f
+                        lazyListState.animateScrollBy(-scrollDistance)
+                    }
+                }
+            }
+            VolumeKeyAction.NONE -> Unit
+        }
+    }
+
+    Box(
+        modifier = ReaderScreenModifiers.fillMaxSize
+            .background(backgroundColor)
+            .volumeKeyHandler(
+                enabled = vm.volumeKeyNavigation.value,
+                onVolumeUp = { handleVolumeAction(isVolumeUp = true) },
+                onVolumeDown = { handleVolumeAction(isVolumeUp = false) }
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+
+        Crossfade(
+            modifier = ReaderScreenModifiers.fillMaxSize,
+            targetState = isContentLoading,
+            animationSpec = tween(durationMillis = 300)
+        ) { isLoading ->
+
+            when (isLoading) {
+                true -> {
+                    Surface(
+                        modifier = ReaderScreenModifiers.fillMaxSize,
+                        color = backgroundColor
+                    ) {
+                        Box(
+                            modifier = ReaderScreenModifiers.fillMaxSize,
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = ReaderScreenModifiers.loadingIndicator
+                                    .align(Alignment.Center),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 3.dp
+                            )
+                        }
+                    }
+                }
+
+                else -> {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(if (vm.immersiveMode.value) PaddingValues() else paddingValues)
+                        ) {
+                            ReaderText(
+                                vm = readerScreenPreferencesState,
+                                onNext = onNextWithoutReset,
+                                swipeState = swipeState,
+                                onPrev = onPrevWithoutReset,
+                                scrollState = scrollState,
+                                toggleReaderMode = toggleReaderMode,
+                                uiState = vm,
+                                lazyListState = lazyListState,
+                                onChapterShown = onChapterShown,
+                                onShowComments = {},
+                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                                onCopyModeDone = onNavigateToQuoteCreation
+                            )
+
+                            // Settings Bottom Sheet
+                            if (vm.showSettingsBottomSheet) {
+                                ReaderSettingsBottomSheet(
+                                    vm = vm,
+                                    onDismiss = { vm.showSettingsBottomSheet = false },
+                                    onFontSelected = { /* Handle font selection */ },
+                                    onToggleAutoBrightness = onToggleAutoBrightness,
+                                    onChangeBrightness = onChangeBrightness,
+                                    onBackgroundChange = { themeId ->
+                                        vm.changeBackgroundColor(themeId)
+                                    },
+                                    onTextAlign = { alignment ->
+                                        vm.saveTextAlignment(alignment)
+                                    },
+                                    onNavigate = onNavigate
+                                )
+                            }
+
+                            // Preload indicator
+                            PreloadIndicator(
+                                isVisible = vm.isPreloading,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 16.dp)
+                            )
+
+                            // Autoscroll speed control
+                            AutoScrollSpeedControl(
+                                visible = vm.autoScrollMode,
+                                isScrolling = vm.autoScrollMode,
+                                scrollSpeed = vm.autoScrollOffset.value,
+                                onSpeedIncrease = { vm.increaseAutoScrollSpeed() },
+                                onSpeedDecrease = { vm.decreaseAutoScrollSpeed() },
+                                onToggleScroll = { vm.toggleAutoScroll() },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 80.dp)
+                            )
+
+                            // Find in chapter bar
+                            if (vm.showFindInChapter) {
+                                FindInChapterBar(
+                                    state = FindInChapterState(
+                                        query = vm.findQuery,
+                                        matches = vm.findMatches,
+                                        currentMatchIndex = vm.currentFindMatchIndex
+                                    ),
+                                    onQueryChange = { vm.updateFindQuery(it) },
+                                    onNext = { vm.findNext() },
+                                    onPrevious = { vm.findPrevious() },
+                                    onClose = { vm.toggleFindInChapter() },
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 56.dp)
+                                )
+                            }
+
+                            // Reading time estimator
+                            ReadingTimeEstimator(
+                                visible = vm.showReadingTime && !vm.isLoading,
+                                estimatedMinutes = vm.estimatedReadingMinutes,
+                                wordsRemaining = vm.wordsRemaining,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 16.dp)
+                            )
+
+                            // Reading timer indicator (hourglass)
+                            ReadingTimeIndicator(
+                                sessionStartTime = vm.statisticsViewModel.currentSessionStartTime,
+                                isVisible = vm.showReadingTimeIndicator.value && !vm.isLoading,
+                                textColor = vm.textColorCompose.value,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 12.dp, bottom = 12.dp)
+                            )
+
+                            // Reading time indicator (circular fill/empty timer)
+                            ReadingTimeIndicator(
+                                sessionStartTime = vm.statisticsViewModel.currentSessionStartTime,
+                                isVisible = vm.showReadingTimeIndicator.value,
+                                textColor = vm.textColorCompose.value,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = 12.dp, bottom = 12.dp)
+                            )
+
+                        }
+
+                        // Reading break reminder dialog
+                        if (vm.showReadingBreakDialog) {
+                            ireader.presentation.ui.reader.components.ReadingBreakReminderDialog(
+                                intervalMinutes = vm.readingBreakInterval.value,
+                                onTakeBreak = { vm.onTakeBreak() },
+                                onContinueReading = { vm.onContinueReading() },
+                                onSnooze = { minutes -> vm.onSnoozeReadingBreak(minutes) },
+                                onDismiss = { vm.dismissReadingBreakDialog() }
+                            )
+                        }
+
+                        // Reader controls bottom bar (non-modal) with fast animation
+                        AnimatedVisibility(
+                            visible = !vm.isReaderModeEnable,
+                            enter = slideInVertically(
+                                initialOffsetY = { fullHeight -> fullHeight },
+                                animationSpec = tween(
+                                    durationMillis = 150,
+                                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                                )
+                            ),
+                            exit = slideOutVertically(
+                                targetOffsetY = { fullHeight -> fullHeight },
+                                animationSpec = tween(
+                                    durationMillis = 100,
+                                    easing = androidx.compose.animation.core.FastOutLinearInEasing
+                                )
+                            ),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                                shadowElevation = 16.dp,
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .navigationBarsPadding()
+                                        .padding(horizontal = 16.dp)
+                                ) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .width(40.dp)
+                                            .height(4.dp)
+                                            .clip(RoundedCornerShape(2.dp))
+                                            .background(
+                                                MaterialTheme.colorScheme.onSurface.copy(
+                                                    alpha = 0.5f
+                                                )
+                                            )
+                                            .align(Alignment.CenterHorizontally)
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    val currentPage by vm.pagedCurrentPage.collectAsState()
+                                    val totalPages by vm.pagedTotalPages.collectAsState()
+                                    MainBottomSettingComposable(
+                                        scope = scope,
+                                        drawerState = drawerState,
+                                        chapter = chapter,
+                                        chapters = vm.stateChapters,
+                                        currentChapterIndex = vm.currentChapterIndex,
+                                        onSetting = { vm.showSettingsBottomSheet = true },
+                                        onNext = onNextWithReset,
+                                        onPrev = onPrevWithReset,
+                                        onSliderChange = onSliderChange,
+                                        onSliderFinished = onSliderFinished,
+                                        onPlay = onReaderPlay,
+                                        onAutoScrollToggle = { vm.toggleAutoScroll() },
+                                        currentPage = currentPage,
+                                        totalPages = totalPages
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

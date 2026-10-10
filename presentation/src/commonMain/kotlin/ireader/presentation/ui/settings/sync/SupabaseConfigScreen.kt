@@ -1,0 +1,1794 @@
+package ireader.presentation.ui.settings.sync
+
+import ireader.presentation.core.LocalNavigator
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import ireader.presentation.ui.component.components.Toolbar
+import org.koin.compose.koinInject
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.i18n.resources.*
+import ireader.i18n.resources.Res
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import kotlinx.coroutines.launch
+import ireader.domain.utils.extensions.currentTimeToLong
+import ireader.presentation.core.safePopBackStack
+class SupabaseConfigScreen  {
+    
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun Content() {
+        val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+        val navController = requireNotNull(LocalNavigator.current) { "LocalNavigator not provided" }
+        val viewModel: SupabaseConfigViewModel = koinInject()
+        val state by viewModel.state.collectAsState()
+        val snackbarHostState = remember { SnackbarHostState() }
+        val coroutineScope = rememberCoroutineScope()
+        val clipboardManager = LocalClipboardManager.current
+        var advancedExpanded by remember { mutableStateOf(false) }
+        
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                Toolbar(
+                    title = { Text(localizeHelper.localize(Res.string.supabase_configuration)) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.safePopBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = localizeHelper.localize(Res.string.back))
+                        }
+                    }
+                )
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 1. Single Project Card (Personal Supabase - Recommended)
+                item {
+                    SingleProjectCard(
+                        url = state.singleProjectUrl,
+                        apiKey = state.singleProjectKey,
+                        isConfigured = state.isPersonalConfigured,
+                        isTesting = state.isTesting,
+                        testResult = state.testResult,
+                        onUrlChanged = { viewModel.setSingleProjectUrl(it) },
+                        onApiKeyChanged = { viewModel.setSingleProjectKey(it) },
+                        onSave = {
+                            viewModel.saveSingleProjectConfig()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Personal Supabase configuration saved!")
+                            }
+                        },
+                        onTest = { viewModel.testConnection() },
+                        onClear = {
+                            viewModel.clearPersonalConfig()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Personal Supabase configuration cleared.")
+                            }
+                        },
+                        onCopySetupSql = {
+                            clipboardManager.setText(AnnotatedString(viewModel.getSetupSqlScript()))
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Setup SQL script copied to clipboard!")
+                            }
+                        },
+                        onShareConfig = {
+                            val exported = viewModel.exportConfig()
+                            clipboardManager.setText(AnnotatedString(exported))
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Configuration copied to clipboard!")
+                            }
+                        },
+                        onOpenImportDialog = { viewModel.setShowImportDialog(true) }
+                    )
+                }
+
+                // 2. Granular Content Selection (Books, Chapters, Progress)
+                item {
+                    ContentSyncSelectionCard(
+                        syncBooks = state.syncBooksEnabled,
+                        syncChapters = state.syncChaptersEnabled,
+                        syncChapterContent = state.syncChapterContentEnabled,
+                        syncProgress = state.syncProgressEnabled,
+                        onToggleBooks = { viewModel.toggleSyncBooks(it) },
+                        onToggleChapters = { viewModel.toggleSyncChapters(it) },
+                        onToggleChapterContent = { viewModel.toggleSyncChapterContent(it) },
+                        onToggleProgress = { viewModel.toggleSyncProgress(it) }
+                    )
+                }
+
+                // 3. Community Backend Server Card
+                item {
+                    CommunityServerCard(
+                        useCustom = state.useCustomCommunityServer,
+                        customUrl = state.customCommunityUrl,
+                        customApiKey = state.customCommunityApiKey,
+                        defaultUrl = state.defaultCommunityUrl,
+                        isTesting = state.isTesting,
+                        onToggleCustom = { viewModel.toggleUseCustomCommunityServer(it) },
+                        onUrlChanged = { viewModel.setCustomCommunityUrl(it) },
+                        onApiKeyChanged = { viewModel.setCustomCommunityApiKey(it) },
+                        onSave = {
+                            viewModel.saveCommunityServerConfig()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Custom Community Server configuration saved!")
+                            }
+                        },
+                        onReset = {
+                            viewModel.resetCommunityServerToDefault()
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Reset to built-in community backend.")
+                            }
+                        },
+                        onTest = { viewModel.testCommunityConnection() }
+                    )
+                }
+
+                // 4. Sync Settings Card
+                item {
+                    SyncSettingsCard(
+                        autoSyncEnabled = state.autoSyncEnabled,
+                        syncOnWifiOnly = state.syncOnWifiOnly,
+                        onAutoSyncChanged = { viewModel.setAutoSync(it) },
+                        onWifiOnlyChanged = { viewModel.setWifiOnly(it) }
+                    )
+                }
+                
+                // 3. Last Sync Card
+                item {
+                    LastSyncCard(
+                        lastSyncTime = state.lastSyncTime,
+                        onManualSync = { viewModel.triggerManualSync() },
+                        isSyncing = state.isSyncing
+                    )
+                }
+
+                // 4. Advanced 7-Project Architecture
+                item {
+                    AdvancedArchitectureCard(
+                        expanded = advancedExpanded,
+                        onExpandChanged = { advancedExpanded = it }
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            DefaultConfigInfoCard(
+                                hasDefaultConfig = state.hasDefaultConfig,
+                                useCustom = state.useCustomSupabase
+                            )
+
+                            CustomConfigToggleCard(
+                                hasDefaultConfig = state.hasDefaultConfig,
+                                useCustom = state.useCustomSupabase,
+                                onToggle = { viewModel.setUseCustomSupabase(it) }
+                            )
+
+                            MultiProjectCard(
+                                authUrl = state.authUrl,
+                                authApiKey = state.authApiKey,
+                                readingUrl = state.readingUrl,
+                                readingApiKey = state.readingApiKey,
+                                libraryUrl = state.libraryUrl,
+                                libraryApiKey = state.libraryApiKey,
+                                bookReviewsUrl = state.bookReviewsUrl,
+                                bookReviewsApiKey = state.bookReviewsApiKey,
+                                chapterReviewsUrl = state.chapterReviewsUrl,
+                                chapterReviewsApiKey = state.chapterReviewsApiKey,
+                                badgesUrl = state.badgesUrl,
+                                badgesApiKey = state.badgesApiKey,
+                                analyticsUrl = state.analyticsUrl,
+                                analyticsApiKey = state.analyticsApiKey,
+                                onAuthUrlChanged = { viewModel.setAuthUrl(it) },
+                                onAuthApiKeyChanged = { viewModel.setAuthApiKey(it) },
+                                onReadingUrlChanged = { viewModel.setReadingUrl(it) },
+                                onReadingApiKeyChanged = { viewModel.setReadingApiKey(it) },
+                                onLibraryUrlChanged = { viewModel.setLibraryUrl(it) },
+                                onLibraryApiKeyChanged = { viewModel.setLibraryApiKey(it) },
+                                onBookReviewsUrlChanged = { viewModel.setBookReviewsUrl(it) },
+                                onBookReviewsApiKeyChanged = { viewModel.setBookReviewsApiKey(it) },
+                                onChapterReviewsUrlChanged = { viewModel.setChapterReviewsUrl(it) },
+                                onChapterReviewsApiKeyChanged = { viewModel.setChapterReviewsApiKey(it) },
+                                onBadgesUrlChanged = { viewModel.setBadgesUrl(it) },
+                                onBadgesApiKeyChanged = { viewModel.setBadgesApiKey(it) },
+                                onAnalyticsUrlChanged = { viewModel.setAnalyticsUrl(it) },
+                                onAnalyticsApiKeyChanged = { viewModel.setAnalyticsApiKey(it) },
+                                onFillAllWithSame = { url, key -> viewModel.fillAllWithSame(url, key) },
+                                onSave = { viewModel.saveConfiguration() },
+                                onTest = { viewModel.testConnection() },
+                                isTesting = state.isTesting,
+                                testResult = state.testResult
+                            )
+                        }
+                    }
+                }
+                
+                // 5. Database Schema
+                item {
+                    DatabaseSchemaCard()
+                }
+            }
+        }
+
+        if (state.showImportDialog) {
+            AlertDialog(
+                onDismissRequest = { viewModel.setShowImportDialog(false) },
+                title = { Text("Import Supabase Configuration") },
+                text = {
+                    Column {
+                        Text(
+                            "Paste the exported configuration JSON below:",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = state.importInputText,
+                            onValueChange = { viewModel.setImportInputText(it) },
+                            modifier = Modifier.fillMaxWidth().height(140.dp),
+                            placeholder = { Text("{\"url\": \"https://...\", \"anonKey\": \"...\"}") },
+                            maxLines = 6
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val success = viewModel.importConfig(state.importInputText)
+                            viewModel.setShowImportDialog(false)
+                            coroutineScope.launch {
+                                if (success) {
+                                    snackbarHostState.showSnackbar("Configuration imported successfully!")
+                                } else {
+                                    snackbarHostState.showSnackbar("Invalid configuration format.")
+                                }
+                            }
+                        },
+                        enabled = state.importInputText.isNotBlank()
+                    ) {
+                        Text("Import")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { viewModel.setShowImportDialog(false) }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        
+        state.error?.let { error ->
+            LaunchedEffect(error) {
+                snackbarHostState.showSnackbar(error)
+                viewModel.clearError()
+            }
+        }
+    }
+}
+
+
+
+@Composable
+private fun SingleProjectCard(
+    url: String,
+    apiKey: String,
+    isConfigured: Boolean,
+    isTesting: Boolean,
+    testResult: String?,
+    onUrlChanged: (String) -> Unit,
+    onApiKeyChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onTest: () -> Unit,
+    onClear: () -> Unit,
+    onCopySetupSql: () -> Unit,
+    onShareConfig: () -> Unit,
+    onOpenImportDialog: () -> Unit
+) {
+    var showApiKey by remember { mutableStateOf(false) }
+    var showInstructions by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isConfigured) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Personal Supabase Database",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isConfigured) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Sync library, progress, & categories to your own Supabase",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isConfigured) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        text = if (isConfigured) "Configured" else "Not Setup",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isConfigured) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Action row: Setup SQL, Share, Import
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCopySetupSql,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Copy SQL", style = MaterialTheme.typography.labelSmall)
+                }
+
+                OutlinedButton(
+                    onClick = onShareConfig,
+                    modifier = Modifier.weight(1f),
+                    enabled = isConfigured
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Share", style = MaterialTheme.typography.labelSmall)
+                }
+
+                OutlinedButton(
+                    onClick = onOpenImportDialog,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Import", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Step-by-step instructions collapsible
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "How to setup your free Supabase",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        IconButton(onClick = { showInstructions = !showInstructions }, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                imageVector = if (showInstructions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = if (showInstructions) "Hide" else "Show"
+                            )
+                        }
+                    }
+
+                    if (showInstructions) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "1. Create a free project at supabase.com\n" +
+                                   "2. In your Supabase dashboard, click 'SQL Editor'\n" +
+                                   "3. Tap 'Copy SQL' above, paste it into the editor, and click 'RUN'\n" +
+                                   "4. Go to Project Settings > API, copy 'Project URL' and 'anon' public key, and paste them below!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedTextField(
+                value = url,
+                onValueChange = onUrlChanged,
+                label = { Text("Project URL") },
+                placeholder = { Text("https://xyzcompany.supabase.co") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = onApiKeyChanged,
+                label = { Text("API Anon Key") },
+                placeholder = { Text("eyJhbGciOiJIUzI1NiIsIn...") },
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    IconButton(onClick = { showApiKey = !showApiKey }) {
+                        Icon(
+                            imageVector = if (showApiKey) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (showApiKey) "Hide" else "Show"
+                        )
+                    }
+                },
+                visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true
+            )
+
+            testResult?.let { result ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (result.contains("✓")) 
+                            MaterialTheme.colorScheme.primaryContainer 
+                        else 
+                            MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = result,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onTest,
+                    modifier = Modifier.weight(1f),
+                    enabled = !isTesting && url.isNotBlank() && apiKey.isNotBlank()
+                ) {
+                    if (isTesting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Test")
+                }
+
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.weight(1.5f),
+                    enabled = url.isNotBlank() && apiKey.isNotBlank()
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Save Config")
+                }
+
+                if (isConfigured) {
+                    IconButton(onClick = onClear) {
+                        Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedArchitectureCard(
+    expanded: Boolean,
+    onExpandChanged: (Boolean) -> Unit,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Advanced: 7-Project Architecture",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Configure separate Supabase microservices per feature",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = { onExpandChanged(!expanded) }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand"
+                    )
+                }
+            }
+
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun DefaultConfigInfoCard(
+    hasDefaultConfig: Boolean,
+    useCustom: Boolean
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasDefaultConfig && !useCustom) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else 
+                MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = if (hasDefaultConfig && !useCustom) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(32.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column {
+                Text(
+                    text = if (hasDefaultConfig) {
+                        if (useCustom) "Using Custom Configuration" else "Using Default Configuration"
+                    } else {
+                        "No Default Configuration"
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (hasDefaultConfig) {
+                        if (useCustom) {
+                            "You're using your own Supabase instance. Toggle off to use the default backend."
+                        } else {
+                            "App is using the default Supabase backend. You can optionally use your own instance."
+                        }
+                    } else {
+                        "No default backend configured. Please configure your own Supabase instance below."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (hasDefaultConfig && !useCustom) 
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomConfigToggleCard(
+    hasDefaultConfig: Boolean,
+    useCustom: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    if (!hasDefaultConfig) {
+        // No toggle needed if there's no default config
+        return
+    }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = localizeHelper.localize(Res.string.use_custom_supabase),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = localizeHelper.localize(Res.string.enable_to_use_your_own),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Switch(
+                checked = useCustom,
+                onCheckedChange = onToggle
+            )
+        }
+    }
+}
+
+@Composable
+private fun SyncSettingsCard(
+    autoSyncEnabled: Boolean,
+    syncOnWifiOnly: Boolean,
+    onAutoSyncChanged: (Boolean) -> Unit,
+    onWifiOnlyChanged: (Boolean) -> Unit
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = localizeHelper.localize(Res.string.sync_settings),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.auto_sync),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = localizeHelper.localize(Res.string.automatically_sync_reading_progress),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Switch(
+                    checked = autoSyncEnabled,
+                    onCheckedChange = onAutoSyncChanged
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.wifi_only),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = localizeHelper.localize(Res.string.sync_only_when_connected_to_wifi),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Switch(
+                    checked = syncOnWifiOnly,
+                    onCheckedChange = onWifiOnlyChanged,
+                    enabled = autoSyncEnabled
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LastSyncCard(
+    lastSyncTime: Long,
+    onManualSync: () -> Unit,
+    isSyncing: Boolean
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = localizeHelper.localize(Res.string.last_sync),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (lastSyncTime > 0) formatTime(lastSyncTime) else "Never",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Button(
+                    onClick = onManualSync,
+                    enabled = !isSyncing
+                ) {
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(localizeHelper.localize(Res.string.sync_now))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DatabaseSchemaCard() {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    var expanded by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = localizeHelper.localize(Res.string.database_schema),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand"
+                    )
+                }
+            }
+            
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = localizeHelper.localize(Res.string.required_tables),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                SchemaTable(
+                    tableName = "sync_manifest (Document Store)",
+                    columns = listOf(
+                        "user_id (text, primary key)",
+                        "manifest (jsonb, lossless sync data)",
+                        "updated_at (bigint, timestamp)"
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SchemaTable(
+                    tableName = "synced_books (Relational View)",
+                    columns = listOf(
+                        "user_id (text)",
+                        "book_id (text)",
+                        "source_id (bigint)",
+                        "title (text)",
+                        "book_url (text)",
+                        "author (text)",
+                        "description (text)",
+                        "genres (text)",
+                        "status (bigint)",
+                        "cover_url (text)",
+                        "favorite (boolean)",
+                        "last_read (bigint)",
+                        "updated_at (timestamp)",
+                        "PRIMARY KEY (user_id, book_id)"
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SchemaTable(
+                    tableName = "reading_progress (Relational View)",
+                    columns = listOf(
+                        "user_id (text)",
+                        "book_id (text)",
+                        "last_chapter_slug (text)",
+                        "last_scroll_position (float)",
+                        "updated_at (bigint)",
+                        "PRIMARY KEY (user_id, book_id)"
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SchemaTable(tableName: String, columns: List<String>) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Text(
+                text = tableName,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            columns.forEach { column ->
+                Text(
+                    text = "� $column",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 8.dp, top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MultiEndpointCard(
+    useMultiEndpoint: Boolean,
+    booksUrl: String,
+    booksApiKey: String,
+    progressUrl: String,
+    progressApiKey: String,
+    reviewsUrl: String,
+    reviewsApiKey: String,
+    communityUrl: String,
+    communityApiKey: String,
+    onUseMultiEndpointChanged: (Boolean) -> Unit,
+    onBooksUrlChanged: (String) -> Unit,
+    onBooksApiKeyChanged: (String) -> Unit,
+    onProgressUrlChanged: (String) -> Unit,
+    onProgressApiKeyChanged: (String) -> Unit,
+    onReviewsUrlChanged: (String) -> Unit,
+    onReviewsApiKeyChanged: (String) -> Unit,
+    onCommunityUrlChanged: (String) -> Unit,
+    onCommunityApiKeyChanged: (String) -> Unit,
+    onSave: () -> Unit
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.multi_endpoint_configuration),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = localizeHelper.localize(Res.string.use_separate_supabase_projects_for),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Switch(
+                    checked = useMultiEndpoint,
+                    onCheckedChange = onUseMultiEndpointChanged
+                )
+            }
+            
+            if (useMultiEndpoint) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Books Endpoint
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.books_endpoint),
+                    description = "Separate project for book sync data",
+                    icon = Icons.Default.Book,
+                    url = booksUrl,
+                    apiKey = booksApiKey,
+                    onUrlChanged = onBooksUrlChanged,
+                    onApiKeyChanged = onBooksApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Progress Endpoint
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.progress_endpoint),
+                    description = "Separate project for reading progress",
+                    icon = Icons.AutoMirrored.Filled.TrendingUp,
+                    url = progressUrl,
+                    apiKey = progressApiKey,
+
+                    onUrlChanged = onProgressUrlChanged,
+                    onApiKeyChanged = onProgressApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Reviews Endpoint (Future)
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.reviews_endpoint),
+                    description = "Coming soon - Reviews and ratings",
+                    icon = Icons.Default.Star,
+                    url = reviewsUrl,
+                    apiKey = reviewsApiKey,
+                    onUrlChanged = onReviewsUrlChanged,
+                    onApiKeyChanged = onReviewsApiKeyChanged,
+                    enabled = false,
+                    badge = "Coming Soon"
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Community Endpoint (Future)
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.community_endpoint),
+                    description = "Coming soon - Social features",
+                    icon = Icons.Default.People,
+                    url = communityUrl,
+                    apiKey = communityApiKey,
+                    onUrlChanged = onCommunityUrlChanged,
+                    onApiKeyChanged = onCommunityApiKeyChanged,
+                    enabled = false,
+                    badge = "Coming Soon"
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(localizeHelper.localize(Res.string.save_multi_endpoint_configuration))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EndpointSection(
+    title: String,
+    description: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    url: String,
+    apiKey: String,
+    onUrlChanged: (String) -> Unit,
+    onApiKeyChanged: (String) -> Unit,
+    enabled: Boolean = true,
+    badge: String? = null
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    var showApiKey by remember { mutableStateOf(false) }
+    
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            badge?.let {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.tertiary
+                ) {
+                    Text(
+                        text = it,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiary
+                    )
+                }
+            }
+        }
+        
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 28.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedTextField(
+            value = url,
+            onValueChange = onUrlChanged,
+            label = { Text(localizeHelper.localize(Res.string.url_1)) },
+            placeholder = { Text("https://$title-project.supabase.co") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        OutlinedTextField(
+            value = apiKey,
+            onValueChange = onApiKeyChanged,
+            label = { Text(localizeHelper.localize(Res.string.api_key)) },
+            placeholder = { Text(localizeHelper.localize(Res.string.eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9)) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = enabled,
+            trailingIcon = {
+                IconButton(onClick = { showApiKey = !showApiKey }) {
+                    Icon(
+                        imageVector = if (showApiKey) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (showApiKey) "Hide" else "Show"
+                    )
+                }
+            },
+            visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
+        )
+    }
+}
+
+@Composable
+private fun MultiProjectCard(
+    authUrl: String,
+    authApiKey: String,
+    readingUrl: String,
+    readingApiKey: String,
+    libraryUrl: String,
+    libraryApiKey: String,
+    bookReviewsUrl: String,
+    bookReviewsApiKey: String,
+    chapterReviewsUrl: String,
+    chapterReviewsApiKey: String,
+    badgesUrl: String,
+    badgesApiKey: String,
+    analyticsUrl: String,
+    analyticsApiKey: String,
+    onAuthUrlChanged: (String) -> Unit,
+    onAuthApiKeyChanged: (String) -> Unit,
+    onReadingUrlChanged: (String) -> Unit,
+    onReadingApiKeyChanged: (String) -> Unit,
+    onLibraryUrlChanged: (String) -> Unit,
+    onLibraryApiKeyChanged: (String) -> Unit,
+    onBookReviewsUrlChanged: (String) -> Unit,
+    onBookReviewsApiKeyChanged: (String) -> Unit,
+    onChapterReviewsUrlChanged: (String) -> Unit,
+    onChapterReviewsApiKeyChanged: (String) -> Unit,
+    onBadgesUrlChanged: (String) -> Unit,
+    onBadgesApiKeyChanged: (String) -> Unit,
+    onAnalyticsUrlChanged: (String) -> Unit,
+    onAnalyticsApiKeyChanged: (String) -> Unit,
+    onFillAllWithSame: (String, String) -> Unit,
+    onSave: () -> Unit,
+    onTest: () -> Unit,
+    isTesting: Boolean,
+    testResult: String?
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    var quickFillUrl by remember { mutableStateOf("") }
+    var quickFillKey by remember { mutableStateOf("") }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column {
+                Text(
+                    text = localizeHelper.localize(Res.string.supabase_configuration),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = localizeHelper.localize(Res.string.gb_total_storage_7_500mb),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Quick Fill Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = localizeHelper.localize(Res.string.quick_fill_same_url_for_all_projects),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedTextField(
+                        value = quickFillUrl,
+                        onValueChange = { quickFillUrl = it },
+                        label = { Text(localizeHelper.localize(Res.string.supabase_url)) },
+                        placeholder = { Text("https://xxx.supabase.co") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedTextField(
+                        value = quickFillKey,
+                        onValueChange = { quickFillKey = it },
+                        label = { Text(localizeHelper.localize(Res.string.api_key)) },
+                        placeholder = { Text(localizeHelper.localize(Res.string.eyjhbgcioijiuzi1niisinr5cci6ikpxvcj9)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Button(
+                        onClick = { onFillAllWithSame(quickFillUrl, quickFillKey) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = quickFillUrl.isNotEmpty() && quickFillKey.isNotEmpty()
+                    ) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(localizeHelper.localize(Res.string.fill_all_projects))
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 1 - Auth
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_1_auth),
+                    description = "User authentication and profiles (500MB)",
+                    icon = Icons.Default.People,
+                    url = authUrl,
+                    apiKey = authApiKey,
+                    onUrlChanged = onAuthUrlChanged,
+                    onApiKeyChanged = onAuthApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 2 - Reading
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_2_reading),
+                    description = "Reading progress tracking (500MB)",
+                    icon = Icons.AutoMirrored.Filled.TrendingUp,
+                    url = readingUrl,
+                    apiKey = readingApiKey,
+
+                    onUrlChanged = onReadingUrlChanged,
+                    onApiKeyChanged = onReadingApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 3 - Library
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_3_library),
+                    description = "Synced books library (500MB)",
+                    icon = Icons.Default.Book,
+                    url = libraryUrl,
+                    apiKey = libraryApiKey,
+                    onUrlChanged = onLibraryUrlChanged,
+                    onApiKeyChanged = onLibraryApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 4 - Book Reviews
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_4_book_reviews),
+                    description = "Book reviews and ratings (500MB)",
+                    icon = Icons.Default.Star,
+                    url = bookReviewsUrl,
+                    apiKey = bookReviewsApiKey,
+                    onUrlChanged = onBookReviewsUrlChanged,
+                    onApiKeyChanged = onBookReviewsApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 5 - Chapter Reviews
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_5_chapter_reviews),
+                    description = "Chapter reviews and ratings (500MB)",
+                    icon = Icons.Default.Star,
+                    url = chapterReviewsUrl,
+                    apiKey = chapterReviewsApiKey,
+                    onUrlChanged = onChapterReviewsUrlChanged,
+                    onApiKeyChanged = onChapterReviewsApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 6 - Badges
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_6_badges),
+                    description = "Badge system and payment proofs (500MB)",
+                    icon = Icons.Default.Star,
+                    url = badgesUrl,
+                    apiKey = badgesApiKey,
+                    onUrlChanged = onBadgesUrlChanged,
+                    onApiKeyChanged = onBadgesApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Project 7 - Analytics
+                EndpointSection(
+                    title = localizeHelper.localize(Res.string.project_7_analytics),
+                    description = "Leaderboard and statistics (500MB)",
+                    icon = Icons.AutoMirrored.Filled.TrendingUp,
+                    url = analyticsUrl,
+                    apiKey = analyticsApiKey,
+
+                    onUrlChanged = onAnalyticsUrlChanged,
+                    onApiKeyChanged = onAnalyticsApiKeyChanged
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                testResult?.let { result ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (result.contains("?")) 
+                                MaterialTheme.colorScheme.primaryContainer 
+                            else 
+                                MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = result,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onTest,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isTesting && authUrl.isNotBlank() && authApiKey.isNotBlank()
+                    ) {
+                        if (isTesting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.CloudSync, contentDescription = null)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(localizeHelper.localize(Res.string.test))
+                    }
+                    
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        enabled = authUrl.isNotBlank() && authApiKey.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(localizeHelper.localize(Res.string.save_configuration))
+                    }
+                }
+        }
+    }
+}
+
+private fun formatTime(timestamp: Long): String {
+    val now = currentTimeToLong()
+    val diff = now - timestamp
+    
+    return when {
+        diff < 60_000 -> "Just now"
+        diff < 3600_000 -> "${diff / 60_000} minutes ago"
+        diff < 86400_000 -> "${diff / 3600_000} hours ago"
+        else -> "${diff / 86400_000} days ago"
+    }
+}
+
+@Composable
+private fun ContentSyncSelectionCard(
+    syncBooks: Boolean,
+    syncChapters: Boolean,
+    syncChapterContent: Boolean,
+    syncProgress: Boolean,
+    onToggleBooks: (Boolean) -> Unit,
+    onToggleChapters: (Boolean) -> Unit,
+    onToggleChapterContent: (Boolean) -> Unit,
+    onToggleProgress: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Sync Content Selection",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Customize what data gets uploaded to your self-hosted server.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleBooks(!syncBooks) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sync Books", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text("Sync library novels and book metadata (optional)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = syncBooks, onCheckedChange = onToggleBooks)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleChapters(!syncChapters) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sync Chapters", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text("Sync chapter list, bookmarks, and read states", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = syncChapters, onCheckedChange = onToggleChapters)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleChapterContent(!syncChapterContent) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sync Chapter Content (Full Text)", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text("Upload full downloaded chapter bodies. Default: Off (saves bandwidth and storage)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = syncChapterContent, onCheckedChange = onToggleChapterContent)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleProgress(!syncProgress) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Sync Reading Progress", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text("Sync active reading positions and last read timestamps", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = syncProgress, onCheckedChange = onToggleProgress)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommunityServerCard(
+    useCustom: Boolean,
+    customUrl: String,
+    customApiKey: String,
+    defaultUrl: String,
+    isTesting: Boolean,
+    onToggleCustom: (Boolean) -> Unit,
+    onUrlChanged: (String) -> Unit,
+    onApiKeyChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+    onTest: () -> Unit
+) {
+    var showApiKey by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Community & Leaderboard Backend",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Used for community sources, translations, leaderboard, and badges",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (!useCustom) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = if (!useCustom) "Default Env" else "Custom Server",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (!useCustom) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleCustom(!useCustom) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Use Custom Community Server", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (!useCustom) "Currently using default community server (built into app)" else "Custom community backend active",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = useCustom, onCheckedChange = onToggleCustom)
+            }
+
+            if (useCustom) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = customUrl,
+                    onValueChange = onUrlChanged,
+                    label = { Text("Community Server URL") },
+                    placeholder = { Text("https://your-community-supabase.co") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = customApiKey,
+                    onValueChange = onApiKeyChanged,
+                    label = { Text("Community API Key (Anon)") },
+                    placeholder = { Text("eyJhbGciOi...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = if (showApiKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showApiKey = !showApiKey }) {
+                            Icon(
+                                imageVector = if (showApiKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (showApiKey) "Hide" else "Show"
+                            )
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onSave,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Save Server")
+                    }
+
+                    OutlinedButton(
+                        onClick = onTest,
+                        enabled = !isTesting,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        if (isTesting) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Test")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onReset,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Reset")
+                    }
+                }
+            } else if (defaultUrl.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Cloud,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Connected to app environment: ${defaultUrl.take(35)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,77 @@
+package ireader.data.di
+
+import ireader.data.repository.TrackingRepositoryImpl
+import ireader.data.tracking.anilist.AniListRepositoryImpl
+import ireader.data.tracking.kitsu.KitsuRepositoryImpl
+import ireader.data.tracking.mal.MyAnimeListRepositoryImpl
+import ireader.data.tracking.mangabaka.MangaBakaRepositoryImpl
+import ireader.data.tracking.mangaupdates.MangaUpdatesRepositoryImpl
+import ireader.data.tracking.mynovellist.MyNovelListRepositoryImpl
+import ireader.domain.data.repository.TrackingRepository
+import org.koin.dsl.module
+
+/**
+ * Koin module for tracking-related dependencies.
+ * Provides AniList, MyAnimeList, Kitsu, MangaUpdates, and MyNovelList tracking service implementations.
+ */
+val trackingModule = module {
+    // AniList repository
+    single {
+        AniListRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            preferenceStore = get()
+        )
+    }
+    
+    // MyAnimeList repository
+    single {
+        MyAnimeListRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            preferenceStore = get()
+        )
+    }
+    
+    // Kitsu repository
+    single {
+        KitsuRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            preferenceStore = get()
+        )
+    }
+    
+    // MangaUpdates repository
+    single {
+        MangaUpdatesRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            preferenceStore = get()
+        )
+    }
+    
+    // MyNovelList repository
+    single {
+        MyNovelListRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            preferenceStore = get()
+        )
+    }
+    
+    // MangaBaka repository (public API, no auth)
+    single {
+        MangaBakaRepositoryImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default
+        )
+    }
+    
+    // Main tracking repository with all services
+    single<TrackingRepository> {
+        TrackingRepositoryImpl(
+            handler = get(),
+            aniListRepository = get(),
+            malRepository = get(),
+            kitsuRepository = get(),
+            mangaUpdatesRepository = get(),
+            myNovelListRepository = get(),
+            mangaBakaRepository = get()
+        )
+    }
+}

@@ -1,0 +1,110 @@
+# ============================================
+# Android / Gradle
+# ============================================
+.gradle/
+build/
+buildSrc/.kotlin/
+local.properties
+gradle.properties.local
+
+# Native builds
+.externalNativeBuild/
+.cxx/
+native/build/
+native/cmake-build-*/
+
+# ============================================
+# IntelliJ / Android Studio
+# ============================================
+.idea/
+*.iml
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
+
+# ============================================
+# Keystore & Signing
+# ============================================
+*.jks
+*.keystore
+
+# ============================================
+# Binary files & compiled outputs
+# ============================================
+*.apk
+*.aab
+*.class
+*.dex
+*.ap_
+*.hprof
+*.dll
+*.so
+*.dylib
+bin/
+output.json
+dist/
+
+# ============================================
+# Native libraries (downloaded/built by devs)
+# ============================================
+native/libs/
+native/piper/
+
+# ============================================
+# Voice models
+# ============================================
+voice_models/
+*.onnx
+*.onnx.json
+
+# ============================================
+# Log / OS files
+# ============================================
+*.log
+.DS_Store
+
+# ============================================
+# Sensitive config (contain credentials)
+# ============================================
+config.properties
+github.properties
+google-services.json
+.env
+.env.local
+# Upstream commented-out test contains an old API credential; keep it local only.
+domain/src/commonTest/kotlin/ireader/domain/usecases/translate/DeepSeekTranslateEngineTest.kt
+
+# ============================================
+# Agent / AI tool configs
+# ============================================
+.claude/
+.opencode/
+.mimocode/
+.codegraph/
+.kiro/
+.kilocode/
+.kotlin/
+.vscode/
+agents/
+test_local_novel/
+graphify-out/
+.codegraph/
+# Individual dev-tool state files (tracked by accident historically)
+.config.kiro
+.kilocodemodes
+.graphifyignore
+.playwright-mcp/
+IReader.code-workspace
+# ============================================
+# Cloned repos (not part of this project)
+# ============================================
+mihon-main
+lnreader-master
+IReader-extensions
+IReader-plugins
+legado-master
+ksuop
+Suwayomi-Server-master
+mihon
+extensions-source-main
+lnreader-plugins-unminified

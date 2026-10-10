@@ -1,0 +1,375 @@
+package ireader.domain.di
+
+import android.app.Service
+import androidx.compose.ui.text.ExperimentalTextApi
+import ireader.core.http.HttpClients
+import ireader.core.http.cloudflare.cloudflareBypassModule
+import okio.Path.Companion.toPath
+import ireader.core.prefs.PreferenceStore
+import ireader.core.prefs.PreferenceStoreFactory
+import ireader.core.source.LocalCatalogSource
+import ireader.domain.preferences.prefs.AndroidUiPreferences
+import ireader.domain.preferences.prefs.PlatformUiPreferences
+import ireader.domain.services.downloaderService.DefaultNotificationHelper
+import ireader.domain.services.downloaderService.DownloaderService
+import ireader.domain.services.extensions_insstaller_service.ExtensionManagerService
+import ireader.domain.services.library_update_service.LibraryUpdatesService
+import ireader.domain.services.tts_service.TTSStateImpl
+import ireader.domain.services.update_service.UpdateService
+import ireader.domain.usecases.backup.AutomaticBackup
+import ireader.domain.usecases.backup.lnreader.ImportLNReaderBackup
+import ireader.domain.usecases.backup.lnreader.LNReaderStreamingImporter
+import ireader.domain.usecases.backup.lnreader.createAndroidStreamingImporter
+import ireader.domain.usecases.epub.EpubCreator
+import ireader.domain.usecases.epub.ImportEpub
+import ireader.domain.usecases.pdf.ImportPdf
+import ireader.domain.usecases.file.AndroidFileSaver
+import ireader.domain.usecases.file.FileSaver
+import ireader.domain.usecases.files.AndroidGetSimpleStorage
+import ireader.domain.usecases.files.GetSimpleStorage
+import ireader.domain.storage.AndroidCacheManager
+import ireader.domain.storage.AndroidStorageManager
+import ireader.domain.storage.CacheManager
+import ireader.domain.storage.StorageManager
+import ireader.domain.usecases.local.LocalSourceImpl
+import ireader.domain.usecases.local.RefreshLocalLibrary
+import ireader.domain.usecases.preferences.AndroidReaderPrefUseCases
+import ireader.domain.usecases.preferences.SelectedFontStateUseCase
+import ireader.domain.usecases.preferences.TextReaderPrefUseCase
+import ireader.domain.usecases.reader.ScreenAlwaysOn
+import ireader.domain.usecases.reader.ScreenAlwaysOnImpl
+import ireader.domain.usecases.services.ServiceUseCases
+import ireader.domain.usecases.services.StartDownloadServicesUseCase
+import ireader.domain.usecases.services.StartExtensionManagerService
+import ireader.domain.usecases.services.StartLibraryUpdateServicesUseCase
+import ireader.domain.usecases.services.StartTTSServicesUseCase
+import ireader.domain.notification.PlatformNotificationManager
+import ireader.domain.notification.AndroidNotificationManager
+import ireader.i18n.LocalizeHelper
+import ireader.domain.services.ExtensionWatcherService
+import org.koin.android.ext.koin.androidContext
+import org.koin.androidx.workmanager.dsl.worker
+import org.koin.core.qualifier.named
+import org.koin.dsl.module
+import java.io.File
+
+@OptIn(ExperimentalTextApi::class)
+actual val DomainModule = module {
+    // Module Organization Note:
+    // This module uses the includes() pattern for sub-modules (syncDomainModule, ServiceModule, etc.)
+    // which provides better organization and separation of concerns. Consider standardizing other
+    // DI modules across the codebase to follow this pattern where appropriate, especially for
+    // modules with 20+ definitions. Benefits: improved readability, easier testing, clearer dependencies.
+    
+    // Include sync module for sync functionality
+    includes(syncDomainModule)
+    // Include ServiceModule for platform services (DownloadService, NotificationService, etc.)
+    includes(ServiceModule)
+    // Include TTS v2 module for new clean TTS architecture
+    includes(ireader.domain.services.tts_service.v2.ttsV2Module)
+    // Include Cloudflare bypass module for plugin-based bypass
+    includes(cloudflareBypassModule)
+    
+    // Process State Manager for handling process death
+    single { ireader.domain.services.processstate.ProcessStateManager(get()) }
+    
+    // FileSystem implementation for Android
+    single<ireader.core.io.FileSystem> {
+        ireader.core.io.AndroidFileSystem(androidContext())
+    }
+    
+    // Plugins directory for Android
+    single(named("pluginsDir")) {
+        File(androidContext().filesDir, "plugins").apply { mkdirs() }
+    }
+    
+    // Plugin Class Loader for Android
+    single { 
+        ireader.domain.plugins.PluginClassLoader(
+            cacheDir = androidContext().cacheDir
+        )
+    }
+    
+    worker {
+        DownloaderService(
+            androidContext(),
+            get(),
+        )
+    }
+    // New type-safe notification manager
+    single<PlatformNotificationManager> {
+        AndroidNotificationManager(get())
+    }
+
+    worker {
+        ExtensionManagerService(
+            androidContext(),
+            get(),
+        )
+    }
+    worker {
+        UpdateService(
+            androidContext(), get(),
+        )
+    }
+    worker {
+        LibraryUpdatesService(
+            androidContext(),
+            get(),
+        )
+    }
+    worker {
+        ireader.domain.usecases.backup.AutoBackupWorker(
+            androidContext(),
+            get(),
+            get(),
+            get()
+        )
+    }
+
+    single {
+        AutomaticBackup(
+                get(),
+                get(),
+                get(),
+                get()
+        )
+    }
+    single<ireader.domain.usecases.backup.ScheduleAutomaticBackup> {
+        ireader.domain.usecases.backup.ScheduleAutomaticBackupImpl(
+                androidContext()
+        )
+    }
+    single <TTSStateImpl> { ireader.domain.services.tts_service.TTSStateImpl() }
+    factory  { ireader.domain.services.update_service.UpdateApi(get()) }
+
+    factory  { ireader.domain.usecases.services.StartDownloadServicesUseCase(get()) }
+    factory  { ireader.domain.usecases.services.StartLibraryUpdateServicesUseCase(get()) }
+    factory  { ireader.domain.usecases.services.StartTTSServicesUseCase(get()) }
+    factory  {
+        TextReaderPrefUseCase(
+                get(),
+                get()
+        )
+    }
+    factory  { ireader.domain.usecases.tts.GetNativeTTSVoicesUseCase(get()) }
+    factory  {
+        StartExtensionManagerService(
+                get()
+        )
+    }
+    single<ExtensionWatcherService> {
+        ExtensionWatcherService()
+    }
+    
+    // Storage and Cache Managers
+    single<StorageManager> { AndroidStorageManager(get(), get()) }
+    single<CacheManager> { AndroidCacheManager(get(), get()) }
+    
+    // SAF Storage Manager
+    single<ireader.domain.storage.SafStorageManager> { 
+        ireader.domain.storage.SafStorageManager(get(), get()) 
+    }
+    
+    // SAF Folder Checker - checks if SAF folder is available
+    single<ireader.domain.storage.SafFolderChecker> { 
+        ireader.domain.storage.SafFolderChecker(get(), get(), get()) 
+    }
+    
+    single<GetSimpleStorage>{ AndroidGetSimpleStorage(get(), get()) }
+    single<AndroidGetSimpleStorage>{ AndroidGetSimpleStorage(get(), get()) }
+    single<DefaultNotificationHelper> { DefaultNotificationHelper(get(),get()) }
+    factory <ScreenAlwaysOn> {
+        ScreenAlwaysOnImpl(get())
+    }
+    single<FileSaver> {
+        AndroidFileSaver(get())
+    }
+    single<ireader.domain.usecases.backup.v2.BackupArchiveStreamer> {
+        ireader.domain.usecases.backup.v2.AndroidBackupArchiveStreamer(androidContext())
+    }
+    single {
+        AndroidReaderPrefUseCases(
+                selectedFontStateUseCase = SelectedFontStateUseCase(get(),get()),
+
+        )
+    }
+    single<ImportEpub> { ImportEpub(get(), get(), get(), get(), get(), get(), get()) }
+    single<ImportPdf> { ImportPdf(get(), get(), get(), get(), get(), get()) }
+    single<PlatformUiPreferences> {
+        AndroidUiPreferences(get(), get())
+    }
+    factory<EpubCreator> { EpubCreator(get(), get(), get(), get<HttpClients>().default) }
+    single<ServiceUseCases> {
+        ServiceUseCases(
+            startDownloadServicesUseCase = StartDownloadServicesUseCase(get()),
+            startLibraryUpdateServicesUseCase = StartLibraryUpdateServicesUseCase(get()),
+            startTTSServicesUseCase = StartTTSServicesUseCase(get()),
+        )
+    }
+
+    single<LocalizeHelper> { LocalizeHelper(get()) }
+    single<PreferenceStore> {
+        get<PreferenceStoreFactory>().create("ireader")
+    }
+    
+    // Network components
+    single<io.ktor.client.plugins.cookies.CookiesStorage> { 
+        ireader.core.http.AcceptAllCookiesStorage() 
+    }
+    
+    single<ireader.core.http.WebViewCookieJar> { 
+        ireader.core.http.WebViewCookieJar(get())
+    }
+    
+    single<ireader.core.http.WebViewManger> { 
+        ireader.core.http.WebViewManger(androidContext())
+    }
+    
+    single<ireader.core.http.CookieSynchronizer> { 
+        ireader.core.http.CookieSynchronizer(get(), get()).also {
+            get<ireader.core.http.WebViewCookieJar>().setCookieSynchronizer(it)
+        }
+    }
+    
+    single<ireader.core.http.BrowserEngine> { 
+        ireader.core.http.BrowserEngine(get(), get(), get())
+    }
+    
+    single<ireader.core.http.NetworkConfig> { 
+        val networkPrefs = get<ireader.domain.preferences.prefs.NetworkPreferences>()
+        val useDefaultUA = networkPrefs.useDefaultUserAgent().get()
+        val customUA = networkPrefs.customUserAgent().get()
+        val proxyEnabled = networkPrefs.proxyEnabled().get()
+        val proxyHost = networkPrefs.proxyHost().get()
+        val proxyPort = networkPrefs.proxyPort().get()
+        
+        ireader.core.http.NetworkConfig(
+            userAgent = if (useDefaultUA) ireader.core.http.DEFAULT_USER_AGENT else customUA,
+            proxyHost = if (proxyEnabled && proxyHost.isNotBlank()) proxyHost else null,
+            proxyPort = if (proxyEnabled && proxyPort > 0) proxyPort else null
+        )
+    }
+    
+    single<ireader.core.http.HttpClients> { 
+        ireader.core.http.HttpClients(
+            context = androidContext(),
+            browseEngine = get(),
+            cookiesStorage = get(),
+            webViewCookieJar = get(),
+            preferencesStore = get(),
+            webViewManager = get(),
+        )
+    }
+
+    // Local Library Source
+    single<LocalCatalogSource> {
+        LocalSourceImpl(androidContext())
+    }
+    
+    factory {
+        RefreshLocalLibrary(
+            localSource = get(),
+            bookRepository = get(),
+            chapterRepository = get()
+        )
+    }
+    
+    factory {
+        ireader.domain.usecases.local.OpenLocalFolder(
+            localSource = get(),
+            context = androidContext()
+        )
+    }
+    
+    // Payment Processor for plugin monetization
+    single<ireader.domain.plugins.PaymentProcessor> {
+        ireader.domain.plugins.AndroidPaymentProcessor(
+            getCurrentUserId = { 
+                // TODO: Replace with actual user authentication integration
+                // Currently returns hardcoded "default_user" as placeholder
+                // Required changes:
+                // 1. Implement user authentication service (Firebase Auth, custom backend, etc.)
+                // 2. Store authenticated user ID in UserPreferences or secure storage
+                // 3. Inject authentication service here and retrieve actual user ID
+                // 4. Handle unauthenticated state (return null or anonymous ID)
+                "default_user"
+            }
+        )
+    }
+    
+    // Voice Storage for TTS voice models
+    single<ireader.domain.storage.VoiceStorage> {
+        ireader.domain.storage.AndroidVoiceStorage(androidContext().filesDir)
+    }
+    
+    // AI TTS Manager
+    single<ireader.domain.services.tts.AITTSManager> {
+        ireader.domain.services.tts.AITTSManager(
+            context = androidContext(),
+            appPreferences = get(),
+            gradioTTSManager = get()
+        )
+    }
+    
+    // TTS Download Notification Helper
+    single<ireader.domain.services.tts_service.TTSDownloadNotificationHelper> {
+        ireader.domain.services.tts_service.TTSDownloadNotificationHelper(
+            notificationManager = get()
+        )
+    }
+    
+    // TTS Chapter Download Manager with notification support
+    single<ireader.domain.services.tts_service.TTSChapterDownloadManager> {
+        ireader.domain.services.tts_service.TTSChapterDownloadManager(
+            notificationHelper = get()
+        )
+    }
+    
+    // TTS Chapter Cache for storing downloaded chapter audio
+    single<ireader.domain.services.tts_service.TTSChapterCache> {
+        val cachePath = "${androidContext().cacheDir.absolutePath}/tts_chapter_cache"
+        val cacheDir = cachePath.toPath()
+        ireader.domain.services.tts_service.TTSChapterCache(
+            fileSystem = okio.FileSystem.SYSTEM,
+            cacheDir = cacheDir
+        )
+    }
+    
+    // LNReader streaming importer for Android
+    factory<LNReaderStreamingImporter> {
+        ImportLNReaderBackup(
+            parser = get(),
+            sourceMapper = get(),
+            bookRepository = get(),
+            chapterRepository = get(),
+            categoryRepository = get(),
+            bookCategoryRepository = get(),
+            transactions = get(),
+            fileSaver = get()
+        ).createAndroidStreamingImporter()
+    }
+
+    // Gradio TTS Manager for online TTS services
+    single<ireader.domain.services.tts_service.GradioTTSManager> {
+        val appPrefs: ireader.domain.preferences.prefs.AppPreferences = get()
+        ireader.domain.services.tts_service.GradioTTSManager(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            audioPlayerFactory = { ireader.domain.services.tts_service.AndroidGradioAudioPlayer(androidContext()) },
+            saveConfigs = { json -> appPrefs.gradioTTSConfigs().set(json) },
+            loadConfigs = { appPrefs.gradioTTSConfigs().get().ifEmpty { null } },
+            pluginManager = get()  // Load TTS configs from installed GRADIO_TTS plugins
+        )
+    }
+
+    // Local TTS Manager for local or remote TTS servers (e.g. Chatterbox Persian TTS)
+    single<ireader.domain.services.tts_service.local.LocalTTSManager> {
+        val appPrefs: ireader.domain.preferences.prefs.AppPreferences = get()
+        ireader.domain.services.tts_service.local.LocalTTSManager(
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            audioPlayerFactory = { ireader.domain.services.tts_service.AndroidGradioAudioPlayer(androidContext()) },
+            saveConfig = { json -> appPrefs.localTTSConfig().set(json) },
+            loadConfig = { appPrefs.localTTSConfig().get().ifEmpty { null } }
+        )
+    }
+}

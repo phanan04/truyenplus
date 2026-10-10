@@ -1,0 +1,389 @@
+package ireader.data.di
+
+import ireader.data.util.AppDataDirectory
+import ireader.data.database.RepairDatabaseUseCaseImpl
+import ireader.data.plugin.PluginDatabaseImpl
+import ireader.data.plugin.PluginRepositoryImpl
+import ireader.data.repository.FundingGoalRepositoryImpl
+import ireader.data.tts.VoiceModelRepositoryImpl
+import ireader.data.repository.PiperVoiceRepositoryImpl
+import ireader.domain.data.repository.PiperVoiceRepository
+import ireader.domain.data.repository.PluginRepository
+import ireader.domain.data.repository.VoiceModelRepository
+import ireader.domain.plugins.PluginDatabase
+import ireader.domain.services.library.LibraryChangeNotifier
+import ireader.domain.usecases.database.RepairDatabaseUseCase
+import ireader.core.log.Log
+import org.koin.dsl.module
+
+
+val repositoryInjectModule = module {
+    // LibraryChangeNotifier MUST be registered FIRST before any repositories
+    // because repositories use getOrNull<LibraryChangeNotifier>() to notify changes.
+    // If this is registered after repositories, they will get null and won't notify.
+    single { LibraryChangeNotifier() }
+    
+    // Include feature-specific repository modules
+    includes(bookRepositoryModule)
+    includes(chapterRepositoryModule)
+    includes(libraryRepositoryModule)
+    includes(catalogRepositoryModule)
+    includes(userDataRepositoryModule)
+    includes(translationRepositoryModule)
+    includes(trackingModule)
+    
+    // Include sync module for Local WiFi Book Sync feature
+    includes(syncDataModule)
+    
+    // Include remote module for 7-project Supabase setup
+    // Supports both default config (from local.properties) and user override
+    includes(remoteModule)
+    // Include review module for badge functionality
+    includes(reviewModule)
+    // Include plugin review module for plugin marketplace reviews
+    includes(pluginReviewModule)
+    // Include backup module for Google Drive backup functionality
+    includes(backupModule)
+    // Include platform-specific module for platform implementations
+    includes(dataPlatformModule)
+    
+    // Library insights repository
+    single<ireader.domain.data.repository.LibraryInsightsRepository> { 
+        ireader.data.repository.LibraryInsightsRepositoryImpl(get(), get(), get(), get()) 
+    }
+    
+    // Global search repository
+    single<ireader.domain.data.repository.GlobalSearchRepository> { 
+        ireader.data.repository.GlobalSearchRepositoryImpl(get(), get(), get()) 
+    }
+    
+    // Advanced filter repository
+    single<ireader.domain.data.repository.AdvancedFilterRepository> { 
+        ireader.data.repository.AdvancedFilterRepositoryImpl(get(), get(), get()) 
+    }
+    
+    // Migration repository
+    single<ireader.domain.data.repository.MigrationRepository> { 
+        ireader.data.repository.MigrationRepositoryImpl(get(), get()) 
+    }
+    
+    // Notification repository is provided by platform-specific modules
+
+    single<ireader.domain.data.repository.FundingGoalRepository> {
+        FundingGoalRepositoryImpl()
+    }
+    
+    // Voice model repository
+    single<VoiceModelRepository> { VoiceModelRepositoryImpl(get(), get()) }
+    
+    // Piper voice repository (for unified voice catalog)
+    single<PiperVoiceRepository> { PiperVoiceRepositoryImpl(get()) }
+    
+    // NFT repository is defined in reviewModule
+    
+    // Plugin repository and database
+    single<PluginRepository> { PluginRepositoryImpl(get()) }
+    single<PluginDatabase> { PluginDatabaseImpl(get()) }
+    
+    // Plugin Repository Repository - for managing plugin sources
+    single<ireader.domain.plugins.PluginRepositoryRepository> {
+        ireader.data.plugins.PluginRepositoryRepositoryImpl()
+    }
+    
+    // Plugin Repository Index Fetcher - for fetching repository index.json
+    single<ireader.domain.plugins.PluginRepositoryIndexFetcher> {
+        ireader.data.plugins.PluginRepositoryIndexFetcherImpl(
+            httpClient = get<ireader.core.http.HttpClients>().default
+        )
+    }
+    
+    // Plugin Security Validator - ensures paid plugins only work on official app
+    single<ireader.domain.plugins.PluginSecurityValidator> {
+        val supabaseProvider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        
+        ireader.data.plugins.PluginSecurityValidatorImpl(
+            supabaseUrl = supabaseProvider.getSupabaseUrl(),
+            getCurrentUserId = { null }, // Will be set lazily when needed
+            getDeviceId = { 
+                // Get unique device ID - platform specific
+                ireader.domain.config.PlatformConfig.getDeviceId()
+            }
+        )
+    }
+    
+    // Developer Portal Repository - for plugin developers
+    single<ireader.domain.plugins.DeveloperPortalRepository> {
+        ireader.data.plugins.DeveloperPortalRepositoryImpl(
+            checkDeveloperBadge = { false }, // Simplified - no backend check
+            getCurrentUserId = { null } // Will be set lazily when needed
+        )
+    }
+    
+    // Plugin monetization repositories
+    single<ireader.domain.plugins.PurchaseRepository> { 
+        ireader.data.plugin.PurchaseRepositoryImpl(get()) 
+    }
+    single<ireader.domain.plugins.TrialRepository> { 
+        ireader.data.plugin.TrialRepositoryImpl(
+            handler = get(),
+            getCurrentUserId = { "anonymous" } // Simplified
+        ) 
+    }
+    
+    // Database use cases
+    single<RepairDatabaseUseCase> { RepairDatabaseUseCaseImpl(get()) }
+    single<ireader.domain.preferences.VoicePreferences> {
+        ireader.data.preferences.VoicePreferencesImpl(
+            preferenceStore = get()
+        )
+    }
+    // Voice Storage for TTS voice models
+    single<ireader.domain.storage.VoiceStorage> {
+        ireader.data.storage.VoiceStorageImpl(AppDataDirectory.getPath())
+    }
+    
+    // Leaderboard repository
+    single<ireader.domain.data.repository.LeaderboardRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            // No Supabase configured, use NoOp singleton
+            ireader.data.repository.NoOpLeaderboardRepository
+        } else {
+            try {
+                // Get analytics client from multi-project provider
+                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
+                ireader.data.leaderboard.LeaderboardRepositoryImpl(
+                    supabaseClient = supabaseClient,
+                    backendService = get()
+                )
+            } catch (e: Exception) {
+                Log.error(e, "Failed to initialize LeaderboardRepositoryImpl")
+                // Fallback to NoOp singleton if something goes wrong
+                ireader.data.repository.NoOpLeaderboardRepository
+            }
+        }
+    }
+    
+    // All reviews repository
+    single<ireader.domain.data.repository.AllReviewsRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            // No Supabase configured, use NoOp singleton
+            ireader.data.repository.NoOpAllReviewsRepository
+        } else {
+            try {
+                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).bookReviewsClient
+                ireader.data.review.AllReviewsRepositoryImpl(
+                    supabaseClient = supabaseClient,
+                    backendService = get()
+                )
+            } catch (e: Exception) {
+                Log.error(e, "Failed to initialize AllReviewsRepositoryImpl")
+                // Fallback to NoOp singleton if something goes wrong
+                ireader.data.repository.NoOpAllReviewsRepository
+            }
+        }
+    }
+    
+    // Donation leaderboard repository
+    single<ireader.domain.data.repository.DonationLeaderboardRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            // No Supabase configured, use NoOp singleton
+            ireader.data.repository.NoOpDonationLeaderboardRepository
+        } else {
+            try {
+                // Get analytics client from multi-project provider
+                val supabaseClient = (provider as ireader.data.remote.MultiSupabaseClientProvider).analyticsClient
+                ireader.data.donationleaderboard.DonationLeaderboardRepositoryImpl(
+                    supabaseClient = supabaseClient,
+                    backendService = get()
+                )
+            } catch (e: Exception) {
+                Log.error(e, "Failed to initialize DonationLeaderboardRepositoryImpl")
+                // Fallback to NoOp singleton if something goes wrong
+                ireader.data.repository.NoOpDonationLeaderboardRepository
+            }
+        }
+    }
+    
+    // Glossary repository - for local book glossaries
+    single<ireader.domain.data.repository.GlossaryRepository> {
+        ireader.data.glossary.GlossaryRepositoryImpl(get())
+    }
+    
+    // Content filter repository - for regex-based content filtering
+    single<ireader.domain.data.repository.ContentFilterRepository> {
+        ireader.data.contentfilter.ContentFilterRepositoryImpl(get())
+    }
+    
+    // Text replacement repository - for find-and-replace rules
+    single<ireader.domain.data.repository.TextReplacementRepository> {
+        ireader.data.textreplacement.TextReplacementRepositoryImpl(get())
+    }
+    
+    // User Source repository - for user-defined sources
+    single<ireader.domain.usersource.repository.UserSourceRepository> {
+        ireader.data.usersource.UserSourceRepositoryImpl(get())
+    }
+    
+    // Global Glossary repository - for glossaries independent of library with Supabase sync
+    single<ireader.domain.data.repository.GlobalGlossaryRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        val getCurrentUserUseCase: ireader.domain.usecases.remote.GetCurrentUserUseCase = get()
+        
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            // No Supabase configured, use local-only implementation
+            ireader.data.glossary.GlobalGlossaryRepositoryImpl(
+                handler = get(),
+                backendService = null,
+                getCurrentUserId = { null }
+            )
+        } else {
+            try {
+                // Get backend service for Supabase operations
+                val backendService: ireader.data.backend.BackendService = get()
+                
+                ireader.data.glossary.GlobalGlossaryRepositoryImpl(
+                    handler = get(),
+                    backendService = backendService,
+                    getCurrentUserId = { getCurrentUserUseCase().getOrNull()?.id }
+                )
+            } catch (e: Exception) {
+                // Fallback to local-only if something goes wrong
+                ireader.data.glossary.GlobalGlossaryRepositoryImpl(
+                    handler = get(),
+                    backendService = null,
+                    getCurrentUserId = { null }
+                )
+            }
+        }
+    }
+    
+    // Local Quote repository - for personal quote collection
+    single<ireader.domain.data.repository.LocalQuoteRepository> {
+        ireader.data.quote.LocalQuoteRepositoryImpl(get())
+    }
+    
+    // Discord Quote repository - for community quote sharing
+    single<ireader.domain.data.repository.DiscordQuoteRepository> {
+        val discordWebhookUrl = ireader.domain.config.PlatformConfig.getDiscordQuoteWebhookUrl()
+        val supabaseUrl = ireader.domain.config.PlatformConfig.getSupabaseAuthUrl()
+        val supabaseKey = ireader.domain.config.PlatformConfig.getSupabaseAuthKey()
+        ireader.data.quote.DiscordQuoteRepositoryImpl(
+            webhookUrl = discordWebhookUrl,
+            supabaseUrl = supabaseUrl,
+            supabaseKey = supabaseKey,
+            httpClient = get<ireader.core.http.HttpClients>().default,
+            quoteCardGenerator = ireader.data.quote.createQuoteCardGenerator()
+        )
+    }
+    
+    // Character Art Gallery repository - Discord only
+    single<ireader.domain.data.repository.CharacterArtRepository> {
+        val discordWebhookUrl = ireader.domain.config.PlatformConfig.getDiscordCharacterArtWebhookUrl()
+        val supabaseUrl = ireader.domain.config.PlatformConfig.getSupabaseAuthUrl()
+        val supabaseKey = ireader.domain.config.PlatformConfig.getSupabaseAuthKey()
+
+        if (discordWebhookUrl.isNotBlank() || supabaseUrl.isNotBlank()) {
+            // Use Discord webhook integration via Supabase proxy or direct
+            val discordService = ireader.domain.services.discord.DiscordWebhookService(
+                httpClient = get<ireader.core.http.HttpClients>().default,
+                webhookUrl = discordWebhookUrl,
+                supabaseUrl = supabaseUrl,
+                supabaseKey = supabaseKey
+            )
+            ireader.data.repository.DiscordCharacterArtRepository(discordService)
+        } else {
+            // No Discord configured, use no-op implementation
+            ireader.data.repository.NoOpCharacterArtRepository
+        }
+    }
+
+    // ---- Profile & community gamification (No-Money edition) ----
+    // All four degrade to NoOp when Supabase isn't configured; otherwise they ride the
+    // shared BackendService (PostgREST/RPC) and resolve the current user lazily.
+    single<ireader.domain.data.repository.GamificationRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        val getCurrentUser: ireader.domain.usecases.remote.GetCurrentUserUseCase = get()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            ireader.data.repository.NoOpGamificationRepository
+        } else runCatching {
+            ireader.data.gamification.GamificationRepositoryImpl(
+                backend = get(),
+                getCurrentUserId = { getCurrentUser().getOrNull()?.id },
+            )
+        }.getOrElse { ireader.data.repository.NoOpGamificationRepository }
+    }
+
+    single<ireader.domain.data.repository.SocialRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        val getCurrentUser: ireader.domain.usecases.remote.GetCurrentUserUseCase = get()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            ireader.data.repository.NoOpSocialRepository
+        } else runCatching {
+            ireader.data.gamification.SocialRepositoryImpl(
+                backend = get(),
+                getCurrentUserId = { getCurrentUser().getOrNull()?.id },
+            )
+        }.getOrElse { ireader.data.repository.NoOpSocialRepository }
+    }
+
+    single<ireader.domain.data.repository.CommunityVotesRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        val getCurrentUser: ireader.domain.usecases.remote.GetCurrentUserUseCase = get()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            ireader.data.repository.NoOpCommunityVotesRepository
+        } else runCatching {
+            ireader.data.gamification.CommunityVotesRepositoryImpl(
+                backend = get(),
+                getCurrentUserId = { getCurrentUser().getOrNull()?.id },
+            )
+        }.getOrElse { ireader.data.repository.NoOpCommunityVotesRepository }
+    }
+
+    single<ireader.domain.data.repository.AnnouncementsRepository> {
+        val provider = get<ireader.domain.data.repository.SupabaseClientProvider>()
+        val getCurrentUser: ireader.domain.usecases.remote.GetCurrentUserUseCase = get()
+        if (provider is ireader.data.remote.NoOpSupabaseClientProvider) {
+            ireader.data.repository.NoOpAnnouncementsRepository
+        } else runCatching {
+            ireader.data.gamification.AnnouncementsRepositoryImpl(
+                backend = get(),
+                getCurrentUserId = { getCurrentUser().getOrNull()?.id },
+            )
+        }.getOrElse { ireader.data.repository.NoOpAnnouncementsRepository }
+    }
+
+    // Share-to-Discord (achievements / level-ups / streaks / reviews) — reuses the quote webhook.
+    single<ireader.domain.data.repository.DiscordShareRepository> {
+        val webhookUrl = ireader.domain.config.PlatformConfig.getDiscordQuoteWebhookUrl()
+        val supabaseUrl = ireader.domain.config.PlatformConfig.getSupabaseAuthUrl()
+        val supabaseKey = ireader.domain.config.PlatformConfig.getSupabaseAuthKey()
+        ireader.data.gamification.DiscordShareRepositoryImpl(
+            webhookUrl = webhookUrl,
+            service = ireader.domain.services.discord.DiscordWebhookService(
+                httpClient = get<ireader.core.http.HttpClients>().default,
+                webhookUrl = webhookUrl,
+                supabaseUrl = supabaseUrl,
+                supabaseKey = supabaseKey,
+            ),
+        )
+    }
+
+    // Discord live widget (public guild widget JSON — no bot/token).
+    single<ireader.domain.data.repository.DiscordWidgetRepository> {
+        ireader.data.gamification.DiscordWidgetRepositoryImpl(
+            widgetUrl = "https://discord.com/api/guilds/924642990314627143/widget.json",
+            httpClient = get<ireader.core.http.HttpClients>().default,
+        )
+    }
+
+    // Reading Challenge Repository (cross-platform, uses PreferenceStore)
+    single<ireader.domain.data.repository.ReadingChallengeRepository> {
+        ireader.data.challenge.ReadingChallengeRepositoryImpl(
+            prefs = get<ireader.core.prefs.PreferenceStoreFactory>().create("reading_challenges"),
+            uiPreferences = getOrNull(),
+        )
+    }
+}

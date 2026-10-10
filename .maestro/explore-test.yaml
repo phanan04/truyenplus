@@ -1,0 +1,111 @@
+# Explore: listings, layouts, search (incl. empty query + no-results), book details, back stack
+appId: ir.kazemcodes.infinityreader.debug
+tags: [explore]
+---
+- runFlow: common/launch.yaml
+
+- tapOn:
+    text: "Sources"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Test source"
+- tapOn:
+    text: "Test source"
+- waitForAnimationToEnd:
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      text: "Fantasy Adventure"
+    timeout: 15000
+- takeScreenshot: explore_01_browse
+
+# --- Listings ---
+- tapOn:
+    text: "Latest"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- tapOn:
+    text: "Alphabetically"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+
+# --- Layouts: cycle all three, books must survive each ---
+- tapOn:
+    text: "Layout"
+- waitForAnimationToEnd
+- tapOn:
+    text: "List Layout"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- tapOn:
+    text: "Layout"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Compact Layout"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- tapOn:
+    text: "Layout"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Comfortable Grid"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- takeScreenshot: explore_02_layouts
+
+# --- Search: normal, no-results, cancel ---
+- tapOn:
+    id: "search_icon"
+    optional: true
+- tapOn:
+    text: "Search"
+    optional: true
+- waitForAnimationToEnd
+- inputText: "fantasy"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      text: "Fantasy Adventure"
+    timeout: 15000
+- takeScreenshot: explore_03_search_hit
+
+# No-results query must not crash
+- eraseText
+- inputText: "zzzz_no_such_book"
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: explore_04_search_empty
+
+# Cancel search restores browse
+- tapOn:
+    id: "close_search"
+    optional: true
+- tapOn:
+    text: "Close"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+
+# --- Book details + back stack ---
+- tapOn:
+    text: "Fantasy Adventure"
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible:
+    text: "Fantasy Adventure"
+- takeScreenshot: explore_05_details
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Test source"

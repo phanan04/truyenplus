@@ -1,0 +1,25 @@
+package ireader.domain.models.remote
+
+import kotlinx.serialization.Serializable
+
+/**
+ * Domain model representing a synced book
+ * All fields are required for proper functionality
+ * Only syncs favorite books
+ */
+@Serializable
+data class SyncedBook(
+    val userId: String,
+    val bookId: String,
+    val sourceId: Long,
+    val title: String,
+    val bookUrl: String,
+    val lastRead: Long,
+    val coverUrl: String = "",
+    val sourceName: String = "",
+    val author: String = "",
+    val description: String = "",
+    val genres: String = "",
+    val status: Long = 0L,
+    val favorite: Boolean = true
+)

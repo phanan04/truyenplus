@@ -1,0 +1,22 @@
+name: ⭐ Feature request
+description: Suggest a feature to improve IReader
+labels: [Feature request]
+body:
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: What feature would you like?
+      description: Describe your idea and why it would be useful.
+      placeholder: |
+        Example: "Add a dark mode toggle in settings because reading at night is too bright."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've checked this feature hasn't been requested before
+          required: true

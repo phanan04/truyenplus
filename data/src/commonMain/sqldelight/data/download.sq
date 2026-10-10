@@ -1,0 +1,49 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+import kotlinx.serialization.descriptors.PrimitiveKind.INT;
+
+CREATE TABLE
+IF NOT EXISTS download(
+chapter_id INTEGER NOT NULL PRIMARY KEY,
+book_id INTEGER NOT NULL,
+priority INTEGER AS Int NOT NULL,
+FOREIGN KEY(chapter_id)
+REFERENCES chapter(_id) ON UPDATE NO ACTION ON DELETE CASCADE );
+
+-- Performance optimization indexes
+CREATE INDEX IF NOT EXISTS idx_download_book_id ON download(book_id);
+CREATE INDEX IF NOT EXISTS idx_download_priority ON download(priority);
+
+
+findAll:
+SELECT download.*, book._id, book.title, chapter.url, chapter.name, chapter.scanlator,book.source, download.priority = 1 AS is_downloaded
+FROM download
+JOIN book ON download.book_id = book._id
+JOIN chapter ON download.chapter_id = chapter._id;
+
+
+findDownloadWithInfo:
+SELECT download.*, book._id, book.title, chapter.url, chapter.name, chapter.scanlator
+FROM download
+JOIN book ON download.book_id = book._id
+JOIN chapter ON download.chapter_id = chapter._id;
+
+-- Legacy upsert replaced for SQLite 3.22 compatibility (Android 9)
+upsert:
+INSERT OR REPLACE INTO download(chapter_id, book_id, priority) 
+VALUES (:chapterId, :bookId, :priority);
+
+deleteByChapterId:
+DELETE FROM download WHERE chapter_id = :chapter_id;
+
+deleteByBookId:
+DELETE FROM download WHERE book_id = :book_id;
+
+deleteAll:
+DELETE FROM download;
+
+updatePriority:
+UPDATE download SET priority = CAST(:priority AS INTEGER) WHERE chapter_id = :chapterId;

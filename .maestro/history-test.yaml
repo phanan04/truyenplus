@@ -1,0 +1,70 @@
+# History: entry created by reading, search, filter menu, delete-all dialog
+appId: ir.kazemcodes.infinityreader.debug
+tags: [history]
+---
+- runFlow: common/launch.yaml
+
+# Create a history entry first: read a chapter
+- runFlow: common/open-book.yaml
+- tapOn:
+    text: "Chapter 1"
+- waitForAnimationToEnd:
+    timeout: 15000
+- pressKey: Back
+- waitForAnimationToEnd
+- pressKey: Back
+- waitForAnimationToEnd
+- pressKey: Back
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "History"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- takeScreenshot: history_01_entry
+
+# --- Search history ---
+- tapOn:
+    text: "Search"
+- waitForAnimationToEnd
+- inputText: "Fantasy"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- eraseText
+- inputText: "zzz_nomatch"
+- waitForAnimationToEnd
+- takeScreenshot: history_02_search_empty
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Time filter menu ---
+- tapOn:
+    text: "Filter"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Today"
+- tapOn:
+    text: "Today"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Fantasy Adventure"
+- takeScreenshot: history_03_filter_today
+
+# --- Delete All dialog: open then cancel (no data loss) ---
+- tapOn:
+    text: "More Options"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Delete All Histories"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "Cancel"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible:
+    text: "History"
+- takeScreenshot: history_04_done

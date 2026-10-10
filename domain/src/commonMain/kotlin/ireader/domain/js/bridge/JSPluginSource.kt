@@ -1,0 +1,565 @@
+package ireader.domain.js.bridge
+
+import ireader.core.log.Log
+import ireader.core.source.Dependencies
+import ireader.core.source.HttpSource
+import ireader.core.source.SourceHelpers
+import ireader.core.source.model.ChapterInfo
+import ireader.core.source.model.ChaptersPageInfo
+import ireader.core.source.model.Command
+import ireader.core.source.model.Filter
+import ireader.core.source.model.FilterList
+import ireader.core.source.model.Listing
+import ireader.core.source.model.MangaInfo
+import ireader.core.source.model.MangasPageInfo
+import ireader.core.source.model.Page
+import ireader.core.source.model.Text
+import ireader.core.util.LNReaderHtmlParser
+import ireader.domain.js.models.PluginMetadata
+import ireader.domain.js.util.JSFilterConverter
+import ireader.domain.utils.extensions.currentTimeToLong
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+
+/**
+ * Wrapper that adapts a Zipline LNReaderPlugin to IReader's HttpSource interface.
+ * This bridges the JavaScript plugin with the native Kotlin source system.
+ */
+class JSPluginSource(
+    private val plugin: LNReaderPlugin,
+    val metadata: PluginMetadata,
+    dependencies: Dependencies
+) : HttpSource(dependencies) {
+    
+    override val name: String = metadata.name
+    override val lang: String = metadata.lang
+    
+    // Use metadata.site if valid, otherwise will be auto-detected from first URL
+    private var _baseUrl: String = metadata.site.takeIf { 
+        it.isNotBlank() && (it.startsWith("http://") || it.startsWith("https://"))
+    } ?: ""
+    
+    override val baseUrl: String
+        get() = _baseUrl
+    
+    // Cache for total chapter pages per novel
+    private val chapterPageCountCache = mutableMapOf<String, Int>()
+    
+    class LatestListing() : Listing(name = "Latest")
+    class PopularListing() : Listing(name = "Popular")
+    
+    private val filterConverter = JSFilterConverter()
+    private var cachedFilters: FilterList? = null
+    
+    /**
+     * Extract base URL from an absolute URL.
+     * E.g., "https://example.com/novel/123" -> "https://example.com"
+     */
+    private fun extractBaseUrl(url: String): String? {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            return null
+        }
+        
+        val regex = Regex("^(https?://[^/]+)")
+        val extracted = regex.find(url)?.groupValues?.get(1)
+        
+        // Validate that the extracted baseUrl has a proper domain (contains a dot)
+        // This prevents invalid URLs like "https://libraryofheader" from being used
+        if (extracted != null && !extracted.contains(".") && !extracted.contains("localhost")) {
+            return null
+        }
+        
+        return extracted
+    }
+    
+    /**
+     * Auto-detect and cache base URL from the first absolute URL we encounter.
+     */
+    private fun autoDetectBaseUrl(url: String) {
+        if (_baseUrl.isBlank() && url.startsWith("http")) {
+            extractBaseUrl(url)?.let { detected ->
+                _baseUrl = detected
+            }
+        }
+    }
+    
+    /**
+     * Convert an absolute URL back to the format the plugin expects.
+     * If the URL is absolute and starts with our baseUrl, return just the path.
+     * Otherwise, return the URL as-is (it might already be in the right format).
+     * 
+     * E.g., "https://example.com/novel/123" -> "/novel/123" (if baseUrl is "https://example.com")
+     * E.g., "/novel/123" -> "/novel/123" (already relative)
+     */
+    private fun toPluginUrl(url: String): String {
+        // If URL is not absolute, return as-is
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            return url
+        }
+        
+        // If we have a baseUrl and the URL starts with it, extract the path
+        if (_baseUrl.isNotBlank() && url.startsWith(_baseUrl)) {
+            val path = url.substring(_baseUrl.length)
+            return if (_baseUrl.endsWith("/")) path.trimStart('/') else (if (path.startsWith("/")) path else "/$path")
+        }
+        
+        // Otherwise, try to extract path from any absolute URL
+        val regex = Regex("^https?://[^/]+(/.*)$")
+        val path = regex.find(url)?.groupValues?.get(1) ?: url
+        return if (_baseUrl.endsWith("/")) path.trimStart('/') else path
+    }
+
+    override suspend fun getMangaList(sort: Listing?, page: Int): MangasPageInfo {
+        return try {
+            currentCoroutineContext().ensureActive()
+            
+            val novels = when (sort) {
+                is PopularListing -> plugin.popularNovels(page)
+                is LatestListing -> plugin.latestNovels(page)
+                else -> plugin.popularNovels(page)
+            }
+            
+            currentCoroutineContext().ensureActive()
+            
+            MangasPageInfo(
+                mangas = novels.map { it.toMangaInfo() },
+                hasNextPage = novels.isNotEmpty()
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] Error in getMangaList(sort): ${e.message}", e)
+            MangasPageInfo(emptyList(), false)
+        }
+    }
+    
+    override suspend fun getMangaList(filters: FilterList, page: Int): MangasPageInfo {
+        return try {
+            // Check for cancellation before starting
+            currentCoroutineContext().ensureActive()
+            
+            // Check if there's a search query in filters
+            val query = filters.filterIsInstance<Filter.Title>().firstOrNull()?.value ?: ""
+            
+
+            
+            val novels = if (query.isNotBlank()) {
+                plugin.searchNovels(query, page)
+            } else if (filters.size > 1 || (filters.size == 1 && filters.first() !is Filter.Title)) {
+                val jsFilters = filterConverter.convertIReaderFiltersToJS(filters)
+                plugin.popularNovels(page, jsFilters)
+            } else {
+                plugin.popularNovels(page)
+            }
+            
+            // Check for cancellation after fetch
+            currentCoroutineContext().ensureActive()
+            
+            MangasPageInfo(
+                mangas = novels.map { it.toMangaInfo() },
+                hasNextPage = novels.isNotEmpty()
+            )
+        } catch (e: CancellationException) {
+            // Re-throw cancellation exceptions - don't treat them as errors
+            throw e
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: Error in getMangaList(filters): ${e.message}", e)
+            e.printStackTrace()
+            MangasPageInfo(emptyList(), false)
+        }
+    }
+    
+    override suspend fun getMangaDetails(manga: MangaInfo, commands: List<Command<*>>): MangaInfo {
+        return try {
+            // Convert URL to plugin format (relative path if needed)
+            val pluginUrl = toPluginUrl(manga.key)
+            
+            val details = plugin.getNovelDetails(pluginUrl)
+            
+            // Only convert cover to absolute if we have a valid baseUrl
+            val coverUrl = if (details.cover.isNotBlank()) {
+                if (details.cover.startsWith("http://") || details.cover.startsWith("https://")) {
+                    details.cover  // Already absolute
+                } else if (baseUrl.isNotBlank() && (baseUrl.startsWith("http://") || baseUrl.startsWith("https://"))) {
+                    SourceHelpers.buildAbsoluteUrl(baseUrl, details.cover)  // Convert relative to absolute
+                } else {
+                    details.cover  // Keep as-is if no valid baseUrl
+                }
+            } else {
+                ""
+            }
+            
+            manga.copy(
+                title = details.name,
+                cover = coverUrl,
+                author = details.author ?: "",
+                description = details.description ?: "",
+                genres = details.genres,
+                status = parseStatus(details.status)
+            )
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] getMangaDetails error: ${e.message}", e)
+            manga
+        }
+    }
+    
+    override suspend fun getChapterList(manga: MangaInfo, commands: List<Command<*>>): List<ChapterInfo> {
+        return try {
+            // Convert URL to plugin format (relative path)
+            val pluginUrl = toPluginUrl(manga.key)
+            val chapters = plugin.getChapters(pluginUrl)
+            
+            // Store chapter URLs as ABSOLUTE URLs
+            chapters.mapIndexed { index, chapter ->
+                convertToChapterInfo(chapter, index)
+            }
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] getChapterList error", e)
+            emptyList()
+        }
+    }
+    
+    /**
+     * Get paginated chapter list from the plugin.
+     * This is the preferred method for sources that support pagination.
+     */
+    override suspend fun getChapterListPaged(
+        manga: MangaInfo,
+        page: Int,
+        commands: List<Command<*>>
+    ): ChaptersPageInfo {
+        return try {
+            val pluginUrl = toPluginUrl(manga.key)
+            val chapterPage = plugin.getChaptersPage(pluginUrl, page)
+            
+            // Cache the total pages for this novel
+            chapterPageCountCache[pluginUrl] = chapterPage.totalPages
+            
+            // Calculate base index for chapter numbering based on page
+            // Assuming ~24 chapters per page (common for LNReader plugins)
+            val baseIndex = (page - 1) * 24
+            
+            val chapters = chapterPage.chapters.mapIndexed { index, chapter ->
+                convertToChapterInfo(chapter, baseIndex + index)
+            }
+            
+            ChaptersPageInfo.forPage(
+                chapters = chapters,
+                page = chapterPage.currentPage,
+                totalPages = chapterPage.totalPages
+            )
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] getChapterListPaged error", e)
+            // Fallback to non-paginated method
+            val chapters = getChapterList(manga, commands)
+            ChaptersPageInfo.singlePage(chapters)
+        }
+    }
+    
+    /**
+     * Get the total number of chapter pages for a manga.
+     */
+    override suspend fun getChapterPageCount(manga: MangaInfo): Int {
+        return try {
+            val pluginUrl = toPluginUrl(manga.key)
+            
+            // Check cache first
+            chapterPageCountCache[pluginUrl]?.let { return it }
+            
+            // Fetch from plugin
+            val pageCount = plugin.getChapterPageCount(pluginUrl)
+            chapterPageCountCache[pluginUrl] = pageCount
+            pageCount
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] getChapterPageCount error", e)
+            1
+        }
+    }
+    
+    /**
+     * Returns true if this source supports paginated chapter loading.
+     * Only returns true if the source has parsePage function AND totalPages > 1.
+     * This is determined by checking if getChapterPageCount returns > 1.
+     */
+    override fun supportsPaginatedChapters(): Boolean {
+        // We can't know for sure without checking a specific novel,
+        // so we return true here and let the actual page count determine if pagination is used.
+        // The JS wrapper will return totalPages=1 for non-paginated sources.
+        return true
+    }
+    
+    /**
+     * Convert a PluginChapter to ChapterInfo with absolute URL.
+     */
+    private fun convertToChapterInfo(chapter: PluginChapter, index: Int): ChapterInfo {
+        // Convert chapter URL to absolute for storage
+        val absoluteChapterUrl = if (chapter.url.startsWith("http://") || chapter.url.startsWith("https://")) {
+            chapter.url  // Already absolute
+        } else if (_baseUrl.isNotBlank()) {
+            // Append relative path to baseUrl, handling trailing/leading slashes
+            val base = _baseUrl.trimEnd('/')
+            val path = if (chapter.url.startsWith("/")) chapter.url else "/${chapter.url}"
+            base + path
+        } else {
+            chapter.url  // Keep as-is if no baseUrl available
+        }
+        
+        return ChapterInfo(
+            key = absoluteChapterUrl,  // Store ABSOLUTE URL
+            name = chapter.name,
+            number = (index + 1).toFloat(),
+            dateUpload = parseDate(chapter.releaseTime)
+        )
+    }
+    
+    override suspend fun getPageList(chapter: ChapterInfo, commands: List<Command<*>>): List<Page> {
+        return try {
+            // Convert URL to plugin format (relative path if needed)
+            val pluginUrl = toPluginUrl(chapter.key)
+            val content = plugin.getChapterContent(pluginUrl)
+            
+            if (content.isBlank()) {
+                return emptyList()
+            }
+            
+            // Parse HTML content using LNReaderHtmlParser
+            // This handles HTML stripping, \n \r removal, and paragraph splitting
+            val pages = LNReaderHtmlParser.parseToPages(content)
+            
+            if (pages.isEmpty()) {
+                // Fallback to single page with cleaned raw content
+                val cleanedContent = content
+                    .replace(Regex("<[^>]+>"), "") // Strip HTML tags
+                    .replace("\r", "")
+                    .replace("\n", " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                return if (cleanedContent.isNotBlank()) listOf(Text(cleanedContent)) else emptyList()
+            }
+            
+            pages
+        } catch (e: Exception) {
+            Log.error("JSPluginSource: [$name] getPageList error", e)
+            emptyList()
+        }
+    }
+    
+    override fun getFilters(): FilterList {
+        // Return cached filters if available
+        if (cachedFilters != null) {
+            return cachedFilters!!
+        }
+        
+        return try {
+            // Try to get filters from plugin
+            val jsFilters = plugin.getFilters()
+            
+            if (jsFilters.isNotEmpty()) {
+                // Convert LNReader filters to IReader filters
+                val convertedFilters = filterConverter.convertToIReaderFilters(jsFilters)
+                
+                // Add search filter at the beginning
+                cachedFilters = listOf(Filter.Title()) + convertedFilters
+                
+                cachedFilters!!
+            } else {
+                // No filters available, return just search
+                listOf(Filter.Title())
+            }
+        } catch (e: Exception) {
+            Log.warn("JSPluginSource: [$name] Failed to load filters: ${e.message}")
+            // Fallback to search filter only
+            listOf(Filter.Title())
+        }
+    }
+    
+    override fun getListings(): List<Listing> {
+        // Return available listing types that map to LNReader plugin methods
+        return listOf(
+            PopularListing(),  // Maps to plugin.popularNovels()
+            LatestListing()    // Maps to plugin.latestNovels()
+        )
+    }
+    
+    /**
+     * Convert plugin novel to MangaInfo
+     * IMPORTANT: Store ABSOLUTE URLs in the app (for display, sharing, etc.)
+     * The toPluginUrl() function will convert back to relative when calling plugin methods
+     */
+    private fun PluginNovel.toMangaInfo(): MangaInfo {
+        // Auto-detect baseUrl from the first URL we see (for cover images)
+        autoDetectBaseUrl(this.url)
+        if (this.cover.isNotBlank()) {
+            autoDetectBaseUrl(this.cover)
+        }
+        
+        // Convert URL to absolute for storage
+        val absoluteUrl = if (this.url.startsWith("http://") || this.url.startsWith("https://")) {
+            this.url  // Already absolute
+        } else if (_baseUrl.isNotBlank()) {
+            // Append relative path to baseUrl, handling trailing/leading slashes
+            val base = _baseUrl.trimEnd('/')
+            val path = if (this.url.startsWith("/")) this.url else "/${this.url}"
+            base + path
+        } else {
+            this.url  // Keep as-is if no baseUrl available
+        }
+        
+        return MangaInfo(
+            key = absoluteUrl,  // Store ABSOLUTE URL
+            title = this.name,
+            cover = if (this.cover.isNotBlank()) {
+                // Only convert cover to absolute if we have a valid baseUrl
+                if (this.cover.startsWith("http://") || this.cover.startsWith("https://")) {
+                    this.cover  // Already absolute
+                } else if (baseUrl.isNotBlank() && (baseUrl.startsWith("http://") || baseUrl.startsWith("https://"))) {
+                    SourceHelpers.buildAbsoluteUrl(baseUrl, this.cover)  // Convert relative to absolute
+                } else {
+                    this.cover  // Keep as-is if no valid baseUrl
+                }
+            } else ""
+        )
+    }
+    
+    /**
+     * Parse status string to status code
+     */
+    private fun parseStatus(statusText: String?): Long {
+        if (statusText == null) return MangaInfo.UNKNOWN
+        
+        return when {
+            statusText.contains("ongoing", ignoreCase = true) -> MangaInfo.ONGOING
+            statusText.contains("completed", ignoreCase = true) -> MangaInfo.COMPLETED
+            statusText.contains("hiatus", ignoreCase = true) -> MangaInfo.ON_HIATUS
+            statusText.contains("cancelled", ignoreCase = true) -> MangaInfo.CANCELLED
+            else -> MangaInfo.UNKNOWN
+        }
+    }
+    
+    /**
+     * Parse date string to timestamp.
+     * Supports common date formats used by novel sources.
+     */
+    private fun parseDate(dateText: String?): Long {
+        if (dateText.isNullOrBlank()) return 0L
+        
+        val text = dateText.trim().lowercase()
+        
+        // Handle relative dates like "2 hours ago", "3 days ago"
+        val relativeMatch = """(\d+)\s*(second|minute|hour|day|week|month|year)s?\s*ago""".toRegex().find(text)
+        if (relativeMatch != null) {
+            val amount = relativeMatch.groupValues[1].toLongOrNull() ?: return 0L
+            val unit = relativeMatch.groupValues[2]
+            val now = currentTimeToLong()
+            val msPerUnit = when (unit) {
+                "second" -> 1000L
+                "minute" -> 60 * 1000L
+                "hour" -> 60 * 60 * 1000L
+                "day" -> 24 * 60 * 60 * 1000L
+                "week" -> 7 * 24 * 60 * 60 * 1000L
+                "month" -> 30 * 24 * 60 * 60 * 1000L
+                "year" -> 365 * 24 * 60 * 60 * 1000L
+                else -> return 0L
+            }
+            return now - (amount * msPerUnit)
+        }
+        
+        // Handle "just now", "today", "yesterday"
+        when {
+            text.contains("just now") || text.contains("now") -> return currentTimeToLong()
+            text.contains("today") -> return currentTimeToLong()
+            text.contains("yesterday") -> return currentTimeToLong() - (24 * 60 * 60 * 1000L)
+        }
+        
+        // Try parsing common date formats
+        // Format: YYYY-MM-DD or YYYY/MM/DD
+        val isoMatch = """(\d{4})[-/](\d{1,2})[-/](\d{1,2})""".toRegex().find(text)
+        if (isoMatch != null) {
+            return try {
+                val year = isoMatch.groupValues[1].toInt()
+                val month = isoMatch.groupValues[2].toInt()
+                val day = isoMatch.groupValues[3].toInt()
+                dateToTimestamp(year, month, day)
+            } catch (e: Exception) { 0L }
+        }
+        
+        // Format: DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+        val dmyMatch = """(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})""".toRegex().find(text)
+        if (dmyMatch != null) {
+            return try {
+                val day = dmyMatch.groupValues[1].toInt()
+                val month = dmyMatch.groupValues[2].toInt()
+                val year = dmyMatch.groupValues[3].toInt()
+                dateToTimestamp(year, month, day)
+            } catch (e: Exception) { 0L }
+        }
+        
+        // Format: Month DD, YYYY (e.g., "January 15, 2024")
+        val monthNames = mapOf(
+            "jan" to 1, "feb" to 2, "mar" to 3, "apr" to 4, "may" to 5, "jun" to 6,
+            "jul" to 7, "aug" to 8, "sep" to 9, "oct" to 10, "nov" to 11, "dec" to 12
+        )
+        val monthMatch = """([a-z]+)\s+(\d{1,2}),?\s*(\d{4})""".toRegex().find(text)
+        if (monthMatch != null) {
+            val monthStr = monthMatch.groupValues[1].take(3)
+            val month = monthNames[monthStr]
+            if (month != null) {
+                return try {
+                    val day = monthMatch.groupValues[2].toInt()
+                    val year = monthMatch.groupValues[3].toInt()
+                    dateToTimestamp(year, month, day)
+                } catch (e: Exception) { 0L }
+            }
+        }
+        
+        // Format: DD Month YYYY (e.g., "15 January 2024")
+        val dayMonthMatch = """(\d{1,2})\s+([a-z]+)\s+(\d{4})""".toRegex().find(text)
+        if (dayMonthMatch != null) {
+            val monthStr = dayMonthMatch.groupValues[2].take(3)
+            val month = monthNames[monthStr]
+            if (month != null) {
+                return try {
+                    val day = dayMonthMatch.groupValues[1].toInt()
+                    val year = dayMonthMatch.groupValues[3].toInt()
+                    dateToTimestamp(year, month, day)
+                } catch (e: Exception) { 0L }
+            }
+        }
+        
+        return 0L
+    }
+    
+    /**
+     * Convert year, month, day to Unix timestamp (milliseconds).
+     * Uses a simple calculation without external date libraries.
+     */
+    private fun dateToTimestamp(year: Int, month: Int, day: Int): Long {
+        // Days in each month (non-leap year)
+        val daysInMonth = intArrayOf(0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+        
+        // Calculate days since Unix epoch (1970-01-01)
+        var days = 0L
+        
+        // Add days for complete years
+        for (y in 1970 until year) {
+            days += if (isLeapYear(y)) 366 else 365
+        }
+        
+        // Add days for complete months in current year
+        for (m in 1 until month) {
+            days += daysInMonth[m]
+            if (m == 2 && isLeapYear(year)) days += 1
+        }
+        
+        // Add remaining days
+        days += day - 1
+        
+        // Convert to milliseconds
+        return days * 24 * 60 * 60 * 1000L
+    }
+    
+    private fun isLeapYear(year: Int): Boolean {
+        return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    }
+}

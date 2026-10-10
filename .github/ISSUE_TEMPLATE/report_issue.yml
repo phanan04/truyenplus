@@ -1,0 +1,43 @@
+name: 🐞 Issue report
+description: Report an issue in IReader
+labels: [Bug]
+body:
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: What's the issue?
+      description: Describe what happened and what you expected to happen.
+      placeholder: |
+        Example: "When I tap on a book, the app crashes instead of opening it."
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash-logs
+    attributes:
+      label: Crash logs (if applicable)
+      description: |
+        If the app crashes, you can share logs from **More → Settings → Advanced → Dump crash logs**.
+      placeholder: |
+        Paste crash logs here or attach as a file.
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version & Device
+      description: Example - "IReader 0.13.6 on Android 11 (Pixel 5)"
+      placeholder: |
+        Example: "IReader 0.13.6 on Android 11 (Pixel 5)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've checked this isn't a duplicate issue
+          required: true
+        - label: I'm using the latest version of IReader
+          required: true

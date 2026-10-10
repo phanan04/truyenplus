@@ -1,0 +1,98 @@
+# Reader: open chapter, controls toggle, drawer, expand menu, settings tabs, scroll, exit
+appId: ir.kazemcodes.infinityreader.debug
+tags: [reader]
+---
+- runFlow: common/launch.yaml
+- runFlow: common/open-book.yaml
+
+- tapOn:
+    text: "Chapter 1"
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: reader_01_open
+
+# Scroll content (render/crash check)
+- swipe:
+    direction: UP
+- swipe:
+    direction: DOWN
+- waitForAnimationToEnd
+
+# --- Toggle controls: show ---
+- tapOn:
+    point: "50%,50%"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible:
+    text: "Drawer"
+- assertVisible:
+    text: "Settings"
+
+# --- Toggle controls: hide then re-show (double-toggle bug hunt) ---
+- tapOn:
+    point: "50%,50%"
+- waitForAnimationToEnd
+- tapOn:
+    point: "50%,50%"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Drawer"
+
+# --- Expand menu ---
+- tapOn:
+    text: "Expand Menu"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Bookmark"
+- assertVisible:
+    text: "Find in chapter"
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Drawer (ToC) ---
+- tapOn:
+    point: "50%,50%"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Drawer"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Content"
+- takeScreenshot: reader_02_drawer
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Settings sheet: every tab ---
+- tapOn:
+    point: "50%,50%"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Settings"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Font Size"
+- tapOn:
+    text: "General"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Translation Settings"
+- tapOn:
+    text: "Colors"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Background Color"
+- tapOn:
+    text: "Fonts"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Roboto"
+- takeScreenshot: reader_03_settings
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Exit reader back to details ---
+- pressKey: Back
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible:
+    text: "Fantasy Adventure"

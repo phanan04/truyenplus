@@ -1,0 +1,16 @@
+-- Migration 28: Fix last_read_at for existing data
+-- This migration fixes the last_read_at column that wasn't properly populated in migration 27
+
+-- Update last_read_at from history table for all favorite books
+UPDATE book SET
+    last_read_at = COALESCE(
+        (SELECT MAX(h.last_read) 
+         FROM history h 
+         JOIN chapter c ON h.chapter_id = c._id 
+         WHERE c.book_id = book._id), 
+        0
+    )
+WHERE favorite = 1;
+
+-- NOTE: Triggers for maintaining last_read_at are created in DatabaseMigrations.kt (migrateV28toV29)
+-- SQLDelight's validator doesn't support NEW/OLD pseudo-tables in triggers

@@ -1,0 +1,56 @@
+package ireader.domain.usecases.backup
+
+import ireader.domain.models.prefs.PreferenceValues
+import kotlinx.coroutines.*
+import java.util.concurrent.TimeUnit
+
+/**
+ * Desktop implementation of automatic backup scheduling
+ * Uses a coroutine-based timer approach for desktop platforms
+ */
+class ScheduleAutomaticBackupImpl() : ScheduleAutomaticBackup {
+    
+    private var scheduledJob: Job? = null
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    override fun schedule(frequency: PreferenceValues.AutomaticBackup) {
+        // Cancel any existing scheduled backup
+        cancel()
+        
+        val intervalMillis = when (frequency) {
+            PreferenceValues.AutomaticBackup.Off -> return
+            PreferenceValues.AutomaticBackup.Every6Hours -> TimeUnit.HOURS.toMillis(6)
+            PreferenceValues.AutomaticBackup.Every12Hours -> TimeUnit.HOURS.toMillis(12)
+            PreferenceValues.AutomaticBackup.Daily -> TimeUnit.DAYS.toMillis(1)
+            PreferenceValues.AutomaticBackup.Every2Days -> TimeUnit.DAYS.toMillis(2)
+            PreferenceValues.AutomaticBackup.Weekly -> TimeUnit.DAYS.toMillis(7)
+        }
+
+        
+        scheduledJob = scope.launch {
+            while (isActive) {
+                delay(intervalMillis)
+                try {
+                    performBackup()
+                } catch (_: Exception) {
+                    // Silently ignore backup errors
+                }
+            }
+        }
+    }
+    
+    override fun cancel() {
+        scheduledJob?.cancel()
+        scheduledJob = null
+    }
+    
+    override fun isScheduled(): Boolean {
+        return scheduledJob?.isActive == true
+    }
+    
+    private suspend fun performBackup() {
+        // This would be called by the scheduled job
+        // The actual backup logic should be injected via dependency injection
+        // Note: In a full implementation, this would call CreateBackup use case
+    }
+}

@@ -1,0 +1,302 @@
+package ireader.data.backup
+
+import ireader.domain.models.backup.BackupData
+import ireader.domain.models.backup.BackupInfo
+import ireader.domain.services.backup.GoogleDriveBackupService
+import ireader.domain.utils.extensions.currentTimeToLong
+import ireader.domain.utils.extensions.formatForFilename
+import ireader.domain.utils.extensions.ioDispatcher
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.toInstant
+import kotlinx.serialization.json.Json
+import okio.Buffer
+import okio.GzipSink
+import okio.GzipSource
+import okio.buffer
+import okio.use
+import kotlin.time.ExperimentalTime
+
+/**
+ * Implementation of Google Drive backup service
+ * 
+ * Note: This implementation requires GoogleDriveAuthenticator to be injected.
+ * The authenticator handles platform-specific OAuth2 flows:
+ * - Android: GoogleSignInClient with ActivityResultContracts
+ * - Desktop: Browser-based OAuth with local callback server
+ * - iOS: Google Sign-In iOS SDK
+ * 
+ * Authentication tokens are stored securely using platform-appropriate storage.
+ */
+class GoogleDriveBackupServiceImpl(
+    private val authenticator: GoogleDriveAuthenticator
+) : GoogleDriveBackupService {
+    
+    private var accountEmail: String? = null
+    private var driveClient: GoogleDriveClient? = null
+    
+    private val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
+    
+    override suspend fun authenticate(): Result<String> = withContext(ioDispatcher) {
+        return@withContext try {
+            // Use the injected authenticator to perform platform-specific OAuth2 flow
+            val result = authenticator.authenticate()
+            
+            if (result.isSuccess) {
+                accountEmail = result.getOrNull()
+                
+                // Initialize Drive client with token provider
+                driveClient = GoogleDriveClient(
+                    getAccessToken = { authenticator.getAccessToken() }
+                )
+                
+                Result.success(accountEmail ?: "")
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Authentication failed"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Authentication failed: ${e.message}", e))
+        }
+    }
+    
+    override suspend fun disconnect(): Result<Unit> = withContext(ioDispatcher) {
+        return@withContext try {
+            // Revoke tokens and clean up
+            authenticator.disconnect()
+            driveClient?.close()
+            driveClient = null
+            accountEmail = null
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Disconnect failed: ${e.message}", e))
+        }
+    }
+    
+    override suspend fun isAuthenticated(): Boolean {
+        val isAuth = authenticator.isAuthenticated()
+        
+        // Initialize Drive client if authenticated but client not yet created
+        if (isAuth && driveClient == null) {
+            driveClient = GoogleDriveClient(
+                getAccessToken = { authenticator.getAccessToken() }
+            )
+        }
+        
+        return isAuth
+    }
+    
+    override suspend fun createBackup(data: BackupData): Result<String> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            
+            val client = driveClient 
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            
+            // Serialize backup data to JSON
+            val jsonString = json.encodeToString(BackupData.serializer(), data)
+            
+            // Compress with GZIP using existing method
+            val compressedData = compressData(jsonString.encodeToByteArray())
+            
+            // Generate filename with timestamp
+            val timestamp = currentTimeToLong().formatForFilename()
+            val fileName = "ireader_backup_$timestamp.json.gz"
+            
+            // Upload to Google Drive "IReader" folder (visible to user)
+            val uploadResult = client.uploadFile(
+                fileName = fileName,
+                content = compressedData,
+                mimeType = "application/gzip"
+            )
+            
+            if (uploadResult.isSuccess) {
+                Result.success(uploadResult.getOrThrow())
+            } else {
+                Result.failure(uploadResult.exceptionOrNull() ?: Exception("Upload failed"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Backup creation failed: ${e.message}", e))
+        }
+    }
+    
+    override suspend fun listBackups(): Result<List<BackupInfo>> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            
+            val client = driveClient 
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            
+            // Query Google Drive for backup files in "IReader" folder
+            val listResult = client.listFiles("ireader_backup_*.json.gz")
+            
+            if (listResult.isFailure) {
+                return@withContext Result.failure(
+                    listResult.exceptionOrNull() ?: Exception("Failed to list files")
+                )
+            }
+            
+            val driveFiles = listResult.getOrThrow()
+            
+            // Convert DriveFile to BackupInfo
+            val backupInfoList = driveFiles.mapNotNull { driveFile ->
+                try {
+                    // Parse timestamp from filename (ireader_backup_yyyyMMdd_HHmmss.json.gz)
+                    val timestampStr = driveFile.name
+                        .removePrefix("ireader_backup_")
+                        .removeSuffix(".json.gz")
+                    
+                    // Parse timestamp from filename format: yyyyMMdd_HHmmss
+                    val timestamp = parseFilenameTimestamp(timestampStr)
+                    
+                    BackupInfo(
+                        id = driveFile.id,
+                        name = driveFile.name,
+                        timestamp = timestamp,
+                        size = driveFile.size?.toLongOrNull() ?: 0L
+                    )
+                } catch (e: Exception) {
+                    // Skip files with invalid names
+                    null
+                }
+            }.sortedByDescending { it.timestamp }
+            
+            Result.success(backupInfoList)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to list backups: ${e.message}", e))
+        }
+    }
+    
+    override suspend fun downloadBackup(backupId: String): Result<BackupData> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            
+            val client = driveClient 
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            
+            // Download file from Google Drive by ID
+            val downloadResult = client.downloadFile(backupId)
+            
+            if (downloadResult.isFailure) {
+                return@withContext Result.failure(
+                    downloadResult.exceptionOrNull() ?: Exception("Download failed")
+                )
+            }
+            
+            val compressedData = downloadResult.getOrThrow()
+            
+            // Decompress GZIP using existing method
+            val decompressedData = decompressData(compressedData)
+            
+            // Deserialize JSON to BackupData using existing json instance
+            val jsonString = decompressedData.decodeToString()
+            val backupData = json.decodeFromString<BackupData>(jsonString)
+            
+            Result.success(backupData)
+        } catch (e: Exception) {
+            Result.failure(Exception("Backup download failed: ${e.message}", e))
+        }
+    }
+    
+    override suspend fun deleteBackup(backupId: String): Result<Unit> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            
+            val client = driveClient 
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            
+            // Delete file from Google Drive using Drive API
+            // The client handles 404 errors gracefully
+            val deleteResult = client.deleteFile(backupId)
+            
+            if (deleteResult.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(deleteResult.exceptionOrNull() ?: Exception("Delete failed"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Backup deletion failed: ${e.message}", e))
+        }
+    }
+    
+    /**
+     * Compress data using GZIP with Okio
+     */
+    private fun compressData(data: ByteArray): ByteArray {
+        val buffer = Buffer()
+        GzipSink(buffer).buffer().use { sink ->
+            sink.write(data)
+        }
+        return buffer.readByteArray()
+    }
+    
+    /**
+     * Decompress GZIP data with Okio
+     */
+    private fun decompressData(compressedData: ByteArray): ByteArray {
+        val source = Buffer().write(compressedData)
+        return GzipSource(source).buffer().readByteArray()
+    }
+    
+    /**
+     * Parse timestamp from filename format: yyyyMMdd_HHmmss
+     */
+    @OptIn(ExperimentalTime::class)
+    private fun parseFilenameTimestamp(timestampStr: String): Long {
+        return try {
+            // Format: 20251203_143025
+            if (timestampStr.length != 15 || timestampStr[8] != '_') return 0L
+            
+            val year = timestampStr.substring(0, 4).toIntOrNull() ?: return 0L
+            val month = timestampStr.substring(4, 6).toIntOrNull() ?: return 0L
+            val day = timestampStr.substring(6, 8).toIntOrNull() ?: return 0L
+            val hour = timestampStr.substring(9, 11).toIntOrNull() ?: return 0L
+            val minute = timestampStr.substring(11, 13).toIntOrNull() ?: return 0L
+            val second = timestampStr.substring(13, 15).toIntOrNull() ?: return 0L
+            
+            val dateTime = kotlinx.datetime.LocalDateTime(year, month, day, hour, minute, second)
+            dateTime.toInstant(kotlinx.datetime.TimeZone.currentSystemDefault()).toEpochMilliseconds()
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    override suspend fun uploadRawBackup(
+        fileName: String,
+        content: ByteArray,
+        mimeType: String
+    ): Result<String> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            val client = driveClient
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            client.uploadFile(fileName, content, mimeType)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to upload raw backup: ${e.message}", e))
+        }
+    }
+
+    override suspend fun downloadRawBackup(fileId: String): Result<ByteArray> = withContext(ioDispatcher) {
+        return@withContext try {
+            if (!isAuthenticated()) {
+                return@withContext Result.failure(Exception("Not authenticated with Google Drive"))
+            }
+            val client = driveClient
+                ?: return@withContext Result.failure(Exception("Drive client not initialized"))
+            client.downloadFile(fileId)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to download raw backup: ${e.message}", e))
+        }
+    }
+}

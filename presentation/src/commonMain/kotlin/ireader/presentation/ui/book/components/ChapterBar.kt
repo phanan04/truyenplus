@@ -1,0 +1,242 @@
+package ireader.presentation.ui.book.components
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ireader.domain.models.entities.Chapter
+import ireader.i18n.localize
+import ireader.i18n.resources.Res
+import ireader.i18n.resources.*
+import ireader.presentation.ui.book.viewmodel.BookDetailViewModel
+import ireader.presentation.ui.component.reusable_composable.AppIconButton
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ChapterBar(
+        vm: BookDetailViewModel,
+        chapters:List<Chapter>,
+        onMap: () -> Unit,
+        onSortClick: () -> Unit
+) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
+    var showDownloadMenu by remember { mutableStateOf(false) }
+    
+    // Memoize pagination callbacks
+    val onPageSelected = remember(vm) { { page: Int -> vm.loadChapterPage(page) } }
+    val onPreviousPage = remember(vm) { { vm.previousChapterPage() } }
+    val onNextPage = remember(vm) { { vm.nextChapterPage() } }
+    val onLoadAll = remember(vm) { { vm.loadAllChapters() } }
+    
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+        // Header row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Chapter count
+            Column {
+                Text(
+                    text = localizeHelper.localize(Res.string.chapters),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = if (vm.isPaginated) {
+                        "${chapters.size} chapters • Page ${vm.chapterCurrentPage}/${vm.chapterTotalPages}"
+                    } else {
+                        "${chapters.size} ${if (chapters.size == 1) "chapter" else "chapters"}"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                    fontSize = 12.sp
+                )
+            }
+            
+            // Action buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Bulk download menu
+                Box {
+                    Surface(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .combinedClickable(
+                                onClick = { showDownloadMenu = true },
+                                onLongClick = { 
+                                    vm.showChapterRangeDownloadDialog()
+                                }
+                            ),
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = localizeHelper.localize(Res.string.download_chapters),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    
+                    DropdownMenu(
+                        expanded = showDownloadMenu,
+                        onDismissRequest = { showDownloadMenu = false }
+                    ) {
+                        // Load all chapters option (only for paginated sources)
+                        if (vm.isPaginated) {
+                            DropdownMenuItem(
+                                text = { Text("Load All Chapters") },
+                                onClick = {
+                                    showDownloadMenu = false
+                                    onLoadAll()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.SelectAll,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            )
+                            HorizontalDivider()
+                        }
+                        
+                        DropdownMenuItem(
+                            text = { Text(localizeHelper.localize(Res.string.download_all_unread)) },
+                            onClick = {
+                                showDownloadMenu = false
+                                vm.downloadUnreadChapters()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(localizeHelper.localize(Res.string.download_all_un_downloaded)) },
+                            onClick = {
+                                showDownloadMenu = false
+                                vm.downloadUndownloadedChapters()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Download Chapter Range") },
+                            onClick = {
+                                showDownloadMenu = false
+                                vm.showChapterRangeDownloadDialog()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Download Next Chapters") },
+                            onClick = {
+                                showDownloadMenu = false
+                                vm.showDownloadNextChaptersDialog()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(localizeHelper.localize(Res.string.download_all)) },
+                            onClick = {
+                                showDownloadMenu = false
+                                vm.book?.let { book ->
+                                    vm.startDownloadService(book)
+                                }
+                            }
+                        )
+                    }
+                }
+                
+                FilledTonalIconButton(
+                    onClick = { vm.searchMode = !vm.searchMode },
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = localize(Res.string.search),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                
+                FilledTonalIconButton(
+                    onClick = onMap,
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Place,
+                        contentDescription = localize(Res.string.find_current_chapter),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                
+                FilledTonalIconButton(
+                    onClick = onSortClick,
+                    modifier = Modifier.size(36.dp),
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sort,
+                        contentDescription = localizeHelper.localize(Res.string.sort),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+        
+            // Pagination bar (only shown when source supports pagination)
+            AnimatedChapterPaginationBar(
+                visible = vm.isPaginated,
+                currentPage = vm.chapterCurrentPage,
+                totalPages = vm.chapterTotalPages,
+                isLoading = vm.isLoadingChapterPage,
+                onPageSelected = onPageSelected,
+                onPreviousPage = onPreviousPage,
+                onNextPage = onNextPage,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        
+            // Divider
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                thickness = 1.dp
+            )
+        }
+    }
+}

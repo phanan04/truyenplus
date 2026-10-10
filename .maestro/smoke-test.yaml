@@ -1,0 +1,49 @@
+# Smoke: launch + every bottom tab loads + back doesn't crash
+appId: ir.kazemcodes.infinityreader.debug
+tags: [smoke]
+---
+- runFlow: common/launch.yaml
+- takeScreenshot: smoke_01_library
+
+# Cycle every tab; assert each screen renders
+- tapOn:
+    text: "Updates"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Updates"
+- tapOn:
+    text: "History"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "History"
+- tapOn:
+    text: "Sources"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Test source"
+- tapOn:
+    text: "More"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "More"
+- tapOn:
+    text: "Library"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Library"
+
+# Rapid tab switching (state-loss/crash bug hunt)
+- repeat:
+    times: 3
+    commands:
+      - tapOn:
+          text: "Updates"
+      - tapOn:
+          text: "Library"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Library"
+
+# Back on home tab must not crash
+- pressKey: Back
+- takeScreenshot: smoke_02_done

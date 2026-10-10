@@ -1,0 +1,144 @@
+package ireader.presentation.core.theme
+
+import androidx.compose.material.ripple.LocalRippleTheme
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.LayoutDirection
+import ireader.i18n.LocalizeHelper
+import ireader.presentation.ui.component.LocalPerformanceConfig
+import ireader.presentation.ui.component.PerformanceConfig
+import ireader.presentation.ui.component.rememberPlatformPerformanceConfig
+import ireader.presentation.ui.core.theme.*
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.presentation.ui.core.utils.LocalIsRtl
+import ireader.presentation.ui.core.utils.getLayoutDirectionForLanguage
+import ireader.presentation.core.toDomainColor
+import ireader.presentation.core.toComposeColor
+import kotlinx.coroutines.CoroutineScope
+import org.koin.compose.koinInject
+
+@OptIn(ExperimentalTextApi::class)
+@Composable
+fun AppTheme(
+    scope: CoroutineScope,
+    content: @Composable() () -> Unit,
+) {
+    val vm = koinInject<AppThemeViewModel>()
+    // The reduced reader uses one SimpMusic-inspired dark shell, including existing installs.
+    // Reader page colours/fonts continue to come from the original reader preferences.
+    val materialColors = ireader.presentation.ui.core.theme.themes.TruyenPlusDarkColors
+    val customColors = ireader.domain.models.theme.ExtraColors(
+        bars = materialColors.background.toDomainColor(),
+        onBars = materialColors.onBackground.toDomainColor(),
+    )
+    val typography = vm.getTypography()
+    val systemUiController = LocalISystemUIController.current
+    systemUiController?.InitController()
+    
+    val transparentStatusBar = LocalTransparentStatusBar.current?.enabled ?: false
+    val customStatusColor = LocalCustomSystemColor.current
+    val isCustomColorEnable = customStatusColor?.enabled ?: false
+    val mainLocalizeHelper = koinInject<LocalizeHelper>()
+    val localeHelper = koinInject<LocaleHelper>()
+    
+    val isLight = materialColors.isLight()
+    
+    // Snapshot the bar colors to ensure DisposableEffect detects changes
+    val currentBarsColor = customColors.bars
+    val currentIsBarLight = customColors.isBarLight
+
+    // Handle system bars color with proper dependencies
+    DisposableEffect(
+        currentBarsColor,
+        currentIsBarLight,
+        transparentStatusBar,
+        isCustomColorEnable,
+        customStatusColor?.statusBar,
+        customStatusColor?.navigationBar,
+        isLight,
+        materialColors  // Add materialColors as dependency to react to theme changes
+    ) {
+        // Determine status bar configuration
+        val (statusBarColor, statusBarDarkIcons) = when {
+            // Priority 1: Custom status bar color
+            isCustomColorEnable && customStatusColor != null -> {
+                customStatusColor.statusBar to (customStatusColor.statusBar.luminance() > 0.5)
+            }
+            // Priority 2: Transparent status bar
+            transparentStatusBar -> {
+                Color.Transparent to isLight
+            }
+            // Priority 3: Default bars color
+            else -> {
+                currentBarsColor.toComposeColor() to currentIsBarLight
+            }
+        }
+        
+        // Determine navigation bar configuration
+        val (navigationBarColor, navigationBarDarkIcons) = when {
+            // Priority 1: Custom navigation bar color
+            isCustomColorEnable && customStatusColor != null -> {
+                customStatusColor.navigationBar to (customStatusColor.navigationBar.luminance() > 0.5)
+            }
+            // Priority 2: Default bars color (even with transparent status bar)
+            else -> {
+                currentBarsColor.toComposeColor() to currentIsBarLight
+            }
+        }
+        
+        // Apply status bar color
+        systemUiController?.setStatusBarColor(
+            color = statusBarColor,
+            darkIcons = statusBarDarkIcons,
+        )
+        
+        // Apply navigation bar color
+        systemUiController?.setNavigationBarColor(
+            color = navigationBarColor,
+            darkIcons = navigationBarDarkIcons,
+            navigationBarContrastEnforced = false
+        )
+        
+        onDispose {
+            // Reset to default on dispose
+            systemUiController?.setSystemBarsColor(
+                color = currentBarsColor.toComposeColor(),
+                darkIcons = currentIsBarLight,
+                isNavigationBarContrastEnforced = false
+            )
+        }
+    }
+
+    // Get performance config - uses platform-specific detection when available
+    val performanceConfig = rememberPlatformPerformanceConfig()
+    
+    // Determine layout direction based on current language
+    // This enables RTL support for Arabic, Hebrew, Persian, etc.
+    val currentLanguage = mainLocalizeHelper.getCurrentLanguageCode()
+    val layoutDirection = remember(currentLanguage) {
+        getLayoutDirectionForLanguage(currentLanguage)
+    }
+    val isRtl = layoutDirection == LayoutDirection.Rtl
+    
+    // Wrap with AppLocaleProvider to enable runtime language switching
+    AppLocaleProvider(localeHelper = localeHelper) {
+        AppColors(
+            materialColors = materialColors,
+            extraColors = customColors,
+            typography = typography,
+            shape = Shapes
+        ) {
+            CompositionLocalProvider(
+                LocalLayoutDirection provides layoutDirection,
+                LocalIsRtl provides isRtl,
+                LocalLocalizeHelper provides mainLocalizeHelper,
+                LocalGlobalCoroutineScope provides scope,
+                LocalPerformanceConfig provides performanceConfig,
+                content = content
+            )
+        }
+    }
+}

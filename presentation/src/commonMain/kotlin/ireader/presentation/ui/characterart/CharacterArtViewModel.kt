@@ -1,0 +1,714 @@
+package ireader.presentation.ui.characterart
+
+import androidx.compose.runtime.Stable
+import ireader.domain.data.repository.CharacterArtRepository
+import ireader.domain.models.characterart.*
+import ireader.domain.preferences.prefs.ReaderPreferences
+import ireader.presentation.ui.core.viewmodel.BaseViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import ireader.domain.utils.extensions.currentTimeToLong
+import ireader.data.characterart.GeminiImageGenerator
+import ireader.data.characterart.ImageModel
+import ireader.data.characterart.ImageProvider
+import ireader.data.characterart.UnifiedImageGenerator
+
+/**
+ * State for Character Art Gallery screen
+ */
+@Stable
+data class CharacterArtScreenState(
+    val artList: List<CharacterArt> = emptyList(),
+    val featuredArt: List<CharacterArt> = emptyList(),
+    val userSubmissions: List<CharacterArt> = emptyList(),
+    val pendingArt: List<CharacterArt> = emptyList(),
+    val selectedArt: CharacterArt? = null,
+    val selectedFilter: ArtStyleFilter = ArtStyleFilter.ALL,
+    val selectedSort: CharacterArtSort = CharacterArtSort.NEWEST,
+    val viewMode: GalleryViewMode = GalleryViewMode.GRID,
+    val searchQuery: String = "",
+    val isLoading: Boolean = false,
+    val isUploading: Boolean = false,
+    val uploadProgress: Float = 0f,
+    val error: String? = null,
+    val successMessage: String? = null,
+    val isAdmin: Boolean = false,
+    val hasMorePages: Boolean = true,
+    val currentPage: Int = 0,
+    // AI generation state - supports multiple providers
+    val selectedProvider: ImageProvider = ImageProvider.QWEN_FAST, // Default to Qwen Fast (free and fast)
+    val availableProviders: List<ImageProvider> = ImageProvider.entries,
+    val availableModels: List<ImageModel> = emptyList(),
+    val selectedModel: ImageModel? = null,
+    val isLoadingModels: Boolean = false,
+    val isGenerating: Boolean = false,
+    // TODO: Memory optimization - Consider storing URI/path instead of ByteArray
+    // Storing large image data directly in UI state can cause memory pressure, especially
+    // with multiple generated images or during configuration changes. Consider:
+    // 1. Store file URI/path and load bytes on-demand for display
+    // 2. Use a separate image cache with LRU eviction policy
+    // 3. Compress images before storing in state if ByteArray is necessary
+    val generatedImageBytes: ByteArray? = null,
+    val generationError: String? = null,
+    // API keys for different providers
+    val geminiApiKey: String = "",
+    val pollinationsApiKey: String = ""
+)
+
+/**
+ * ViewModel for Character Art Gallery
+ */
+@Stable
+class CharacterArtViewModel(
+    private val repository: CharacterArtRepository,
+    private val getCurrentUser: suspend () -> ireader.domain.models.remote.User?,
+    private val geminiImageGenerator: GeminiImageGenerator? = null,
+    private val unifiedImageGenerator: UnifiedImageGenerator? = null,
+    private val readerPreferences: ReaderPreferences? = null
+) : BaseViewModel() {
+    
+    private val _state = MutableStateFlow(CharacterArtScreenState())
+    val state: StateFlow<CharacterArtScreenState> = _state.asStateFlow()
+    
+    private val pageSize = 30
+    
+    /**
+     * Helper function to handle errors consistently across the ViewModel.
+     * Fixed Issue #15: Extracted repetitive error handling pattern.
+     */
+    private fun handleError(error: Throwable, message: String) {
+        _state.update { it.copy(error = "$message: ${error.message}") }
+    }
+    
+    /**
+     * Helper function to handle generation errors consistently.
+     * Fixed Issue #15: Extracted repetitive error handling pattern.
+     */
+    private fun handleGenerationError(error: Throwable, message: String) {
+        _state.update { it.copy(generationError = "$message: ${error.message}") }
+    }
+    
+    init {
+        loadInitialData()
+        loadSavedApiKeys()
+        loadModelsForCurrentProvider()
+    }
+    
+    /**
+     * Load saved API keys from preferences
+     */
+    private fun loadSavedApiKeys() {
+        val savedGeminiKey = readerPreferences?.geminiApiKey()?.get() ?: ""
+        val savedPollinationsKey = readerPreferences?.pollinationsApiKey()?.get() ?: ""
+        _state.update { 
+            it.copy(
+                geminiApiKey = savedGeminiKey,
+                pollinationsApiKey = savedPollinationsKey
+            ) 
+        }
+    }
+    
+    private fun loadInitialData() {
+        scope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            // Check admin status
+            val user = try {
+                getCurrentUser()
+            } catch (e: Exception) {
+                null
+            }
+            
+            val isAdmin = user?.isAdmin == true
+            
+            _state.update { it.copy(isAdmin = isAdmin) }
+            
+            // Load art
+            loadArt(refresh = true)
+            loadFeaturedArt()
+            
+            if (isAdmin) {
+                loadPendingArt()
+            }
+        }
+    }
+    
+    fun loadArt(refresh: Boolean = false) {
+        scope.launch {
+            val currentState = _state.value
+            val offset = if (refresh) 0 else currentState.currentPage * pageSize
+            
+            if (refresh) {
+                _state.update { it.copy(isLoading = true, currentPage = 0) }
+            }
+            
+            repository.getApprovedArt(
+                filter = currentState.selectedFilter,
+                sort = currentState.selectedSort,
+                searchQuery = currentState.searchQuery,
+                limit = pageSize,
+                offset = offset
+            ).onSuccess { newArt ->
+                _state.update { state ->
+                    val updatedList = if (refresh) newArt else state.artList + newArt
+                    state.copy(
+                        artList = updatedList,
+                        isLoading = false,
+                        hasMorePages = newArt.size >= pageSize,
+                        currentPage = if (refresh) 1 else state.currentPage + 1
+                    )
+                }
+            }.onFailure { error ->
+                handleError(error, "Failed to load art")
+            }
+        }
+    }
+    
+    fun loadMoreArt() {
+        if (_state.value.hasMorePages && !_state.value.isLoading) {
+            loadArt(refresh = false)
+        }
+    }
+    
+    private fun loadFeaturedArt() {
+        scope.launch {
+            repository.getFeaturedArt(limit = 5)
+                .onSuccess { featured ->
+                    _state.update { it.copy(featuredArt = featured) }
+                }
+        }
+    }
+    
+    private fun loadPendingArt() {
+        scope.launch {
+            repository.getPendingArt()
+                .onSuccess { pending ->
+                    _state.update { it.copy(pendingArt = pending) }
+                }
+                .onFailure { error ->
+                    handleError(error, "Failed to load pending art")
+                }
+        }
+    }
+    
+    fun loadUserSubmissions() {
+        scope.launch {
+            repository.getUserSubmissions()
+                .onSuccess { submissions ->
+                    _state.update { it.copy(userSubmissions = submissions) }
+                }
+        }
+    }
+    
+    fun setFilter(filter: ArtStyleFilter) {
+        _state.update { it.copy(selectedFilter = filter) }
+        loadArt(refresh = true)
+    }
+    
+    fun setSort(sort: CharacterArtSort) {
+        _state.update { it.copy(selectedSort = sort) }
+        loadArt(refresh = true)
+    }
+    
+    fun setViewMode(mode: GalleryViewMode) {
+        _state.update { it.copy(viewMode = mode) }
+    }
+    
+    fun setSearchQuery(query: String) {
+        _state.update { it.copy(searchQuery = query) }
+        // Debounce search
+        scope.launch {
+            kotlinx.coroutines.delay(300)
+            if (_state.value.searchQuery == query) {
+                loadArt(refresh = true)
+            }
+        }
+    }
+    
+    fun selectArt(art: CharacterArt?) {
+        _state.update { it.copy(selectedArt = art) }
+    }
+    
+    /**
+     * Load art by ID for detail screen
+     */
+    fun loadArtById(artId: String) {
+        scope.launch {
+            // First check if it's already in the list
+            val existingArt = _state.value.artList.find { it.id == artId }
+            if (existingArt != null) {
+                _state.update { it.copy(selectedArt = existingArt) }
+                return@launch
+            }
+            
+            // Otherwise fetch from repository
+            repository.getArtById(artId)
+                .onSuccess { art ->
+                    _state.update { it.copy(selectedArt = art) }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(error = "Failed to load art: ${error.message}") }
+                }
+        }
+    }
+    
+    fun toggleLike(artId: String) {
+        scope.launch {
+            repository.toggleLike(artId)
+                .onSuccess { isLiked ->
+                    _state.update { state ->
+                        val updatedList = state.artList.map { art ->
+                            if (art.id == artId) {
+                                art.copy(
+                                    isLikedByUser = isLiked,
+                                    likesCount = if (isLiked) art.likesCount + 1 else art.likesCount - 1
+                                )
+                            } else art
+                        }
+                        state.copy(artList = updatedList)
+                    }
+                }
+        }
+    }
+    
+    fun submitArt(
+        request: SubmitCharacterArtRequest,
+        imageBytes: ByteArray
+    ) {
+        scope.launch {
+            _state.update { it.copy(isUploading = true, uploadProgress = 0f) }
+            
+            // Include imageBytes in the request for the data source to handle upload
+            val requestWithImage = request.copy(imageBytes = imageBytes)
+            
+            _state.update { it.copy(uploadProgress = 0.3f) }
+            
+            repository.submitArt(requestWithImage)
+                .onSuccess { art ->
+                    _state.update { state ->
+                        state.copy(
+                            isUploading = false,
+                            uploadProgress = 1f,
+                            successMessage = "Art submitted for review! ??",
+                            userSubmissions = state.userSubmissions + art
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update {
+                        it.copy(
+                            isUploading = false,
+                            error = "Failed to submit: ${error.message}"
+                        )
+                    }
+                }
+        }
+    }
+    
+    fun approveArt(artId: String, featured: Boolean = false) {
+        scope.launch {
+            repository.approveArt(artId, featured)
+                .onSuccess {
+                    _state.update { state ->
+                        state.copy(
+                            pendingArt = state.pendingArt.filter { it.id != artId },
+                            successMessage = "Art approved! ?"
+                        )
+                    }
+                    loadArt(refresh = true)
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(error = "Failed to approve: ${error.message}") }
+                }
+        }
+    }
+    
+    fun rejectArt(artId: String, reason: String = "") {
+        scope.launch {
+            repository.rejectArt(artId, reason)
+                .onSuccess {
+                    _state.update { state ->
+                        state.copy(
+                            pendingArt = state.pendingArt.filter { it.id != artId },
+                            successMessage = "Art rejected"
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(error = "Failed to reject: ${error.message}") }
+                }
+        }
+    }
+    
+    fun deleteArt(artId: String) {
+        scope.launch {
+            repository.deleteArt(artId)
+                .onSuccess {
+                    _state.update { state ->
+                        state.copy(
+                            artList = state.artList.filter { it.id != artId },
+                            userSubmissions = state.userSubmissions.filter { it.id != artId },
+                            successMessage = "Art deleted"
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(error = "Failed to delete: ${error.message}") }
+                }
+        }
+    }
+    
+    fun reportArt(artId: String, reason: String) {
+        scope.launch {
+            repository.reportArt(artId, reason)
+                .onSuccess {
+                    _state.update { it.copy(successMessage = "Report submitted. Thank you!") }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(error = "Failed to report: ${error.message}") }
+                }
+        }
+    }
+    
+    fun clearError() {
+        _state.update { it.copy(error = null) }
+    }
+    
+    fun clearSuccessMessage() {
+        _state.update { it.copy(successMessage = null) }
+    }
+    
+    fun refresh() {
+        loadArt(refresh = true)
+        loadFeaturedArt()
+        if (_state.value.isAdmin) {
+            loadPendingArt()
+        }
+    }
+    
+    /**
+     * Force load pending art for admin verification screen.
+     * This bypasses the isAdmin check since the verification screen
+     * is only accessible to admins anyway.
+     */
+    fun loadPendingArtForVerification() {
+        scope.launch {
+            repository.getPendingArt()
+                .onSuccess { pending ->
+                    _state.update { it.copy(pendingArt = pending) }
+                }
+                .onFailure { error ->
+                    _state.update { 
+                        it.copy(error = "Failed to load pending art: ${error.message}")
+                    }
+                }
+        }
+    }
+    
+    /**
+     * Approve all pending art at once (admin only)
+     */
+    fun approveAllPendingArt(featured: Boolean = false) {
+        scope.launch {
+            val pendingArt = _state.value.pendingArt
+            if (pendingArt.isEmpty()) {
+                _state.update { it.copy(successMessage = "No pending art to approve") }
+                return@launch
+            }
+            
+            _state.update { it.copy(isLoading = true) }
+            
+            var successCount = 0
+            var failCount = 0
+            
+            for (art in pendingArt) {
+                repository.approveArt(art.id, featured)
+                    .onSuccess { successCount++ }
+                    .onFailure { failCount++ }
+            }
+            
+            _state.update { state ->
+                state.copy(
+                    pendingArt = emptyList(),
+                    isLoading = false,
+                    successMessage = "Approved $successCount art${if (failCount > 0) ", $failCount failed" else ""}"
+                )
+            }
+            
+            loadArt(refresh = true)
+        }
+    }
+    
+    /**
+     * Auto-approve pending art older than 7 days (admin only)
+     */
+    fun autoApproveOldPendingArt(days: Int = 7) {
+        scope.launch {
+            _state.update { it.copy(isLoading = true) }
+            
+            repository.getPendingArtOlderThan(days)
+                .onSuccess { oldPendingArt ->
+                    if (oldPendingArt.isEmpty()) {
+                        _state.update { 
+                            it.copy(
+                                isLoading = false,
+                                successMessage = "No pending art older than $days days"
+                            )
+                        }
+                        return@launch
+                    }
+                    
+                    var successCount = 0
+                    var failCount = 0
+                    
+                    for (art in oldPendingArt) {
+                        repository.autoApproveArt(art.id)
+                            .onSuccess { successCount++ }
+                            .onFailure { failCount++ }
+                    }
+                    
+                    _state.update { state ->
+                        state.copy(
+                            isLoading = false,
+                            successMessage = "Auto-approved $successCount art older than $days days${if (failCount > 0) ", $failCount failed" else ""}"
+                        )
+                    }
+                    
+                    loadPendingArtForVerification()
+                    loadArt(refresh = true)
+                }
+                .onFailure { error ->
+                    _state.update { 
+                        it.copy(
+                            isLoading = false,
+                            error = "Failed to auto-approve: ${error.message}"
+                        )
+                    }
+                }
+        }
+    }
+    
+    // ==================== Gemini AI Generation ====================
+    
+    /**
+     * Set the Gemini API key, save to preferences, and fetch available models
+     */
+    fun setGeminiApiKey(apiKey: String) {
+        _state.update { it.copy(geminiApiKey = apiKey) }
+        // Save to preferences for persistence
+        readerPreferences?.geminiApiKey()?.set(apiKey)
+        if (apiKey.isNotBlank() && _state.value.selectedProvider == ImageProvider.GEMINI) {
+            loadModelsForCurrentProvider()
+        }
+    }
+    
+    /**
+     * Set the Pollinations API key, save to preferences
+     */
+    fun setPollinationsApiKey(apiKey: String) {
+        _state.update { it.copy(pollinationsApiKey = apiKey) }
+        // Save to preferences for persistence
+        readerPreferences?.pollinationsApiKey()?.set(apiKey)
+        if (apiKey.isNotBlank() && _state.value.selectedProvider == ImageProvider.POLLINATIONS) {
+            loadModelsForCurrentProvider()
+        }
+    }
+    
+    /**
+     * Fetch available image generation models from Gemini API
+     */
+    fun fetchAvailableModels(apiKey: String) {
+        val generator = geminiImageGenerator ?: return
+        
+        scope.launch {
+            _state.update { it.copy(isLoadingModels = true) }
+            
+            generator.fetchAvailableModels(apiKey)
+                .onSuccess { models ->
+                    _state.update { state ->
+                        state.copy(
+                            availableModels = models,
+                            selectedModel = models.firstOrNull() ?: state.selectedModel,
+                            isLoadingModels = false
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { 
+                        it.copy(
+                            isLoadingModels = false,
+                            generationError = "Failed to fetch models: ${error.message}"
+                        )
+                    }
+                }
+        }
+    }
+    
+    /**
+     * Select a model for image generation
+     */
+    fun selectModel(model: ImageModel) {
+        _state.update { it.copy(selectedModel = model) }
+    }
+    
+    /**
+     * Switch to a different image generation provider
+     */
+    fun setProvider(provider: ImageProvider) {
+        _state.update { it.copy(selectedProvider = provider, selectedModel = null) }
+        loadModelsForCurrentProvider()
+    }
+    
+    /**
+     * Load models for the currently selected provider
+     */
+    private fun loadModelsForCurrentProvider() {
+        val generator = unifiedImageGenerator ?: return
+        val currentState = _state.value
+        
+        scope.launch {
+            _state.update { it.copy(isLoadingModels = true) }
+            
+            val apiKey = when (currentState.selectedProvider) {
+                ImageProvider.GEMINI -> currentState.geminiApiKey
+                ImageProvider.POLLINATIONS -> currentState.pollinationsApiKey
+                ImageProvider.QWEN_FAST -> "" // No API key needed for Qwen Fast
+            }
+            
+            generator.getModelsForProvider(currentState.selectedProvider, apiKey)
+                .onSuccess { models ->
+                    _state.update { state ->
+                        state.copy(
+                            availableModels = models,
+                            selectedModel = models.firstOrNull(),
+                            isLoadingModels = false
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { 
+                        it.copy(
+                            isLoadingModels = false,
+                            generationError = "Failed to load models: ${error.message}"
+                        )
+                    }
+                }
+        }
+    }
+    
+    /**
+     * Generate an image using the selected provider
+     */
+    fun generateImage(
+        prompt: String,
+        characterName: String,
+        bookTitle: String,
+        style: String
+    ) {
+        val generator = unifiedImageGenerator ?: geminiImageGenerator?.let { 
+            // Fallback to old Gemini generator if unified not available
+            generateImageWithGemini(prompt, characterName, bookTitle, style)
+            return
+        } ?: run {
+            _state.update { it.copy(generationError = "Image generator not available") }
+            return
+        }
+        
+        val currentState = _state.value
+        val provider = currentState.selectedProvider
+        
+        // Check if API key is required and provided
+        val apiKey = when (provider) {
+            ImageProvider.GEMINI -> currentState.geminiApiKey
+            ImageProvider.POLLINATIONS -> currentState.pollinationsApiKey
+            ImageProvider.QWEN_FAST -> "" // No API key needed for Qwen Fast
+        }
+        
+        if (provider.requiresApiKey && apiKey.isBlank()) {
+            _state.update { it.copy(generationError = "Please set your ${provider.displayName} API key first") }
+            return
+        }
+        
+        val modelId = currentState.selectedModel?.id
+        
+        scope.launch {
+            _state.update { 
+                it.copy(
+                    isGenerating = true, 
+                    generationError = null,
+                    generatedImageBytes = null
+                ) 
+            }
+            
+            generator.generateWithFallback(provider, apiKey, prompt, characterName, bookTitle, style, modelId)
+                .onSuccess { generatedImage ->
+                    _state.update { 
+                        it.copy(
+                            isGenerating = false,
+                            generatedImageBytes = generatedImage.bytes,
+                            successMessage = "Image generated successfully! 🎨"
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { 
+                        it.copy(
+                            isGenerating = false,
+                            generationError = error.message ?: "Image generation failed"
+                        )
+                    }
+                }
+        }
+    }
+    
+    /**
+     * Legacy method for Gemini-only generation
+     */
+    private fun generateImageWithGemini(
+        prompt: String,
+        characterName: String,
+        bookTitle: String,
+        style: String
+    ) {
+        val generator = geminiImageGenerator ?: return
+        val apiKey = _state.value.geminiApiKey
+        
+        if (apiKey.isBlank()) {
+            _state.update { it.copy(generationError = "Please set your Gemini API key first") }
+            return
+        }
+        
+        val modelId = _state.value.selectedModel?.id ?: "gemini-2.5-flash-image"
+        
+        scope.launch {
+            _state.update { it.copy(isGenerating = true, generationError = null, generatedImageBytes = null) }
+            
+            generator.generateImage(apiKey, prompt, characterName, bookTitle, style, modelId)
+                .onSuccess { generatedImage ->
+                    _state.update { 
+                        it.copy(isGenerating = false, generatedImageBytes = generatedImage.bytes, successMessage = "Image generated! 🎨")
+                    }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(isGenerating = false, generationError = error.message ?: "Generation failed") }
+                }
+        }
+    }
+    
+    /**
+     * Clear generated image
+     */
+    fun clearGeneratedImage() {
+        _state.update { it.copy(generatedImageBytes = null, generationError = null) }
+    }
+    
+    /**
+     * Clear generation error
+     */
+    fun clearGenerationError() {
+        _state.update { it.copy(generationError = null) }
+    }
+}

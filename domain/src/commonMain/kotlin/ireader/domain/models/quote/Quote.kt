@@ -1,0 +1,34 @@
+package ireader.domain.models.quote
+
+import kotlinx.serialization.Serializable
+
+/**
+ * Quote model for sharing - simplified version of LocalQuote
+ * Used for quote card generation and sharing
+ */
+@Serializable
+data class Quote(
+    val text: String,
+    val bookTitle: String,
+    val author: String = "",
+    val submitterUsername: String = ""
+)
+
+/**
+ * Available card styles for shareable quote cards
+ */
+enum class QuoteCardStyle(val displayName: String) {
+    GRADIENT_SUNSET("Sunset"),
+    GRADIENT_OCEAN("Ocean"),
+    GRADIENT_FOREST("Forest"),
+    GRADIENT_LAVENDER("Lavender"),
+    GRADIENT_MIDNIGHT("Midnight"),
+    MINIMAL_LIGHT("Minimal Light"),
+    MINIMAL_DARK("Minimal Dark"),
+    PAPER_TEXTURE("Paper"),
+    BOOK_COVER("Book Cover"),
+    AURORA_BOREALIS("Aurora"),
+    CYBERPUNK("Cyberpunk"),
+    ROSE_GOLD("Rose Gold"),
+    COSMIC_PURPLE("Cosmic Purple")
+}

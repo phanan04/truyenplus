@@ -1,0 +1,248 @@
+package ireader.domain.services.tts_service.v2
+
+import ireader.core.source.model.Page
+import ireader.core.source.model.Text
+import ireader.domain.usecases.tts.TTSTextSanitizer
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+/**
+ * Integration tests for TTSContentLoader with TTSTextSanitizer.
+ * 
+ * Verifies that brackets and special characters are removed from
+ * chapter content before being sent to TTS engines.
+ */
+class TTSContentLoaderSanitizerTest {
+    
+    private val sanitizer = TTSTextSanitizer()
+    
+    @Test
+    fun `parseContent should preserve text inside brackets from text pages`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello (note) world"),
+            Text("Test [TL: translation] content"),
+            Text("More {annotation} text")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(3, result.size)
+        assertEquals("Hello note world", result[0])
+        assertEquals("Test TL: translation content", result[1])
+        assertEquals("More annotation text", result[2])
+    }
+    
+    @Test
+    fun `parseContent should remove asterisks from text`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello * world * test")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("Hello world test", result[0])
+    }
+    
+    @Test
+    fun `parseContent should handle mixed brackets and asterisks`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello * (note) * [TL] world")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("Hello note TL world", result[0])
+    }
+    
+    @Test
+    fun `parseContent should preserve paragraphs with only brackets`() {
+        // Arrange
+        val pages = listOf(
+            Text("(only brackets)"),
+            Text("Hello world"),
+            Text("[only translation note]")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(3, result.size)
+        assertEquals("only brackets", result[0])
+        assertEquals("Hello world", result[1])
+        assertEquals("only translation note", result[2])
+    }
+    
+    @Test
+    fun `parseContent should handle HTML with brackets`() {
+        // Arrange
+        val pages = listOf(
+            Text("<p>Hello (note) world</p>"),
+            Text("<br/>Test [TL] content<br/>")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(2, result.size)
+        assertEquals("Hello note world", result[0])
+        assertEquals("Test TL content", result[1])
+    }
+    
+    @Test
+    fun `parseContent should preserve regular punctuation`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello, world! How are you? I'm fine.")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("Hello, world! How are you? I'm fine.", result[0])
+    }
+    
+    @Test
+    fun `parseContent should handle nested brackets`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello (outer (inner) note) world")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("Hello outer inner note world", result[0])
+    }
+    
+    @Test
+    fun `parseContent should normalize whitespace after removal`() {
+        // Arrange
+        val pages = listOf(
+            Text("Hello   (note)   world")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(1, result.size)
+        assertEquals("Hello note world", result[0])
+    }
+    
+    @Test
+    fun `parseContent should handle multiple paragraphs with brackets`() {
+        // Arrange
+        val pages = listOf(
+            Text("First (note) paragraph\nSecond [TL] paragraph\nThird {annotation} paragraph")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(3, result.size)
+        assertEquals("First note paragraph", result[0])
+        assertEquals("Second TL paragraph", result[1])
+        assertEquals("Third annotation paragraph", result[2])
+    }
+    
+    @Test
+    fun `parseContent should preserve RPG system prompts and skills`() {
+        // Arrange
+        val pages = listOf(
+            Text("[Skill: Shadow Step] activated!"),
+            Text("[Status Window: HP 100/100]")
+        )
+        
+        // Act
+        val result = parseContentWithSanitizer(pages)
+        
+        // Assert
+        assertEquals(2, result.size)
+        assertEquals("Skill: Shadow Step activated!", result[0])
+        assertEquals("Status Window: HP 100/100", result[1])
+    }
+    
+    @Test
+    fun `parseContent should filter out downloaded chapter placeholder`() {
+        val pages = listOf(
+            Text("Chapter title"),
+            Text("[DOWNLOADED_CONTENT_PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER]"),
+            Text("Actual story content paragraph.")
+        )
+        val result = parseContentWithSanitizer(pages)
+        assertEquals(2, result.size)
+        assertEquals("Chapter title", result[0])
+        assertEquals("Actual story content paragraph.", result[1])
+    }
+
+    @Test
+    fun `parseContent should return empty list when content only contains placeholder`() {
+        val pages = listOf(
+            Text("[DOWNLOADED_CONTENT_PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER]")
+        )
+        val result = parseContentWithSanitizer(pages)
+        assertTrue(result.isEmpty())
+    }
+
+    /**
+     * Helper method that simulates the parseContent logic with sanitizer
+     */
+    private fun parseContentWithSanitizer(pages: List<Page>): List<String> {
+        val textContent = pages
+            .filterIsInstance<Text>()
+            .map { it.text }
+            .filter { it.isNotBlank() && !it.contains("PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER") }
+        
+        if (textContent.isEmpty()) {
+            return emptyList()
+        }
+        
+        val paragraphs = textContent.flatMap { text ->
+            cleanAndSplitText(text)
+        }
+        
+        // Sanitize for TTS
+        return sanitizer.sanitizeList(paragraphs)
+    }
+    
+    /**
+     * Helper method that simulates HTML cleaning and splitting
+     */
+    private fun cleanAndSplitText(text: String): List<String> {
+        val cleanContent = text
+            .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("<p[^>]*>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("<[^>]+>"), "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+        
+        return cleanContent
+            .split(Regex("\n+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+    }
+}

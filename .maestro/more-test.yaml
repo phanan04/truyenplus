@@ -1,0 +1,79 @@
+# More tab: every menu destination opens and backs out without crash
+appId: ir.kazemcodes.infinityreader.debug
+tags: [more]
+---
+- runFlow: common/launch.yaml
+
+- tapOn:
+    text: "More"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "IReader"
+- takeScreenshot: more_01_screen
+
+# --- Incognito toggle on/off ---
+- tapOn:
+    text: "Incognito mode"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Incognito mode"
+- waitForAnimationToEnd
+
+# --- Download queue ---
+- tapOn:
+    text: "Download"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Downloads queue"
+- takeScreenshot: more_02_downloads
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Categories ---
+- tapOn:
+    text: "Categories"
+- waitForAnimationToEnd
+- takeScreenshot: more_03_categories
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Reading Hub (statistics) ---
+- scrollUntilVisible:
+    element:
+      text: "Reading Hub"
+    direction: DOWN
+    timeout: 10000
+    optional: true
+- tapOn:
+    text: "Reading Hub"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: more_04_reading_hub
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- Community (only when Supabase enabled) ---
+- tapOn:
+    text: "Community"
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: more_05_community
+- pressKey: Back
+- waitForAnimationToEnd
+
+# --- About ---
+- scrollUntilVisible:
+    element:
+      text: "About"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "About"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Version"
+- takeScreenshot: more_06_about
+- pressKey: Back
+- waitForAnimationToEnd
+- assertVisible:
+    text: "More"

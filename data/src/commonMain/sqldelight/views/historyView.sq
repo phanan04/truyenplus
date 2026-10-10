@@ -1,0 +1,180 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+
+CREATE VIEW IF NOT EXISTS historyView AS
+SELECT
+    history._id AS id,
+    book._id AS bookId,
+    chapter._id AS chapterId,
+    chapter.name AS chapterName,
+    book.title,
+    book.thumbnail_url AS thumbnailUrl,
+    book.custom_cover AS customCover,
+    book.source,
+    book.favorite,
+    book.cover_last_modified,
+    chapter.chapter_number AS chapterNumber,
+    history.last_read AS readAt,
+    history.time_read AS readDuration,
+    history.progress,
+    max_last_read.last_read AS maxReadAt,
+    max_last_read.chapter_id AS maxReadAtChapterId
+FROM book
+JOIN chapter
+ON book._id = chapter.book_id
+JOIN history
+ON chapter._id = history.chapter_id
+JOIN (
+    SELECT chapter.book_id, chapter._id AS chapter_id, MAX(history.last_read) AS last_read
+    FROM chapter JOIN history
+    ON chapter._id = history.chapter_id
+    GROUP BY chapter.book_id
+) AS max_last_read
+ON chapter.book_id = max_last_read.book_id;
+
+-- Create index to improve query performance
+CREATE INDEX IF NOT EXISTS idx_history_last_read ON history(last_read);
+CREATE INDEX IF NOT EXISTS idx_history_progress ON history(progress);
+
+countHistory:
+SELECT count(*)
+FROM historyView
+WHERE historyView.readAt > 0
+AND maxReadAtChapterId = historyView.chapterId
+AND lower(historyView.title) LIKE ('%' || :query || '%');
+
+historyWithQuery:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > 0
+AND maxReadAtChapterId = historyView.chapterId
+AND lower(historyView.title) LIKE ('%' || :query || '%')
+ORDER BY readAt DESC;
+
+history:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > 0
+AND maxReadAtChapterId = historyView.chapterId
+AND lower(historyView.title) LIKE ('%' || :query || '%')
+ORDER BY readAt DESC
+LIMIT :limit OFFSET :offset;
+
+-- New query to get books sorted by reading progress
+historyByProgress:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > 0
+AND maxReadAtChapterId = historyView.chapterId
+ORDER BY progress DESC, readAt DESC
+LIMIT :limit OFFSET :offset;
+
+-- New query to get recently active books with non-zero progress
+recentlyActiveBooks:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > :cutoffTime
+AND progress > 0
+AND maxReadAtChapterId = historyView.chapterId
+ORDER BY readAt DESC
+LIMIT :limit;
+
+findAll:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > 0
+ORDER BY readAt DESC;
+
+getLatestHistory:
+SELECT
+id,
+bookId,
+chapterId,
+title,
+thumbnailUrl,
+customCover,
+source,
+favorite,
+cover_last_modified,
+chapterNumber,
+readAt,
+readDuration,
+progress,
+chapterName
+FROM historyView
+WHERE historyView.readAt > 0
+ORDER BY readAt DESC
+LIMIT 1;

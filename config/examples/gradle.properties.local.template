@@ -1,0 +1,40 @@
+# gradle.properties.local.template
+# Copy this file to gradle.properties.local and customize for your machine
+# gradle.properties.local is gitignored and will override settings in gradle.properties
+
+# ============================================
+# MACHINE-SPECIFIC OPTIMIZATIONS
+# ============================================
+
+# JVM Memory Settings
+# The defaults in gradle.properties work for most machines (16-32GB).
+# Only override if you have specific needs:
+#
+# Low-end (8GB RAM, 4 cores):
+#   org.gradle.jvmargs=-Xmx2048m -XX:+UseG1GC -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+#   kotlin.daemon.jvmargs=-Xmx1024m -XX:+UseG1GC
+#   org.gradle.workers.max=3
+#
+# Mid-range (16GB RAM, 8 cores):
+#   org.gradle.jvmargs=-Xmx4096m -XX:+UseG1GC -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+#   kotlin.daemon.jvmargs=-Xmx2048m -XX:+UseG1GC
+#   org.gradle.workers.max=6
+#
+# High-end (32GB+ RAM, 10+ cores):
+#   org.gradle.jvmargs=-Xmx6144m -XX:+UseG1GC -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+#   kotlin.daemon.jvmargs=-Xmx3072m -XX:+UseG1GC
+#   org.gradle.workers.max=8
+
+# Worker count (set to CPU cores - 2 for background builds)
+# Check your cores with: nproc (Linux/Mac) or WMIC (Windows)
+# org.gradle.workers.max=6
+
+# File system watching (enable for faster incremental builds)
+# org.gradle.vfs.watch=true
+
+# ============================================
+# OPTIONAL: SKIP EXPENSIVE TASKS DURING DEV
+# ============================================
+
+# Skip i18n git commands (avoids slow git rev-list on every config)
+# skipI18n=true

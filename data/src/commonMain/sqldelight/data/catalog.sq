@@ -1,0 +1,36 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+
+CREATE TABLE
+IF NOT EXISTS `catalog`
+(
+sourceId INTEGER NOT NULL,
+source INTEGER NOT NULL,
+name TEXT NOT NULL,
+description TEXT NOT NULL,
+pkgName TEXT NOT NULL,
+versionName TEXT NOT NULL,
+versionCode INTEGER AS Int NOT NULL,
+lang TEXT NOT NULL,
+pkgUrl TEXT NOT NULL,
+iconUrl TEXT NOT NULL,
+nsfw INTEGER AS Boolean NOT NULL,
+repositoryType TEXT NOT NULL DEFAULT 'IREADER',
+PRIMARY KEY(sourceId));
+
+
+findAll:
+SELECT * FROM catalog ORDER BY lang, name;
+
+deleteAll:
+DELETE FROM catalog;
+
+insert:
+INSERT OR REPLACE INTO catalog VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?);
+
+
+findFavourites:
+SELECT source FROM book GROUP BY source ORDER BY COUNT(source) DESC;

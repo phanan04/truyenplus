@@ -1,0 +1,632 @@
+package ireader.presentation.ui.sync
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.SyncProblem
+import androidx.compose.material3.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.Edit
+import ireader.domain.models.sync.ConflictResolutionStrategy
+import ireader.domain.models.sync.DiscoveredDevice
+import ireader.domain.models.sync.DeviceType
+import ireader.domain.models.sync.SavedDevice
+import ireader.domain.models.sync.SyncStatus
+import ireader.domain.models.sync.SyncTransferScope
+import ireader.presentation.ui.sync.components.ConflictResolutionDialog
+import ireader.presentation.ui.sync.components.DeviceListItem
+import ireader.presentation.ui.sync.components.EmptyDeviceList
+import ireader.presentation.ui.sync.components.PairingDialog
+import ireader.presentation.ui.sync.components.QuickShareTransferSheet
+import ireader.presentation.ui.sync.components.SavedDevicesCard
+import ireader.presentation.ui.sync.components.SyncStatusCard
+import ireader.presentation.ui.sync.components.getDeviceIcon
+import ireader.presentation.ui.sync.viewmodel.SyncViewModel
+import org.koin.compose.koinInject
+
+/**
+ * Main screen for WiFi sync functionality.
+ * 
+ * Displays discovered devices, sync status, and controls for managing sync operations.
+ * Follows Material Design 3 guidelines and Compose best practices.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SyncScreen(
+    state: SyncViewModel.State,
+    onStartDiscovery: () -> Unit,
+    onStopDiscovery: () -> Unit,
+    onDeviceClick: (DiscoveredDevice) -> Unit,
+    onNavigateBack: () -> Unit,
+    onPairDevice: () -> Unit,
+    onDismissPairing: () -> Unit,
+    onResolveConflicts: (ConflictResolutionStrategy) -> Unit,
+    onDismissConflicts: () -> Unit,
+    onCancelSync: () -> Unit,
+    onRefreshDiscovery: () -> Unit,
+    onUpdateManualIp: (String) -> Unit,
+    onConnectManualIp: (String) -> Unit,
+    onSetServerMode: (String) -> Unit,
+    onUpdateDeviceName: (String) -> Unit,
+    onUpdateDeviceType: (DeviceType) -> Unit,
+    onUpdateSyncLibrary: (Boolean) -> Unit,
+    onUpdateSyncReadingProgress: (Boolean) -> Unit,
+    onUpdateSyncDownloadedChapters: (Boolean) -> Unit,
+    onUpdateSyncSettings: (Boolean) -> Unit,
+    onSaveDeviceSettings: () -> Unit,
+    onSaveDevice: (DiscoveredDevice) -> Unit = {},
+    onRemoveSavedDevice: (String) -> Unit = {},
+    onUpdateSavedDeviceAlias: (String, String) -> Unit = { _, _ -> },
+    onConnectSavedDevice: (SavedDevice) -> Unit = {},
+    onStartQuickShareTransfer: (String, SyncTransferScope) -> Unit = { _, _ -> },
+    onDismissQuickShare: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showDeviceSettings by remember { mutableStateOf(false) }
+    
+    // Show snackbar when error occurs
+    LaunchedEffect(state.error) {
+        state.error?.let { errorMessage ->
+            snackbarHostState.showSnackbar(
+                message = errorMessage,
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("WiFi Sync") },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier.semantics {
+                            contentDescription = "Navigate back"
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Navigate back"
+                        )
+                    }
+                },
+                actions = {
+                    // Device settings button
+                    IconButton(
+                        onClick = { showDeviceSettings = true },
+                        modifier = Modifier.semantics {
+                            contentDescription = "Device Settings"
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Device Settings"
+                        )
+                    }
+                    // Sync status indicator in TopAppBar
+                    SyncStatusIndicator(
+                        syncStatus = state.syncStatus,
+                        isDiscovering = state.isDiscovering
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState)
+        },
+        modifier = modifier
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // This Device Banner
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = getDeviceIcon(state.deviceType),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (state.deviceName.isNotBlank()) state.deviceName else "IReader Device",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = "This Device • ${state.deviceType.displayName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showDeviceSettings = true },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Edit")
+                        }
+                    }
+                }
+            }
+
+            // Your Devices (Saved Devices)
+            item {
+                SavedDevicesCard(
+                    savedDevices = state.savedDevices,
+                    discoveredDevices = state.discoveredDevices,
+                    onConnect = onConnectSavedDevice,
+                    onRemove = onRemoveSavedDevice,
+                    onUpdateAlias = onUpdateSavedDeviceAlias
+                )
+            }
+
+            // Discovery controls
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Device Discovery",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = if (state.isDiscovering) onStopDiscovery else onStartDiscovery,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isDiscovering) Icons.Default.SyncProblem else Icons.Default.Sync,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(if (state.isDiscovering) "Stop" else "Start")
+                            }
+                            
+                            OutlinedButton(
+                                onClick = onRefreshDiscovery,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Refresh")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Server/Client mode selection
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Connection Role",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Select this device's role",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            FilterChip(
+                                selected = state.serverMode == "server",
+                                onClick = { onSetServerMode("server") },
+                                label = { Text("Server") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = state.serverMode == "client",
+                                onClick = { onSetServerMode("client") },
+                                label = { Text("Client") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Manual IP connection
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Manual Connection",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Connect directly using IP address",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = state.manualIp,
+                                onValueChange = onUpdateManualIp,
+                                label = { Text("IP Address") },
+                                placeholder = { Text("192.168.1.100") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Button(
+                                onClick = { onConnectManualIp(state.manualIp) },
+                                enabled = state.manualIp.isNotEmpty()
+                            ) {
+                                Text("Connect")
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Sync status card
+            item {
+                SyncStatusCard(
+                    syncStatus = state.syncStatus,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            // Cancel sync button (only shown when sync is in progress)
+            if (state.syncStatus is SyncStatus.Syncing) {
+                item {
+                    FilledTonalButton(
+                        onClick = onCancelSync,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    ) {
+                        Text("Cancel Sync")
+                    }
+                }
+            }
+            
+            // Device list header
+            item {
+                Text(
+                    text = "Nearby Devices",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            // Device list
+            if (state.discoveredDevices.isEmpty()) {
+                item {
+                    EmptyDeviceList(
+                        isDiscovering = state.isDiscovering,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else {
+                items(
+                    items = state.discoveredDevices,
+                    key = { device -> device.deviceInfo.deviceId }
+                ) { device ->
+                    val isSaved = state.savedDevices.any { it.deviceId == device.deviceInfo.deviceId }
+                    DeviceListItem(
+                        device = device,
+                        onClick = { onDeviceClick(device) },
+                        onToggleSave = {
+                            if (isSaved) {
+                                onRemoveSavedDevice(device.deviceInfo.deviceId)
+                            } else {
+                                onSaveDevice(device)
+                            }
+                        },
+                        isSaved = isSaved,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+    
+    // Quick Share Transfer Sheet
+    if (state.showQuickShareSheet && state.selectedDevice != null) {
+        val selected = state.selectedDevice
+        val isSaved = state.savedDevices.any { it.deviceId == selected.deviceInfo.deviceId }
+        QuickShareTransferSheet(
+            device = selected,
+            initialScope = state.transferScope,
+            isDeviceSaved = isSaved,
+            onToggleSaveDevice = {
+                if (isSaved) {
+                    onRemoveSavedDevice(selected.deviceInfo.deviceId)
+                } else {
+                    onSaveDevice(selected)
+                }
+            },
+            onStartTransfer = { scope ->
+                onStartQuickShareTransfer(selected.deviceInfo.deviceId, scope)
+            },
+            onDismiss = onDismissQuickShare
+        )
+    }
+
+    // Pairing dialog (legacy fallback if quick share sheet is not used)
+    if (state.showPairingDialog && state.selectedDevice != null) {
+        PairingDialog(
+            device = state.selectedDevice,
+            onPair = onPairDevice,
+            onDismiss = onDismissPairing
+        )
+    }
+    
+    // Conflict resolution dialog
+    if (state.showConflictDialog && state.conflicts.isNotEmpty()) {
+        ConflictResolutionDialog(
+            conflicts = state.conflicts,
+            onResolve = onResolveConflicts,
+            onDismiss = onDismissConflicts
+        )
+    }
+    
+    // Device settings dialog
+    if (showDeviceSettings) {
+        DeviceSettingsDialog(
+            currentDeviceName = state.deviceName,
+            currentDeviceType = state.deviceType,
+            syncLibrary = state.syncLibrary,
+            syncReadingProgress = state.syncReadingProgress,
+            syncDownloadedChapters = state.syncDownloadedChapters,
+            syncSettings = state.syncSettings,
+            onDeviceNameChange = onUpdateDeviceName,
+            onDeviceTypeChange = onUpdateDeviceType,
+            onSyncLibraryChange = onUpdateSyncLibrary,
+            onSyncReadingProgressChange = onUpdateSyncReadingProgress,
+            onSyncDownloadedChaptersChange = onUpdateSyncDownloadedChapters,
+            onSyncSettingsChange = onUpdateSyncSettings,
+            onDismiss = { showDeviceSettings = false },
+            onSave = {
+                onSaveDeviceSettings()
+                showDeviceSettings = false
+            }
+        )
+    }
+}
+
+/**
+ * Wrapper composable that integrates with SyncViewModel.
+ * 
+ * This is the entry point for the sync screen that handles ViewModel integration.
+ * 
+ * @param onNavigateBack Callback when user navigates back
+ * @param modifier Optional modifier for the screen
+ * @param viewModel SyncViewModel instance (injected via Koin)
+ */
+@Composable
+fun SyncScreen(
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SyncViewModel = koinInject()
+) {
+    val state by viewModel.state.collectAsState()
+    
+    SyncScreen(
+        state = state,
+        onStartDiscovery = viewModel::startDiscovery,
+        onStopDiscovery = viewModel::stopDiscovery,
+        onDeviceClick = viewModel::selectDevice,
+        onNavigateBack = onNavigateBack,
+        onPairDevice = viewModel::pairDevice,
+        onDismissPairing = viewModel::dismissPairingDialog,
+        onResolveConflicts = viewModel::resolveConflicts,
+        onDismissConflicts = viewModel::dismissConflictDialog,
+        onCancelSync = viewModel::cancelSync,
+        onRefreshDiscovery = viewModel::refreshDiscovery,
+        onUpdateManualIp = viewModel::updateManualIp,
+        onConnectManualIp = viewModel::connectToManualIp,
+        onSetServerMode = viewModel::setServerMode,
+        onUpdateDeviceName = viewModel::updateDeviceName,
+        onUpdateDeviceType = viewModel::updateDeviceType,
+        onUpdateSyncLibrary = viewModel::updateSyncLibrary,
+        onUpdateSyncReadingProgress = viewModel::updateSyncReadingProgress,
+        onUpdateSyncDownloadedChapters = viewModel::updateSyncDownloadedChapters,
+        onUpdateSyncSettings = viewModel::updateSyncSettings,
+        onSaveDeviceSettings = viewModel::saveDeviceSettings,
+        onSaveDevice = { device -> viewModel.saveDevice(device) },
+        onRemoveSavedDevice = viewModel::removeSavedDevice,
+        onUpdateSavedDeviceAlias = viewModel::updateSavedDeviceAlias,
+        onConnectSavedDevice = viewModel::connectToSavedDevice,
+        onStartQuickShareTransfer = viewModel::startQuickShareTransfer,
+        onDismissQuickShare = viewModel::dismissQuickShareSheet,
+        modifier = modifier
+    )
+}
+
+/**
+ * Sync status indicator for the TopAppBar.
+ * Shows a visual indicator of the current sync state.
+ * 
+ * @param syncStatus Current sync status
+ * @param isDiscovering Whether device discovery is active
+ * @param modifier Optional modifier
+ */
+@Composable
+private fun SyncStatusIndicator(
+    syncStatus: SyncStatus,
+    isDiscovering: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.padding(end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        when (syncStatus) {
+            is SyncStatus.Idle -> {
+                if (isDiscovering) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = "Discovering",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = "Sync ready",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            is SyncStatus.Discovering -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = "Discovering",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            is SyncStatus.Connecting -> {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = "Connecting",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            is SyncStatus.Syncing -> {
+                CircularProgressIndicator(
+                    progress = { syncStatus.progress },
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = "${(syncStatus.progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            is SyncStatus.Completed -> {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Sync completed",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Completed",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            is SyncStatus.Failed -> {
+                Icon(
+                    imageVector = Icons.Default.SyncProblem,
+                    contentDescription = "Sync failed",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = "Failed",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+

@@ -1,0 +1,56 @@
+import kotlin.Boolean;
+import kotlin.Long;
+import kotlin.String;
+import kotlin.Int;
+import kotlin.Float;
+CREATE VIEW IF NOT EXISTS updatesView AS
+SELECT
+    book._id AS mangaId,
+    book.title AS mangaTitle,
+    chapter._id AS chapterId,
+    chapter.name AS chapterName,
+    chapter.scanlator,
+    chapter.read,
+    chapter.bookmark,
+    book.source,
+    book.favorite,
+    book.thumbnail_url AS thumbnailUrl,
+    book.custom_cover AS customCover,
+    book.cover_last_modified AS coverLastModified,
+    chapter.date_upload AS dateUpload,
+    chapter.date_fetch AS datefetch,
+    chapter.content IS NOT '' AS downlaoded,
+    history.progress AS readingProgress,
+    history.last_read AS lastReadAt
+FROM book JOIN chapter
+ON book._id = chapter.book_id
+LEFT JOIN history
+ON chapter._id = history.chapter_id
+WHERE favorite = 1
+AND date_fetch > date_added;
+
+updates:
+SELECT *
+FROM updatesView
+WHERE datefetch > :after
+ORDER BY datefetch DESC;
+
+-- Paginated updates query
+updatesPaginated:
+SELECT *
+FROM updatesView
+WHERE datefetch > :after
+ORDER BY datefetch DESC
+LIMIT :limit OFFSET :offset;
+
+-- Count updates
+updatesCount:
+SELECT COUNT(*) FROM updatesView
+WHERE datefetch > :after;
+
+-- Get updates with reading progress
+updatesWithProgress:
+SELECT *
+FROM updatesView
+WHERE readingProgress > 0
+ORDER BY lastReadAt DESC;

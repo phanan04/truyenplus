@@ -1,0 +1,45 @@
+# Updates: screen loads, category filter menu, update-all trigger
+appId: ir.kazemcodes.infinityreader.debug
+tags: [updates]
+---
+- runFlow: common/launch.yaml
+
+- tapOn:
+    text: "Updates"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Updates"
+- takeScreenshot: updates_01_screen
+
+# --- Category filter menu ---
+- tapOn:
+    text: "Filter by category"
+    optional: true
+- waitForAnimationToEnd
+- tapOn:
+    text: "All Categories"
+    optional: true
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Updates"
+- takeScreenshot: updates_02_filter
+
+# --- Update All must not crash (empty library OK) ---
+- tapOn:
+    text: "Update All"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible:
+    text: "Updates"
+- takeScreenshot: updates_03_after_update_all
+
+# Navigate away/back preserves screen
+- tapOn:
+    text: "Library"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Updates"
+- waitForAnimationToEnd
+- assertVisible:
+    text: "Updates"
