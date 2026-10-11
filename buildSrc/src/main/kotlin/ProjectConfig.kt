@@ -5,8 +5,8 @@ object ProjectConfig {
     const val targetSdk = 37
     const val compileSdk = 37
     const val ndk = "21.3.6528147"
-    const val versionName = "2.0.31"
-    const val versionCode = 85
+    const val versionName = "2.0.32"
+    const val versionCode = 86
     const val applicationId = "ir.kazemcodes.infinityreader"
 
     val desktopJvmTarget = JavaVersion.VERSION_21
