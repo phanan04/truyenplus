@@ -184,6 +184,49 @@ class ReaderScreensRenderTest {
         } finally { scene.close() }
     }
 
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test
+    fun listeningSpeedAndPitchSelectQuarterSteps() {
+        var selectedSpeed by mutableStateOf(1f)
+        var selectedPitch by mutableStateOf(1f)
+        val scene = ImageComposeScene(width = 360, height = 800, density = Density(1f)) {
+            ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
+                ReaderListeningSettings(
+                    drawerState = rememberDrawerState(DrawerValue.Open),
+                    speed = selectedSpeed, pitch = selectedPitch, timer = false, minutes = 30,
+                    onSpeed = { selectedSpeed = it }, onPitch = { selectedPitch = it },
+                    onTimer = {}, onMinutes = {}, onVoice = {}, onClose = {}, content = {})
+            }
+        }
+        try {
+            scene.render(0)
+            val bitmap = scene.render(1_000_000_000)
+            fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
+            fun sliders() = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+                .filter { it.config.getOrNull(SemanticsActions.SetProgress)?.action != null }
+            assertEquals(2, sliders().size)
+            var frame = 1_000_000_000L
+            for ((index, maximum) in listOf(3f, 2f).withIndex()) {
+                val slider = sliders()[index]
+                val range = requireNotNull(slider.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo))
+                assertEquals(.5f..maximum, range.range)
+                assertEquals(((maximum - .5f) / .25f).toInt() - 1, range.steps,
+                    "Listening controls must expose fixed quarter steps")
+                for ((requested, expected) in listOf(1.38f to 1.5f, 1.11f to 1f, 1.26f to 1.25f, .1f to .5f, 4f to maximum)) {
+                    val select = requireNotNull(sliders()[index].config.getOrNull(SemanticsActions.SetProgress)?.action)
+                    select(requested)
+                    frame += 100_000_000L
+                    scene.render(frame)
+                    assertEquals(expected, if (index == 0) selectedSpeed else selectedPitch,
+                        "TTS callback must receive only quarter increments within its range")
+                }
+            }
+            val output = File("build/reports/truyenplus-v2/listening-settings-quarter-steps.png")
+            output.parentFile.mkdirs()
+            output.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)
+        } finally { scene.close() }
+    }
+
     private val chapterParagraphs = listOf(
         "Gió đêm thổi qua, mang theo hương hoa mộc lan thoang thoảng. Nàng đứng trên bậc thềm cũ, ánh trăng phủ lên vai, như rót bạc xuống nhân gian.",
         "Đã bao năm trôi qua, gặp lại người trong hoàn cảnh này, trái tim vẫn khẽ run lên như thuở ban đầu. Có những chuyện, dù thời gian có xóa nhòa, cũng không thể nào quên được.",

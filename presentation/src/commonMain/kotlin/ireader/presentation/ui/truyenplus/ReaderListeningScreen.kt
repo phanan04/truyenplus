@@ -98,8 +98,10 @@ fun ReaderListeningSettings(drawerState: DrawerState, speed: Float, pitch: Float
             Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp)) {
                 Text(strings.localize(Res.string.tp_listening_settings), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 TextButton(onClick = onVoice, modifier = Modifier.padding(top = 16.dp)) { Icon(Icons.Outlined.RecordVoiceOver, null); Spacer(Modifier.width(8.dp)); Text(strings.localize(Res.string.tp_choose_voice)) }
-                Text(strings.localize(Res.string.tp_speed, speed), modifier = Modifier.padding(top = 20.dp)); Slider(speed.coerceIn(.5f, 3f), onSpeed, valueRange = .5f..3f)
-                Text(strings.localize(Res.string.tp_pitch, pitch), modifier = Modifier.padding(top = 20.dp)); Slider(pitch.coerceIn(.5f, 2f), onPitch, valueRange = .5f..2f)
+                Text(strings.localize(Res.string.tp_speed, speed), modifier = Modifier.padding(top = 20.dp))
+                Slider(speed.coerceIn(.5f, 3f), onSpeed, valueRange = .5f..3f, steps = 9)
+                Text(strings.localize(Res.string.tp_pitch, pitch), modifier = Modifier.padding(top = 20.dp))
+                Slider(pitch.coerceIn(.5f, 2f), onPitch, valueRange = .5f..2f, steps = 5)
                 Row(Modifier.fillMaxWidth().padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) { Text(strings.localize(Res.string.tp_sleep_timer), Modifier.weight(1f)); Switch(timer, onTimer) }
                 if (timer) {
                     Text(strings.localize(Res.string.tp_minutes, minutes), modifier = Modifier.padding(top = 12.dp))
