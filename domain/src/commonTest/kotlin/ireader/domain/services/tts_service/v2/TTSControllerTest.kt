@@ -279,7 +279,7 @@ class TTSControllerTest {
         assertEquals(0, controller.state.value.currentParagraphIndex)
         
         // Emit matching completion event
-        engine.completeUtterance("p_0")
+        engine.completeUtterance(requireNotNull(engine.lastUtteranceId))
         testScheduler.advanceUntilIdle()
         
         // Should advance to next paragraph
@@ -345,7 +345,7 @@ class TTSControllerTest {
         // Should have skipped the blank paragraph 0 and started playing paragraph 1
         assertEquals(1, controller.state.value.currentParagraphIndex)
         assertEquals("Valid Paragraph", engine.lastText)
-        assertEquals("p_1", engine.lastUtteranceId)
+        assertTrue(requireNotNull(engine.lastUtteranceId).startsWith("p_1_"))
         
         controller.destroy()
     }

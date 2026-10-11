@@ -130,6 +130,8 @@ class TTSController(
     
     // Active utterance ID to filter out stale completion events from cancelled or superseded utterances
     private var currentUtteranceId: String? = null
+    private var utteranceSequence = 0L
+    private var speechRetryCount = 0
     
     // User translation preference preserved across chapters
     private var userWantsTranslation: Boolean = false
@@ -159,7 +161,7 @@ class TTSController(
             is TTSCommand.StopAndRelease -> stopAndRelease()
             is TTSCommand.Cleanup -> cleanup()
             
-            is TTSCommand.Play -> play()
+            is TTSCommand.Play -> { speechRetryCount = 0; play() }
             is TTSCommand.Pause -> pause()
             is TTSCommand.Stop -> stop()
             is TTSCommand.Resume -> resume()
@@ -254,6 +256,8 @@ class TTSController(
         Log.debug { "$TAG: stopAndRelease()" }
         
         pendingPlay = false
+        currentUtteranceId = null
+        speechRetryCount = 0
         nextChapterFetched = false
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
@@ -283,6 +287,8 @@ class TTSController(
         Log.debug { "$TAG: cleanup()" }
         
         pendingPlay = false
+        currentUtteranceId = null
+        speechRetryCount = 0
         nextChapterFetched = false
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
@@ -307,7 +313,7 @@ class TTSController(
         Log.debug { "$TAG: handleEngineEvent($event)" }
         
         when (event) {
-            is EngineEvent.Ready -> {
+            is EngineEvent.Ready -> commandMutex.withLock {
                 _state.update { it.copy(isEngineReady = true) }
                 
                 // If there's a pending play, execute it now.
@@ -316,58 +322,35 @@ class TTSController(
                 if (pendingPlay) {
                     Log.debug { "$TAG: Engine ready, executing pending play" }
                     pendingPlay = false
-                    commandMutex.withLock {
-                        play()
-                    }
+                    play()
                 }
             }
-            is EngineEvent.Started -> {
-                // Track paragraph start time for sentence highlighting
-                val currentTime = ireader.domain.utils.extensions.currentTimeToLong()
-                _state.update { 
-                    it.copy(
-                        playbackState = PlaybackState.PLAYING,
-                        paragraphStartTime = currentTime
-                    ) 
+            is EngineEvent.Started -> commandMutex.withLock {
+                if (!isActiveUtterance(event.utteranceId)) return@withLock
+                _state.update {
+                    it.copy(playbackState = PlaybackState.PLAYING,
+                        paragraphStartTime = ireader.domain.utils.extensions.currentTimeToLong())
                 }
                 _events.emit(TTSEvent.PlaybackStarted)
             }
-            is EngineEvent.Completed -> {
-                // Ignore stale completion events from old/cancelled utterances
-                if (event.utteranceId.isNotEmpty() && currentUtteranceId != null && event.utteranceId != currentUtteranceId) {
-                    Log.warn { "$TAG: Ignoring stale EngineEvent.Completed(utteranceId=${event.utteranceId}, current=$currentUtteranceId)" }
-                    return
-                }
+            is EngineEvent.Completed -> commandMutex.withLock {
+                if (!isActiveUtterance(event.utteranceId)) return@withLock
+                currentUtteranceId = null
                 handleParagraphCompleted()
             }
-            is EngineEvent.Error -> {
-                if (event.utteranceId.isNotEmpty() && currentUtteranceId != null && event.utteranceId != currentUtteranceId) {
-                    Log.warn { "$TAG: Ignoring stale EngineEvent.Error(utteranceId=${event.utteranceId}, current=$currentUtteranceId)" }
-                    return
+            is EngineEvent.Error -> commandMutex.withLock {
+                if (!isActiveUtterance(event.utteranceId)) return@withLock
+                currentUtteranceId = null
+                if (speechRetryCount == 0) {
+                    speechRetryCount++
+                    Log.warn { "$TAG: Retrying failed speech: ${event.message}" }
+                    engine?.stop()
+                    kotlinx.coroutines.delay(150)
+                    play()
+                } else {
+                    Log.warn { "$TAG: Speech still failed after retry; continuing: ${event.message}" }
+                    handleParagraphCompleted(completedSuccessfully = false)
                 }
-
-                // Resilience: If playback is currently active and there is a next paragraph available,
-                // try auto-advancing to avoid completely stopping playback on an individual paragraph synthesis glitch.
-                val currentState = _state.value
-                if (currentState.isPlaying && currentState.canGoNext) {
-                    Log.warn { "$TAG: Speech failed for $currentUtteranceId (${event.message}), attempting to auto-advance to next paragraph" }
-                    commandMutex.withLock {
-                        val stateInLock = _state.value
-                        if (stateInLock.isPlaying && stateInLock.canGoNext) {
-                            _state.update {
-                                it.copy(
-                                    previousParagraphIndex = it.currentParagraphIndex,
-                                    currentParagraphIndex = it.currentParagraphIndex + 1,
-                                    loadingParagraphs = it.loadingParagraphs - it.currentParagraphIndex
-                                )
-                            }
-                            play()
-                            return
-                        }
-                    }
-                }
-
-                handleError(TTSError.SpeechFailed(event.message))
             }
             is EngineEvent.Cached -> {
                 val match = Regex("""p_(\d+)""").matchEntire(event.utteranceId)
@@ -386,6 +369,9 @@ class TTSController(
         }
     }
     
+    private fun isActiveUtterance(id: String): Boolean =
+        id == currentUtteranceId && (_state.value.isPlaying || _state.value.isLoading)
+
     // ========== Playback ==========
     
     private suspend fun play() {
@@ -445,7 +431,7 @@ class TTSController(
                 }
                 return
             }
-            val utteranceId = "p_${paragraphIndex}"
+            val utteranceId = "p_${paragraphIndex}_${++utteranceSequence}"
             currentUtteranceId = utteranceId
             
             // Pre-cache next paragraphs in background
@@ -534,6 +520,11 @@ class TTSController(
     
     private suspend fun pause() {
         pendingPlay = false
+        // Native pause cancels speech. Remote audio can resume the same utterance.
+        if (_state.value.engineType == EngineType.NATIVE) currentUtteranceId = null
+        speechRetryCount = 0
+        nextChapterWatchJob?.cancel()
+        nextChapterWatchJob = null
         engine?.pause()
         _state.update { it.copy(playbackState = PlaybackState.PAUSED) }
         _events.emit(TTSEvent.PlaybackPaused)
@@ -541,6 +532,8 @@ class TTSController(
     
     private suspend fun stop() {
         pendingPlay = false
+        currentUtteranceId = null
+        speechRetryCount = 0
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
         engine?.stop()
@@ -552,109 +545,71 @@ class TTSController(
         val currentState = _state.value
         
         if (currentState.isPaused) {
-            engine?.resume()
-            _state.update { it.copy(playbackState = PlaybackState.PLAYING) }
+            if (currentState.engineType == EngineType.NATIVE) {
+                // Android native pause stops speech; resume must re-speak the paragraph.
+                speechRetryCount = 0
+                play()
+            } else {
+                engine?.resume()
+                _state.update { it.copy(playbackState = PlaybackState.PLAYING) }
+            }
         } else {
             play()
         }
     }
     
-    private suspend fun handleParagraphCompleted() {
+    // Called while commandMutex is held, including blank-text completion from play().
+    private suspend fun handleParagraphCompleted(completedSuccessfully: Boolean = true) {
+        speechRetryCount = 0
         _events.emit(TTSEvent.ParagraphCompleted)
-        
         val currentState = _state.value
         val completedIndex = currentState.currentParagraphIndex
-        
-        // Mark paragraph as cached (it was just played, so it's now in cache)
-        // and remove from loading set
-        _state.update { 
+        _state.update {
             it.copy(
-                cachedParagraphs = it.cachedParagraphs + completedIndex,
-                loadingParagraphs = it.loadingParagraphs - completedIndex
-            ) 
+                cachedParagraphs = if (completedSuccessfully) it.cachedParagraphs + completedIndex else it.cachedParagraphs,
+                loadingParagraphs = it.loadingParagraphs - completedIndex)
         }
-        
-        // Handle chunk mode completion
         if (currentState.chunkModeEnabled && mergeResult != null) {
             handleChunkCompleted()
-            return
-        }
-        
-        if (currentState.canGoNext && currentState.isPlaying) {
-            // Auto-advance to next paragraph.
-            // This runs on the engine-event collector (NOT under commandMutex), so guard it
-            // with the mutex. Otherwise this engine-driven speak() can race a mutex-held
-            // command (e.g. a NextChapter transition or a media-button Resume) and the engine
-            // ends up with two concurrent speak() calls — which makes native TTS read only the
-            // first syllable and then stop.
-            commandMutex.withLock {
-                val stateInLock = _state.value
-                if (stateInLock.canGoNext && stateInLock.isPlaying) {
-                    _state.update {
-                        it.copy(
-                            previousParagraphIndex = it.currentParagraphIndex,
-                            currentParagraphIndex = it.currentParagraphIndex + 1
-                        )
-                    }
-                    play()
-                }
+        } else if (currentState.canGoNext && (currentState.isPlaying || currentState.isLoading)) {
+            _state.update {
+                it.copy(previousParagraphIndex = it.currentParagraphIndex,
+                    currentParagraphIndex = it.currentParagraphIndex + 1)
             }
+            play()
         } else if (!currentState.canGoNext) {
-            // Chapter finished
-            _events.emit(TTSEvent.ChapterCompleted)
-            
-            if (currentState.autoNextChapter) {
-                // Dispatch through commandMutex to prevent races with user-initiated commands.
-                // Calling nextChapter() directly here bypasses the mutex, which can cause
-                // the engine to receive concurrent speak() calls during the chapter transition,
-                // resulting in TTS reading only the first syllable then stopping.
-                dispatch(TTSCommand.NextChapter)
-            } else {
-                _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
-            }
+            completeChapter()
         }
     }
-    
+
     private suspend fun handleChunkCompleted() {
         val currentState = _state.value
         val result = mergeResult ?: return
-        
-        Log.debug { "$TAG: handleChunkCompleted() - chunk ${currentState.currentChunkIndex}/${result.chunks.size}" }
-        
-        if (currentState.canGoNextChunk && currentState.isPlaying) {
-            // Auto-advance to next chunk.
-            // Guard with the command mutex for the same reason as paragraph auto-advance:
-            // this runs on the engine-event collector and must not issue a concurrent speak().
-            commandMutex.withLock {
-                val stateInLock = _state.value
-                if (stateInLock.canGoNextChunk && stateInLock.isPlaying) {
-                    val nextChunkIndex = stateInLock.currentChunkIndex + 1
-                    val nextChunk = result.chunks.getOrNull(nextChunkIndex)
-
-                    _state.update {
-                        it.copy(
-                            currentChunkIndex = nextChunkIndex,
-                            currentChunkParagraphs = nextChunk?.paragraphIndices ?: emptyList(),
-                            currentParagraphIndex = nextChunk?.startParagraph ?: it.currentParagraphIndex
-                        )
-                    }
-
-                    playChunk()
-                }
+        if (currentState.canGoNextChunk && (currentState.isPlaying || currentState.isLoading)) {
+            val nextIndex = currentState.currentChunkIndex + 1
+            val next = result.chunks.getOrNull(nextIndex)
+            _state.update {
+                it.copy(currentChunkIndex = nextIndex,
+                    currentChunkParagraphs = next?.paragraphIndices ?: emptyList(),
+                    currentParagraphIndex = next?.startParagraph ?: it.currentParagraphIndex)
             }
+            playChunk()
         } else if (!currentState.canGoNextChunk) {
-            // All chunks finished - chapter complete
-            _events.emit(TTSEvent.ChapterCompleted)
-            
-            if (currentState.autoNextChapter) {
-                // Dispatch through commandMutex to prevent races with user-initiated commands
-                dispatch(TTSCommand.NextChapter)
-            } else {
-                _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
-            }
+            completeChapter()
         }
     }
-    
+
+    private suspend fun completeChapter() {
+        _events.emit(TTSEvent.ChapterCompleted)
+        if (_state.value.autoNextChapter) {
+            // Stay in the same serialized transition, so a queued Pause cannot be
+            // overtaken by a separately dispatched auto-next command.
+            nextChapter()
+        } else {
+            _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+        }
+    }
+
     // ========== Navigation ==========
     
     private suspend fun nextParagraph() {
@@ -760,12 +715,8 @@ class TTSController(
 
         Log.debug { "$TAG: nextChapter() - current chapter: ${chapter.id}" }
 
-        // If already loading a chapter (e.g., auto-next watch is fetching), skip to avoid race
-        if (_state.value.playbackState == PlaybackState.LOADING) {
-            Log.debug { "$TAG: nextChapter() - already loading, skipping" }
-            return
-        }
-
+        // Commands are serialized by commandMutex. LOADING can also mean an
+        // unspeakable/blank final paragraph, which must still advance the chapter.
         // Cancel any previous chapter watch
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
@@ -794,6 +745,13 @@ class TTSController(
                     if (wasPlaying || _state.value.autoNextChapter) { 
                         play() 
                     }
+                } else if (_state.value.autoNextChapter &&
+                    book.sourceId == ireader.core.source.LocalSource.SOURCE_ID &&
+                    _state.value.chapter?.content?.let { pages ->
+                        pages.isNotEmpty() && pages.all { it !is ireader.core.source.model.Text }
+                    } == true) {
+                    // An imported image-only chapter has no speech to fetch; continue.
+                    nextChapter()
                 } else if (_state.value.autoNextChapter) {
                     // The next chapter row exists but its content has not been fetched
                     // yet (empty paragraphs after loadChapter, e.g. the remote fetch is
@@ -809,7 +767,7 @@ class TTSController(
                     Log.debug { "$TAG: Next chapter $nextChapterId has no content and autoNext is off, stopping" }
                     _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
                 }
-            } else if (_state.value.autoNextChapter) {
+            } else if (_state.value.autoNextChapter && book.sourceId != ireader.core.source.LocalSource.SOURCE_ID) {
                 // Next chapter not in DB yet — watch for new chapters from remote fetch
                 Log.debug { "$TAG: No next chapter in DB, watching for chapter DB changes (autoNext=true)" }
                 startNextChapterWatch(book.id, chapter.id, wasPlaying)
@@ -1024,6 +982,9 @@ class TTSController(
             Log.debug { "$TAG: loadChapter - different book/chapter, clearing old state (old: book=${currentState.book?.id}, chapter=${currentState.chapter?.id})" }
         }
         
+        // Invalidate callbacks from the previous chapter before stopping its engine.
+        currentUtteranceId = null
+        speechRetryCount = 0
         // Stop current playback and clear engine state
         engine?.stop()
         
@@ -1464,7 +1425,8 @@ class TTSController(
         
         val chapterId = currentState.chapter?.id
         val chunkIndex = currentState.currentChunkIndex
-        val utteranceId = "chunk_$chunkIndex"
+        val utteranceId = "chunk_${chunkIndex}_${++utteranceSequence}"
+        currentUtteranceId = utteranceId
         
         // Check if this chunk is cached (for offline playback)
         if (chapterId != null && cacheUseCase != null) {

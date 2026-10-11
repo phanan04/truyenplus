@@ -49,6 +49,7 @@ class NativeTTSPlayer(
     private var tts: TextToSpeech? = null
     private var callback: TTSCallback? = null
     private var isInitialized = false
+    private var speechRate = 1f
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var pendingVoice: ireader.domain.preferences.models.prefs.IReaderVoice? = null
     
@@ -60,7 +61,7 @@ class NativeTTSPlayer(
         val utteranceId: String,
         val chunks: List<String>,
         var nextChunkToQueue: Int = 0,
-        var completedCount: Int = 0,
+        val completedChunks: MutableSet<Int> = mutableSetOf(),
         var hasStarted: Boolean = false,
         var hasSuccessfulChunk: Boolean = false
     )
@@ -191,15 +192,15 @@ class NativeTTSPlayer(
     }
 
     private fun handleUtteranceDone(subId: String?) {
-        val (parentUtteranceId, _) = parseSubUtteranceId(subId) ?: return
+        val (parentUtteranceId, chunkIndex) = parseSubUtteranceId(subId) ?: return
         var shouldNotifyDone = false
         var nextChunkToSpeak: Pair<String, String>? = null
 
         synchronized(utteranceLock) {
             val current = activeUtterance
             if (current != null && current.utteranceId == parentUtteranceId) {
+                if (chunkIndex !in current.chunks.indices || !current.completedChunks.add(chunkIndex)) return
                 current.hasSuccessfulChunk = true
-                current.completedCount++
 
                 if (current.nextChunkToQueue < current.chunks.size) {
                     val nextIdx = current.nextChunkToQueue
@@ -209,7 +210,7 @@ class NativeTTSPlayer(
                     nextChunkToSpeak = nextText to nextSubId
                 }
 
-                if (current.completedCount >= current.chunks.size) {
+                if (current.completedChunks.size >= current.chunks.size) {
                     shouldNotifyDone = true
                     activeUtterance = null
                 }
@@ -217,7 +218,7 @@ class NativeTTSPlayer(
         }
 
         nextChunkToSpeak?.let { (text, nextId) ->
-            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, nextId)
+            queueChunk(text, TextToSpeech.QUEUE_ADD, nextId)
         }
 
         if (shouldNotifyDone) {
@@ -229,7 +230,7 @@ class NativeTTSPlayer(
 
     private fun handleUtteranceError(subId: String?, errorCode: Int) {
         Log.error { "Native TTS error on chunk $subId, code=$errorCode" }
-        val (parentUtteranceId, _) = parseSubUtteranceId(subId) ?: return
+        val (parentUtteranceId, chunkIndex) = parseSubUtteranceId(subId) ?: return
         var shouldNotifyDone = false
         var shouldNotifyError = false
         var nextChunkToSpeak: Pair<String, String>? = null
@@ -237,7 +238,7 @@ class NativeTTSPlayer(
         synchronized(utteranceLock) {
             val current = activeUtterance
             if (current != null && current.utteranceId == parentUtteranceId) {
-                current.completedCount++
+                if (chunkIndex !in current.chunks.indices || !current.completedChunks.add(chunkIndex)) return
 
                 if (current.nextChunkToQueue < current.chunks.size) {
                     // Resiliency: skip the failed chunk and continue with next chunk
@@ -246,7 +247,7 @@ class NativeTTSPlayer(
                     val nextText = current.chunks[nextIdx]
                     current.nextChunkToQueue++
                     nextChunkToSpeak = nextText to nextSubId
-                } else if (current.completedCount >= current.chunks.size) {
+                } else if (current.completedChunks.size >= current.chunks.size) {
                     if (current.hasSuccessfulChunk) {
                         shouldNotifyDone = true
                     } else {
@@ -258,7 +259,7 @@ class NativeTTSPlayer(
         }
 
         nextChunkToSpeak?.let { (text, nextId) ->
-            tts?.speak(text, TextToSpeech.QUEUE_ADD, null, nextId)
+            queueChunk(text, TextToSpeech.QUEUE_ADD, nextId)
         }
 
         if (shouldNotifyError) {
@@ -297,7 +298,7 @@ class NativeTTSPlayer(
             return
         }
         
-        val chunks = TTSSentenceSplitter.split(text)
+        val chunks = TTSSentenceSplitter.split(text, speechRate = speechRate)
         if (chunks.isEmpty()) {
             scope.launch {
                 callback?.onDone(utteranceId)
@@ -311,7 +312,7 @@ class NativeTTSPlayer(
             utteranceId = utteranceId,
             chunks = chunks,
             nextChunkToQueue = 1,
-            completedCount = 0,
+            completedChunks = mutableSetOf(),
             hasStarted = false,
             hasSuccessfulChunk = false
         )
@@ -331,11 +332,25 @@ class NativeTTSPlayer(
         }
 
         // Chunk 0 flushes previous speech
-        tts?.speak(firstChunk, TextToSpeech.QUEUE_FLUSH, null, firstSubId)
+        queueChunk(firstChunk, TextToSpeech.QUEUE_FLUSH, firstSubId)
 
         // Chunk 1 is queued immediately with QUEUE_ADD so there is zero gap
         secondChunkInfo?.let { (chunkText, chunkId) ->
-            tts?.speak(chunkText, TextToSpeech.QUEUE_ADD, null, chunkId)
+            queueChunk(chunkText, TextToSpeech.QUEUE_ADD, chunkId)
+        }
+    }
+
+    private fun queueChunk(text: String, mode: Int, utteranceId: String) {
+        val result = try {
+            tts?.speak(text, mode, null, utteranceId) ?: TextToSpeech.ERROR
+        } catch (e: Exception) {
+            Log.error { "Native TTS rejected chunk $utteranceId: ${e.message}" }
+            TextToSpeech.ERROR
+        }
+        if (result != TextToSpeech.SUCCESS) {
+            // A rejected queue request is not guaranteed to produce onError.
+            // Count it through the same completion path so the pipeline cannot stall.
+            scope.launch { handleUtteranceError(utteranceId, result) }
         }
     }
 
@@ -374,6 +389,7 @@ class NativeTTSPlayer(
     }
     
     override fun setSpeed(speed: Float) {
+        speechRate = speed
         tts?.setSpeechRate(speed)
     }
     

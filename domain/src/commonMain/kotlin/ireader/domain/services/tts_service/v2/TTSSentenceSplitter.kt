@@ -43,10 +43,10 @@ object TTSSentenceSplitter {
      * @param maxChunkLength Target upper bound for each chunk in characters (-1 to auto-detect by language).
      * @return Ordered list of non-empty chunks.
      */
-    fun split(text: String, maxChunkLength: Int = -1): List<String> {
+    fun split(text: String, maxChunkLength: Int = -1, speechRate: Float = 1f): List<String> {
         if (text.isBlank()) return emptyList()
 
-        val effectiveMax = if (maxChunkLength > 0) {
+        val baseMax = if (maxChunkLength > 0) {
             maxChunkLength
         } else if (isCjk(text)) {
             CJK_MAX_CHUNK_LENGTH
@@ -54,6 +54,8 @@ object TTSSentenceSplitter {
             DEFAULT_MAX_CHUNK_LENGTH
         }
 
+        // Slower playback increases synthesis duration; shorten chunks accordingly.
+        val effectiveMax = (baseMax * speechRate.coerceIn(.25f, 1f)).toInt().coerceAtLeast(1)
         val primarySentences = splitPrimary(text)
         val result = mutableListOf<String>()
 
@@ -75,7 +77,7 @@ object TTSSentenceSplitter {
             if (trimmed.isEmpty()) continue
 
             val hasContent = trimmed.any { it.isLetterOrDigit() }
-            if (hasContent && trimmed.length >= 2) {
+            if (hasContent) {
                 sanitized.add(trimmed)
             } else if (sanitized.isNotEmpty()) {
                 // Attach solitary punctuation / trailing mark to the preceding sentence

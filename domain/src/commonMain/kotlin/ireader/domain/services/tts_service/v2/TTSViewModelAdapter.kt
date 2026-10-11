@@ -143,6 +143,8 @@ class TTSViewModelAdapter(
     
     fun play() {
         Log.warn { "$TAG: play()" }
+        // The app's listening UI always plays continuously across chapters.
+        controller.dispatch(TTSCommand.SetAutoNextChapter(true))
         controller.dispatch(TTSCommand.Play)
     }
     
