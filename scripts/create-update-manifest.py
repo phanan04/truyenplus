@@ -36,6 +36,10 @@ def main():
         if not apk.is_file() or apk.suffix != ".apk":
             parser.error(f"Not an APK file: {apk}")
         output = subprocess.check_output([aapt, "dump", "badging", str(apk)], text=True)
+        manifest = subprocess.check_output(
+            [aapt, "dump", "xmltree", str(apk), "AndroidManifest.xml"], text=True)
+        if re.search(r"android:testOnly[^\n]*0xffffffff", manifest):
+            parser.error(f"APK has android:testOnly=true and cannot be installed normally: {apk}")
         package_line = next(line for line in output.splitlines() if line.startswith("package:"))
         package = dict(re.findall(r"(\w+)='([^']*)'", package_line))
         sdk = re.search(r"^sdkVersion:'(\d+)'", output, re.MULTILINE)

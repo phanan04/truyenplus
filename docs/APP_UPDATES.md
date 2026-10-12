@@ -15,7 +15,7 @@ Release [v2.0.32](https://github.com/phanan04/truyenplus/releases/tag/v2.0.32) �
 ## Chuẩn bị một bản mới
 
 1. Tăng `versionCode` trong `buildSrc/src/main/kotlin/ProjectConfig.kt` (bản 2.0.32 là 86). Giữ nguyên package và khóa ký của bản đã cài. Không thay debug key giữa các lần phát hành; bản release không thể cập nhật đè bản debug ký bằng khóa khác.
-2. Chỉ build khi người dùng yêu cầu. Tạo các APK cho kiến trúc cần hỗ trợ.
+2. Chỉ build khi người dùng yêu cầu. Tạo các APK cho kiến trúc cần hỗ trợ bằng `:android:assembleStandardDebug` với cùng khóa ký. Không truyền các tham số `android.injected.*` của Android Studio: chúng có thể gắn `android:testOnly=true`, khiến trình cài đặt Android từ chối APK. Script tạo manifest sẽ chặn APK có cờ này.
 3. Chạy script dưới đây trên APK đã có. Script đọc package/phiên bản/kiến trúc từ APK và tính kích thước, SHA-256; không build hoặc tải lên mạng.
 
 ```sh
