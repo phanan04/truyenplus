@@ -697,7 +697,7 @@ internal fun setText(
         stringBuilder.append("\n".repeat(bottomContentPadding.coerceAtLeast(0)))
     }
 
-    if (index > 0 && contentPadding > 0) {
+    if (!isLast && contentPadding > 0) {
         stringBuilder.append("\n".repeat(contentPadding.coerceAtLeast(0)))
     }
 

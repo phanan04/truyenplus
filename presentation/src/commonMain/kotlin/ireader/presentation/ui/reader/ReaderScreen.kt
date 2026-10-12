@@ -435,7 +435,7 @@ private fun ReadingScreenContent(
 
                         // Reader controls bottom bar (non-modal) with fast animation
                         AnimatedVisibility(
-                            visible = !vm.isReaderModeEnable,
+                            visible = !vm.isReaderModeEnable && ireader.presentation.ui.truyenplus.LocalReaderListening.current == null,
                             enter = slideInVertically(
                                 initialOffsetY = { fullHeight -> fullHeight },
                                 animationSpec = tween(
@@ -454,31 +454,17 @@ private fun ReadingScreenContent(
                         ) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                                shadowElevation = 16.dp,
+                                shape = RoundedCornerShape(0.dp),
+                                color = vm.backgroundColor.value.toComposeColor(),
+                                contentColor = vm.textColor.value.toComposeColor(),
+                                shadowElevation = 0.dp,
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .navigationBarsPadding()
-                                        .padding(horizontal = 16.dp)
+                                        .padding(horizontal = 4.dp)
                                 ) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .width(40.dp)
-                                            .height(4.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(
-                                                MaterialTheme.colorScheme.onSurface.copy(
-                                                    alpha = 0.5f
-                                                )
-                                            )
-                                            .align(Alignment.CenterHorizontally)
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
                                     val currentPage by vm.pagedCurrentPage.collectAsState()
                                     val totalPages by vm.pagedTotalPages.collectAsState()
                                     MainBottomSettingComposable(
@@ -493,7 +479,15 @@ private fun ReadingScreenContent(
                                         onSliderChange = onSliderChange,
                                         onSliderFinished = onSliderFinished,
                                         onPlay = onReaderPlay,
-                                        onAutoScrollToggle = { vm.toggleAutoScroll() },
+                                        onAutoScrollToggle = {
+                                            if (!vm.autoScrollMode && vm.readingMode.value != ReadingMode.Continues) {
+                                                vm.readingMode.value = ReadingMode.Continues
+                                                vm.readerPreferences.defaultReadingMode().set(ReadingMode.Continues)
+                                            }
+                                            vm.toggleAutoScroll()
+                                        },
+                                        autoScrollEnabled = vm.autoScrollMode,
+                                        onBookmark = vm::bookmarkChapter,
                                         currentPage = currentPage,
                                         totalPages = totalPages
                                     )

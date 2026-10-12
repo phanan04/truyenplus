@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ireader.domain.models.entities.Chapter
 import ireader.i18n.localize
@@ -70,24 +72,20 @@ fun ReaderScreenTopBar(
     onPlay: (() -> Unit)? = null,
 ) {
     if (!isReaderModeEnable || !isLoaded) {
-        ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, { vm.showSettingsBottomSheet = true }, modifier, onPlay)
+        ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, { vm.showSettingsBottomSheet = true }, modifier, onPlay,
+            backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor())
     }
 }
 
 @Composable
 fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () -> Unit,
-    onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null) {
-    Surface(modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface.copy(alpha = .95f), contentColor = MaterialTheme.colorScheme.onSurface) {
+    onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface) {
+    Surface(modifier = modifier.fillMaxWidth(), color = backgroundColor, contentColor = textColor) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TopAppBarBackButton(onClick = onBack)
-            Text(chapter?.name.orEmpty(), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-            if (chapter != null) {
-                AppIconButton(imageVector = if (chapter.bookmark) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
-                    contentDescription = localize(Res.string.tp_bookmarks), onClick = onBookmark,
-                    tint = if (chapter.bookmark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                if (onListen != null) AppIconButton(imageVector = Icons.Default.Headphones, contentDescription = localize(Res.string.tp_listen_book), onClick = onListen)
-            }
-            AppIconButton(imageVector = Icons.Default.Tune, contentDescription = localize(Res.string.reader), onClick = onSettings)
+            TopAppBarBackButton(tint = textColor, onClick = onBack)
+            Text(chapter?.name.orEmpty(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
+            AppIconButton(imageVector = Icons.Default.Tune, contentDescription = localize(Res.string.settings), onClick = onSettings, tint = textColor)
         }
     }
 }

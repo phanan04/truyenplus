@@ -43,46 +43,10 @@ fun MainBottomSettingComposable(
         onReviews: (() -> Unit)? = null,
         currentPage: Int = 0,
         totalPages: Int = 0,
+        autoScrollEnabled: Boolean = false,
+        onBookmark: () -> Unit = {},
 ) {
-    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
-    ChaptersSliderComposable(
-        onNext = {
-            onNext()
-        },
-        onPrev = {
-            onPrev()
-        },
-        onSliderDragFinished = {
-            onSliderFinished()
-        },
-        onSliderChange = {
-            onSliderChange(it)
-        },
-        chapters = chapters,
-        currentChapter = chapter,
-        currentChapterIndex = currentChapterIndex
-    )
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AppIconButton(
-            imageVector = Icons.Default.Menu,
-            contentDescription = localize(Res.string.drawer),
-            onClick = { scope.launch { drawerState.open() } }
-        )
-
-        AppIconButton(
-            imageVector = Icons.Default.Headphones,
-            contentDescription = localize(Res.string.play),
-            onClick = { onPlay() }
-        )
-
-        AppIconButton(
-            imageVector = Icons.Default.Settings,
-            contentDescription = localize(Res.string.settings),
-            onClick = { onSetting() }
-        )
-    }
+    ireader.presentation.ui.truyenplus.ReaderChapterFooter(
+        currentChapterIndex,chapters.size,chapter?.bookmark==true,autoScrollEnabled,
+        onPrev,onNext,{scope.launch {drawerState.open()}},onPlay,onBookmark,{onAutoScrollToggle?.invoke()},modifier)
 }

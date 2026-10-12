@@ -271,4 +271,11 @@
     <string name="tp_auto_next">Auto next chapter</string>
     <string name="tp_highlight_paragraph">Highlight paragraph</string>
     <string name="tp_follow_paragraph">Auto scroll</string>
+    <string name="tp_reader_scroll_speed">Scroll speed</string>
+    <string name="tp_reader_line_spacing">Line spacing</string>
+    <string name="tp_reader_margins">Content margins</string>
+    <string name="tp_reader_scroll">Scroll</string>
+    <string name="tp_reader_pages">Pages</string>
+    <string name="tp_reader_default_font">Default</string>
+    <string name="tp_reader_more_options">More settings</string>
 </resources>

@@ -271,4 +271,11 @@
     <string name="tp_auto_next">Tự động chuyển chương</string>
     <string name="tp_highlight_paragraph">Nổi bật đoạn văn</string>
     <string name="tp_follow_paragraph">Tự động cuộn</string>
+    <string name="tp_reader_scroll_speed">Tốc độ cuộn</string>
+    <string name="tp_reader_line_spacing">Khoảng cách dòng</string>
+    <string name="tp_reader_margins">Lề nội dung</string>
+    <string name="tp_reader_scroll">Cuộn</string>
+    <string name="tp_reader_pages">Lật trang</string>
+    <string name="tp_reader_default_font">Mặc định</string>
+    <string name="tp_reader_more_options">Thêm tùy chỉnh</string>
 </resources>

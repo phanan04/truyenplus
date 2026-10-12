@@ -535,7 +535,7 @@ data class ReaderScreenSpec(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize()
                 ) {
                     // Content first (below the top bar)
-                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) 156.dp else 0.dp)
+                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) 156.dp else if (!vm.isReaderModeEnable) 72.dp else 0.dp)
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
