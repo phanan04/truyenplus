@@ -278,4 +278,9 @@
     <string name="tp_reader_pages">Pages</string>
     <string name="tp_reader_default_font">Default</string>
     <string name="tp_reader_more_options">More settings</string>
+    <string name="tp_edge_online">Online · requires internet</string>
+    <string name="tp_edge_hoaimy">Hoài My · Female</string>
+    <string name="tp_edge_namminh">Nam Minh · Male</string>
+    <string name="tp_system_voice">System voice</string>
+    <string name="tp_edge_fallback">Edge is unavailable. Using the system voice.</string>
 </resources>

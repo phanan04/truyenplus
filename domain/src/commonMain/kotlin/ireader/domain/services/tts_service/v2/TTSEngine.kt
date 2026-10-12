@@ -134,6 +134,8 @@ sealed class EngineEvent {
  * Factory for creating TTS engines
  */
 expect object TTSEngineFactory {
+    fun createEdgeEngine(voice: EdgeVoice): TTSEngine?
+    fun supportsEdge(): Boolean
     fun createNativeEngine(): TTSEngine
     fun createGradioEngine(config: GradioConfig): TTSEngine?
 }

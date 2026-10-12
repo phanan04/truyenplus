@@ -123,7 +123,7 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
             when (intent?.action) {
                 ACTION_PLAY_PAUSE -> {
                     val state = controller.state.value
-                    if (state.isPlaying) {
+                    if (state.isPlaying || state.isLoading) {
                         controller.dispatch(TTSCommand.Pause)
                     } else if (state.isPaused) {
                         controller.dispatch(TTSCommand.Resume)
@@ -394,7 +394,7 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
                         KeyEvent.KEYCODE_HEADSETHOOK -> {
                             // Single-click: toggle play/pause
                             val currentState = ttsController.state.value
-                            if (currentState.isPlaying) {
+                            if (currentState.isPlaying || currentState.isLoading) {
                                 onPause()
                             } else {
                                 onPlay()
@@ -574,7 +574,7 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
             createActionPendingIntent(ACTION_PREVIOUS)
         )
         
-        val playPauseAction = if (state.isPlaying) {
+        val playPauseAction = if (state.isPlaying || state.isLoading) {
             NotificationCompat.Action(
                 DrawableResources.ic_baseline_pause,
                 "Pause",
@@ -763,7 +763,7 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
                 updateNotification()
                 
                 // Request audio focus when starting playback and ensure silent player is active
-                if (state.isPlaying) {
+                if (state.isPlaying || state.isLoading) {
                     requestAudioFocus()
                     if (silentPlayer == null && silentAudioTrack == null) {
                         startSilentPlayback()

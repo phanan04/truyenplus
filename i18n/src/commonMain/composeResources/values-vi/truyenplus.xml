@@ -278,4 +278,9 @@
     <string name="tp_reader_pages">Lật trang</string>
     <string name="tp_reader_default_font">Mặc định</string>
     <string name="tp_reader_more_options">Thêm tùy chỉnh</string>
+    <string name="tp_edge_online">Trực tuyến · cần Internet</string>
+    <string name="tp_edge_hoaimy">Hoài My · Nữ</string>
+    <string name="tp_edge_namminh">Nam Minh · Nam</string>
+    <string name="tp_system_voice">Giọng hệ thống</string>
+    <string name="tp_edge_fallback">Edge không phản hồi. Đang dùng giọng hệ thống.</string>
 </resources>

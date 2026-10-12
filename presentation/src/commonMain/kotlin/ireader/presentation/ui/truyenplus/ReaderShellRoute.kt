@@ -170,10 +170,12 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                         ReaderMiniPlayer(ReaderBookUi(listeningBook.id, listeningBook.title, BookCover.from(listeningBook), chapter = listeningChapter.name),
                             onRead = openPlayer, onListen = openPlayer, isPlaying = ttsState.isPlaying,
                             onTogglePlayback = {
-                                if (ttsState.isPlaying) tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Pause)
+                                if (tts.state.value.isPlaying || tts.state.value.isLoading) tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Pause)
                                 else {
                                     ttsService.startService(listeningBook.id, listeningChapter.id, ttsState.currentParagraphIndex)
-                                    tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Play)
+                                    val current = tts.state.value
+                                    tts.dispatch(if (current.isPaused && current.engineType == ireader.domain.services.tts_service.v2.EngineType.EDGE)
+                                        ireader.domain.services.tts_service.v2.TTSCommand.Resume else ireader.domain.services.tts_service.v2.TTSCommand.Play)
                                 }
                             })
                     } else {

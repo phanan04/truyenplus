@@ -226,8 +226,14 @@ class TTSViewModelAdapter(
         controller.dispatch(TTSCommand.SetGradioConfig(config))
     }
     
-    fun useNativeTTS() {
-        setEngine(EngineType.NATIVE)
+    fun useNativeTTS(force: Boolean = false) {
+        controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE, force))
+    }
+
+    fun resume() { controller.dispatch(TTSCommand.Resume) }
+
+    fun useEdgeTTS(voice: EdgeVoice) {
+        controller.dispatch(TTSCommand.SetEdgeVoice(voice))
     }
     
     fun useGradioTTS(config: GradioConfig) {

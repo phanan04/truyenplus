@@ -262,6 +262,9 @@ class AppPreferences(
     /**
      * Whether to use Local TTS server (e.g. Chatterbox Persian TTS)
      */
+    fun useEdgeTTS(): Preference<Boolean> = preferenceStore.getBoolean("use_edge_tts", false)
+    fun edgeTTSVoice(): Preference<String> = preferenceStore.getString("edge_tts_voice", "vi-VN-HoaiMyNeural")
+
     fun useLocalTTS(): Preference<Boolean> {
         return preferenceStore.getBoolean("use_local_tts", false)
     }

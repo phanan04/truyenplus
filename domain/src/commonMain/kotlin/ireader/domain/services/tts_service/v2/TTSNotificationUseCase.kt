@@ -144,6 +144,7 @@ class TTSNotificationUseCase(
             bookCoverUrl = book.cover,
             speed = state.speed,
             ttsProvider = when (state.engineType) {
+                EngineType.EDGE -> "Edge TTS"
                 EngineType.NATIVE -> "Native TTS"
                 EngineType.GRADIO -> "Gradio TTS"
                 EngineType.LOCAL -> "Local Server TTS"

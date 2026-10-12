@@ -101,7 +101,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     timer: Boolean, minutes: Int, audio: ListeningAudioState,
     onVoice: () -> Unit, onMusic: () -> Unit, onMusicEnabled: (Boolean) -> Unit, onMusicVolume: (Float) -> Unit,
     onPitch: (Float) -> Unit, onAutoNext: (Boolean) -> Unit, onHighlight: (Boolean) -> Unit, onAutoScroll: (Boolean) -> Unit,
-    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit) {
+    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "") {
     val s = requireNotNull(LocalLocalizeHelper.current)
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(max = 380.dp).readerGlass(20), color = Color.Transparent,
         contentColor = PlayerMuted, shape = RoundedCornerShape(20.dp)) {
@@ -112,6 +112,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
                 Text(voice.ifBlank { s.localize(Res.string.tp_choose_voice) }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
                 Icon(Icons.Default.ExpandMore, null)
             }
+            if (notice.isNotBlank()) Text(notice, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall)
             if (audio.supported) {
                 HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {

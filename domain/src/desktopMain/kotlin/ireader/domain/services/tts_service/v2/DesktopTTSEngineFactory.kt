@@ -39,6 +39,9 @@ actual object TTSEngineFactory : KoinComponent {
         )
     }
     
+    actual fun supportsEdge() = false
+    actual fun createEdgeEngine(voice: EdgeVoice): TTSEngine? = null
+
     actual fun createNativeEngine(): TTSEngine {
         return DesktopPiperTTSEngineV2(piperSynthesizer, piperModelManager, appPreferences)
     }

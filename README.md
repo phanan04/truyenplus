@@ -8,7 +8,7 @@
 - Khám phá truyện Việt từ TruyenFull, TruyenHH và bảng xếp hạng Qidian, Fanqie, Jinjiang; lọc thể loại, tải thêm và lưu cache.
 - Đọc toàn bộ chương, tùy chỉnh font, cỡ chữ và màu nền.
 - Theo dõi tiến độ và lịch sử đọc.
-- Nghe truyện bằng TTS ngay trên trang đọc, chọn đoạn bắt đầu, nhạc nền từ file và hẹn giờ.
+- Nghe truyện ngay trên trang đọc, chọn đoạn bắt đầu, nhạc nền từ file và hẹn giờ. Mã nguồn mới có Edge TTS: Hoài My và Nam Minh (cần Internet), kèm giọng hệ thống dự phòng.
 - Nhập EPUB/PDF và xuất EPUB.
 
 ## Tải và cập nhật
