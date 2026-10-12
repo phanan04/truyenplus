@@ -1,9 +1,12 @@
 package ireader.presentation.ui.truyenplus
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
 
 data class ReaderListeningContext(val sourceIndices: List<Int>, val currentParagraph: Int,
-    val highlight: Boolean, val onSelect: (Int) -> Unit) {
-    fun paragraphForReaderPage(index: Int): Int? = sourceIndices.indexOf(index).takeIf { it >= 0 }
+    val highlight: Boolean, val index: ReaderSpeechIndex, val onSelect: (Int) -> Unit) {
+    constructor(sourceIndices: List<Int>, currentParagraph: Int, highlight: Boolean, onSelect: (Int)->Unit)
+        : this(sourceIndices,currentParagraph,highlight,ReaderSpeechIndex(sourceIndices),onSelect)
+    fun paragraphForReaderPage(index: Int): Int? = this.index.paragraphForReaderPage(index)
     fun isHighlighted(index: Int): Boolean = highlight && sourceIndices.getOrNull(currentParagraph) == index
 }
-val LocalReaderListening = staticCompositionLocalOf<ReaderListeningContext?> { null }
+// Track only paragraphs consuming this value, not the entire reader/settings subtree.
+val LocalReaderListening = compositionLocalOf<ReaderListeningContext?> { null }

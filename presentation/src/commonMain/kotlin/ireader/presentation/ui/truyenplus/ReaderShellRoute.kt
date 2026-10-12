@@ -41,7 +41,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val vm: LibraryViewModel = getIViewModel(key = "library")
     val state by vm.state.collectAsState()
     val tts: ireader.domain.services.tts_service.v2.TTSController = koinInject()
-    val ttsState by tts.state.collectAsState()
+    val ttsState by remember(tts) { tts.state.readerUpdates() }.collectAsState(initial=tts.state.value.readerProjection())
     val ttsService: ireader.domain.services.tts_service.v2.TTSV2ServiceStarter = koinInject()
     var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, ReaderDestination.entries.lastIndex)) }
     val destination = ReaderDestination.entries[destinationIndex]
@@ -126,7 +126,8 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->
                         uiPreferences.language().set(selected.code)
                         localeHelper.updateLocal()
-                    }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true })
+                    }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true },
+                        onAppearance = { uiPreferences.readerAppearance().set(it.id) })
                     else {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }

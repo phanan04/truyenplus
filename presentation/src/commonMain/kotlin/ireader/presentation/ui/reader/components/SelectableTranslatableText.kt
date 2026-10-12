@@ -39,6 +39,15 @@ fun SelectableTranslatableText(
     onTextSelected: (String) -> Unit = {},
     onTranslateRequest: (String) -> Unit = {}
 ) {
+    // Native selection needs no custom long-press parser when translation is disabled.
+    if (!paragraphTranslationEnabled) {
+        val content: @Composable () -> Unit = {
+            Text(text=text,modifier=modifier,fontSize=fontSize,fontFamily=fontFamily,textAlign=textAlign,
+                color=color,lineHeight=lineHeight,letterSpacing=letterSpacing,fontWeight=fontWeight)
+        }
+        if (selectable) SelectionContainer { content() } else content()
+        return
+    }
     val clipboardManager = LocalClipboardManager.current
     var showContextMenu by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf("") }

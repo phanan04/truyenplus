@@ -392,7 +392,7 @@ class TTSV2ScreenSpec(
             
             // Load chapters list for drawer
             try {
-                chapters = chapterRepository.findChaptersByBookId(bookId)
+                if (!embedded) chapters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { chapterRepository.findChaptersByBookId(bookId) }
             } catch (e: Exception) {
                 Log.error { "TTSV2ScreenSpec: Failed to load chapters: ${e.message}" }
             }
@@ -813,7 +813,7 @@ class TTSV2ScreenSpec(
                         Log.warn { "TTSV2ScreenSpec: ChapterNotifier - Chapters refreshed for book $bookId" }
                         // Reload chapters list for drawer
                         try {
-                            chapters = chapterRepository.findChaptersByBookId(bookId)
+                            if (!embedded) chapters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { chapterRepository.findChaptersByBookId(bookId) }
                         } catch (e: Exception) {
                             Log.error { "TTSV2ScreenSpec: Failed to reload chapters: ${e.message}" }
                         }
@@ -829,7 +829,7 @@ class TTSV2ScreenSpec(
                         Log.warn { "TTSV2ScreenSpec: ChapterNotifier - Chapter ${change.chapterId} updated" }
                         // Reload chapters list
                         try {
-                            chapters = chapterRepository.findChaptersByBookId(bookId)
+                            if (!embedded) chapters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { chapterRepository.findChaptersByBookId(bookId) }
                         } catch (e: Exception) {
                             Log.error { "TTSV2ScreenSpec: Failed to reload chapters: ${e.message}" }
                         }
@@ -842,7 +842,7 @@ class TTSV2ScreenSpec(
                         Log.warn { "TTSV2ScreenSpec: ChapterNotifier - ${change.chapterIds.size} chapters updated" }
                         // Reload chapters list
                         try {
-                            chapters = chapterRepository.findChaptersByBookId(bookId)
+                            if (!embedded) chapters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { chapterRepository.findChaptersByBookId(bookId) }
                         } catch (e: Exception) {
                             Log.error { "TTSV2ScreenSpec: Failed to reload chapters: ${e.message}" }
                         }
@@ -854,7 +854,7 @@ class TTSV2ScreenSpec(
                     is ChapterNotifier.ChangeType.FullRefresh -> {
                         Log.warn { "TTSV2ScreenSpec: ChapterNotifier - Full refresh requested" }
                         try {
-                            chapters = chapterRepository.findChaptersByBookId(bookId)
+                            if (!embedded) chapters = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { chapterRepository.findChaptersByBookId(bookId) }
                         } catch (e: Exception) {
                             Log.error { "TTSV2ScreenSpec: Failed to reload chapters: ${e.message}" }
                         }

@@ -343,7 +343,6 @@ private fun ReadingScreenContent(
                                 ReaderSettingsBottomSheet(
                                     vm = vm,
                                     onDismiss = { vm.showSettingsBottomSheet = false },
-                                    onFontSelected = { /* Handle font selection */ },
                                     onToggleAutoBrightness = onToggleAutoBrightness,
                                     onChangeBrightness = onChangeBrightness,
                                     onBackgroundChange = { themeId ->
@@ -352,7 +351,6 @@ private fun ReadingScreenContent(
                                     onTextAlign = { alignment ->
                                         vm.saveTextAlignment(alignment)
                                     },
-                                    onNavigate = onNavigate,
                                 )
                             }
 

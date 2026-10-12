@@ -27,9 +27,11 @@ fun AppTheme(
     content: @Composable() () -> Unit,
 ) {
     val vm = koinInject<AppThemeViewModel>()
-    // The reduced reader uses one SimpMusic-inspired dark shell, including existing installs.
-    // Reader page colours/fonts continue to come from the original reader preferences.
-    val materialColors = ireader.presentation.ui.core.theme.themes.TruyenPlusDarkColors
+    val preferences=koinInject<ireader.domain.preferences.prefs.UiPreferences>()
+    val themePreference=remember(preferences) { preferences.readerAppearance() }
+    val themeId by themePreference.changes().collectAsState(initial=themePreference.get())
+    val appearance=ireader.presentation.ui.truyenplus.ReaderGlassTheme.fromId(themeId)
+    val materialColors=appearance.colors
     val customColors = ireader.domain.models.theme.ExtraColors(
         bars = materialColors.background.toDomainColor(),
         onBars = materialColors.onBackground.toDomainColor(),
@@ -132,6 +134,7 @@ fun AppTheme(
             shape = Shapes
         ) {
             CompositionLocalProvider(
+                ireader.presentation.ui.truyenplus.LocalReaderGlassTheme provides appearance,
                 LocalLayoutDirection provides layoutDirection,
                 LocalIsRtl provides isRtl,
                 LocalLocalizeHelper provides mainLocalizeHelper,

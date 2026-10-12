@@ -3067,4 +3067,13 @@
     <string name="about_description">App info and credits</string>
     <string name="help_description">Get help with the app</string>
     <string name="support_development_description">Help keep IReader free and ad-free</string>
+    <string name="tp_appearance">Appearance</string>
+    <string name="tp_glass_violet">Violet glass</string>
+    <string name="tp_glass_pearl">Light glass</string>
+    <string name="tp_glass_graphite">Graphite glass</string>
+    <string name="tp_glass_amber">Warm glass</string>
+    <string name="tp_follow_appearance">Follow app appearance</string>
+    <string name="tp_glass_hint">Static glass effects optimized for reading.</string>
+    <string name="tp_reader_brightness">Brightness</string>
+    <string name="tp_reader_auto_brightness">Automatic brightness</string>
 </resources>

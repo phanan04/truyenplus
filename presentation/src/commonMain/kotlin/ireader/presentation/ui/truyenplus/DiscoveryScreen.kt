@@ -187,8 +187,8 @@ private fun DiscoveryCover(book: DiscoveryBook, modifier: Modifier) {
 @Composable
 private fun DiscoveryBookCard(book: DiscoveryBook, translation: ireader.domain.data.repository.DiscoveryTranslation?, modifier: Modifier, showRank: Boolean = true, onClick: () -> Unit) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
-    Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = modifier.fillMaxWidth()) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = Color.Transparent,
+        modifier = modifier.fillMaxWidth().readerGlass(18)) {
         Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             DiscoveryCover(book, Modifier.size(82.dp, 116.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {

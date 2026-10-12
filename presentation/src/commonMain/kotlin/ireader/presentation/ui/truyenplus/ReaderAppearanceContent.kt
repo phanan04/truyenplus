@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontFamily
@@ -23,33 +25,32 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 import ireader.i18n.resources.*
 import kotlin.math.roundToInt
 
-internal val ReaderControlAccent = Color(0xFFB78164)
+internal val ReaderControlAccent: Color @Composable get() {
+    val c=MaterialTheme.colorScheme
+    val ink=LocalContentColor.current
+    if(ink!=c.onSurface && ink!=c.onBackground && ink!=Color.Unspecified) return ink
+    val a=c.primary.luminance();val b=c.surface.luminance()
+    return if((maxOf(a,b)+.05f)/(minOf(a,b)+.05f)<3f) lerp(c.primary,c.onSurface,.7f) else c.primary
+}
 
 data class ReaderAppearanceUi(val fontSize: Int = 20, val lineHeight: Int = 30, val margin: Int = 16,
     val scrollSpeed: Int = 10, val scrollEnabled: Boolean = false,
     val themes: List<ReaderColors> = emptyList(), val themeId: Long = 0,
     val alignment: PreferenceValues.PreferenceTextAlignment = PreferenceValues.PreferenceTextAlignment.Left,
     val mode: ReadingMode = ReadingMode.Continues, val fontFamily: FontFamilyModel = FontFamilyModel.Default,
-    val listening: Boolean = false)
+    val listening: Boolean = false, val brightness: Float = .5f, val autoBrightness: Boolean = true,
+    val followAppearance: Boolean = true)
 
 data class ReaderAppearanceActions(val onFontSize: (Int) -> Unit = {}, val onLineHeight: (Int) -> Unit = {},
     val onMargin: (Int) -> Unit = {}, val onScrollSpeed: (Int) -> Unit = {}, val onScrollEnabled: (Boolean) -> Unit = {},
     val onTheme: (Long) -> Unit = {}, val onAlignment: (PreferenceValues.PreferenceTextAlignment) -> Unit = {},
-    val onMode: (ReadingMode) -> Unit = {}, val onFont: (FontFamilyModel) -> Unit = {}, val onMore: () -> Unit = {})
+    val onMode: (ReadingMode) -> Unit = {}, val onFont: (FontFamilyModel) -> Unit = {}, val onBrightness: (Float) -> Unit = {},
+    val onAutoBrightness: (Boolean) -> Unit = {}, val onFollowAppearance: (Boolean) -> Unit = {})
 
 @Composable
 fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearanceActions, modifier: Modifier = Modifier) {
     val s = requireNotNull(LocalLocalizeHelper.current)
     Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(s.localize(Res.string.auto_scroll), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Switch(state.scrollEnabled, actions.onScrollEnabled, modifier = Modifier.testTag("reader-scroll-toggle"),
-                colors = SwitchDefaults.colors(checkedTrackColor = ReaderControlAccent, checkedThumbColor = Color.White))
-        }
-        if (!state.listening) NumericAdjuster(s.localize(Res.string.tp_reader_scroll_speed), state.scrollSpeed, 1, 20, actions.onScrollSpeed, "reader-scroll")
-        LazyRowThemes(state, actions.onTheme)
-        Levels(s.localize(Res.string.tp_reader_line_spacing), ((state.lineHeight-state.fontSize)/2f).roundToInt().coerceIn(1,7), 7, "reader-line") { actions.onLineHeight(state.fontSize + it*2) }
-        Levels(s.localize(Res.string.tp_reader_margins), (state.margin/8f).roundToInt().coerceIn(1,4), 4, "reader-margin") { actions.onMargin(it*8) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             for ((align, icon, label) in listOf(
                 Triple(PreferenceValues.PreferenceTextAlignment.Left, Icons.AutoMirrored.Filled.FormatAlignLeft, s.localize(Res.string.text_align_left)),
@@ -64,12 +65,6 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
             Text(state.fontSize.toString(), style = MaterialTheme.typography.titleMedium)
             IconButton(onClick = { actions.onFontSize((state.fontSize+1).coerceAtMost(40)) }, enabled = state.fontSize<40, modifier = Modifier.testTag("reader-font-increase")) { Text("A+") }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((mode, label, tag) in listOf(Triple(ReadingMode.Continues,s.localize(Res.string.tp_reader_scroll),"reader-mode-scroll"), Triple(ReadingMode.Page,s.localize(Res.string.tp_reader_pages),"reader-mode-page"))) {
-                Choice(label, state.mode == mode || mode==ReadingMode.Continues && state.mode==ReadingMode.InfiniteScroll,
-                    { actions.onMode(mode) }, Modifier.weight(1f).testTag(tag), enabled = !state.listening)
-            }
-        }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val fonts = listOf(
                 Triple(FontFamilyModel.Default,s.localize(Res.string.tp_reader_default_font),"default"),
@@ -77,7 +72,35 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
             for ((font,label,tag) in fonts) Choice(label, state.fontFamily==font, { actions.onFont(font) }, Modifier.testTag("reader-font-$tag"),
                 fontFamily = when(font) { FontFamilyModel.Cursive -> FontFamily.Cursive; FontFamilyModel.Monospace -> FontFamily.Monospace; else -> FontFamily.Default })
         }
-        TextButton(onClick = actions.onMore, Modifier.align(Alignment.End)) { Text(s.localize(Res.string.tp_reader_more_options), color = ReaderControlAccent) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.localize(Res.string.auto_scroll), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Switch(state.scrollEnabled, actions.onScrollEnabled, modifier = Modifier.testTag("reader-scroll-toggle"),
+                colors = SwitchDefaults.colors(checkedTrackColor = ReaderControlAccent, checkedThumbColor = Color.White))
+        }
+        if (!state.listening) NumericAdjuster(s.localize(Res.string.tp_reader_scroll_speed), state.scrollSpeed, 1, 20, actions.onScrollSpeed, "reader-scroll")
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text(s.localize(Res.string.tp_follow_appearance),Modifier.weight(1f))
+            Switch(state.followAppearance,actions.onFollowAppearance)
+        }
+        LazyRowThemes(state, actions.onTheme)
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text(s.localize(Res.string.tp_reader_auto_brightness),Modifier.weight(1f))
+            Switch(state.autoBrightness,actions.onAutoBrightness)
+        }
+        if(!state.autoBrightness) {
+            Text(s.localize(Res.string.tp_reader_brightness))
+            Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f)
+        }
+        Levels(s.localize(Res.string.tp_reader_line_spacing), ((state.lineHeight-state.fontSize)/2f).roundToInt().coerceIn(1,7), 7, "reader-line") { actions.onLineHeight(state.fontSize + it*2) }
+        Levels(s.localize(Res.string.tp_reader_margins), (state.margin/8f).roundToInt().coerceIn(1,4), 4, "reader-margin") { actions.onMargin(it*8) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((mode, label, tag) in listOf(Triple(ReadingMode.Continues,s.localize(Res.string.tp_reader_scroll),"reader-mode-scroll"), Triple(ReadingMode.Page,s.localize(Res.string.tp_reader_pages),"reader-mode-page"))) {
+                Choice(label, state.mode == mode || mode==ReadingMode.Continues && state.mode==ReadingMode.InfiniteScroll,
+                    { actions.onMode(mode) }, Modifier.weight(1f).testTag(tag), enabled = !state.listening)
+            }
+        }
+
+
     }
 }
 

@@ -41,7 +41,9 @@ data class ReaderBookUi(
 @Composable
 fun ReaderBackdrop(content: @Composable BoxScope.() -> Unit) {
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
-        ReaderResponsiveFrame { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), content = content) }
+        val c=MaterialTheme.colorScheme
+        val backdrop=remember(c) { androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(c.background,c.primary,.06f),c.background)) }
+        ReaderResponsiveFrame { Box(Modifier.fillMaxSize().background(backdrop), content = content) }
     }
 }
 
@@ -52,8 +54,8 @@ fun ReaderCover(book: ReaderBookUi, modifier: Modifier = Modifier) {
             IBookImageComposable(image = book.cover, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
             Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                Icon(Icons.Outlined.AutoStories, null, tint = Color.White.copy(alpha = .55f), modifier = Modifier.size(28.dp))
-                Text(book.title, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Outlined.AutoStories, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(28.dp))
+                Text(book.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, maxLines = 4, overflow = TextOverflow.Ellipsis)
                 Box(Modifier.width(26.dp).height(2.dp).background(Color.White.copy(alpha = .6f)))
             }
         }
@@ -237,7 +239,7 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
 @Composable
 fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination) -> Unit) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+    Surface(color = Color.Transparent, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).readerGlass(28)) {
         Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             ReaderAppScope.destinations.forEach { destination ->
                 val active = selected == destination
@@ -256,7 +258,7 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination) -
 @Composable
 fun ReaderMiniPlayer(book: ReaderBookUi, onRead: () -> Unit, onListen: () -> Unit, isPlaying: Boolean? = null, onTogglePlayback: (() -> Unit)? = null) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
-    Surface(onClick = onRead, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+    Surface(onClick = onRead, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).readerGlass(18)) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReaderCover(book, Modifier.size(width = 38.dp, height = 50.dp))
             Column(Modifier.weight(1f)) {

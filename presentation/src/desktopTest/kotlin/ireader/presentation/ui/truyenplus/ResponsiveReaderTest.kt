@@ -36,15 +36,23 @@ class ResponsiveReaderTest {
     }
     private fun save(scene:ImageComposeScene,name:String,w:Window) {
         val out=File("build/reports/truyenplus-responsive/$name-${w.width}x${w.height}-${w.font}.png")
-        out.parentFile.mkdirs();out.writeBytes(requireNotNull(scene.render(2_000_000_000).encodeToData(EncodedImageFormat.PNG)).bytes)
+        out.parentFile.mkdirs();out.writeBytes(requireNotNull(scene.render(20_000_000_000).encodeToData(EncodedImageFormat.PNG)).bytes)
     }
     @Test fun smallSplitWindowStillHasTouchableSpacingChoicesAtLargeFont() {
         val w=windows.first();val scene=scene(w) { ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions()) }
         try {
-            val all=rendered(scene)
+            var all=rendered(scene)
+            val scroll=requireNotNull(all.first { it.config.getOrNull(SemanticsActions.ScrollBy)!=null }.config[SemanticsActions.ScrollBy].action)
+            var time=1_000_000_000L
             for(i in 1..7) {
-                val n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-line-$i" }
-                assertTrue(n.boundsInRoot.width>=48f,"Every spacing choice needs a 48dp target: $i width=${n.boundsInRoot.width}")
+                var n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-line-$i" }
+                if(n.boundsInRoot.width<48 || n.boundsInRoot.height<48) {
+                    assertTrue(scroll(0f,n.positionInRoot.y-160f))
+                    repeat(40) { time+=16_666_667;scene.render(time) }
+                    all=scene.semanticsOwners.flatMap { nodes(it.rootSemanticsNode) }
+                    n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-line-$i" }
+                }
+                assertTrue(n.boundsInRoot.width>=48f && n.boundsInRoot.height>=48f,"Every spacing choice must be reachable at 200% font: $i bounds=${n.boundsInRoot}")
             }
             save(scene,"appearance",w)
         } finally { scene.close() }

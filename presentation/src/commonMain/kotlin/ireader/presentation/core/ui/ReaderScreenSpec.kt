@@ -24,6 +24,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -55,6 +57,11 @@ import ireader.presentation.core.NavigationRoutes
 import ireader.presentation.core.ensureAbsoluteUrlForWebView
 import ireader.presentation.core.navigateTo
 import ireader.presentation.core.safePopBackStack
+import ireader.presentation.core.toDomainColor
+import ireader.presentation.ui.truyenplus.readerUpdates
+import ireader.presentation.ui.truyenplus.readerProjection
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import ireader.presentation.core.toComposeColor
 import ireader.presentation.ui.component.getContextWrapper
 import ireader.presentation.ui.core.theme.AppColors
@@ -154,7 +161,7 @@ data class ReaderScreenSpec(
         val readerState by vm.state.collectAsState()
 
         val ttsController: ireader.domain.services.tts_service.v2.TTSController = koinInject()
-        val ttsState by ttsController.state.collectAsState()
+        val ttsState by remember(ttsController) { ttsController.state.readerUpdates() }.collectAsState(initial=ttsController.state.value.readerProjection())
         val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
         val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial = listeningPreferences.ttsHighlightText().get())
@@ -165,25 +172,23 @@ data class ReaderScreenSpec(
         val navigationInset = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val listeningAdapter = remember(ttsController) { ireader.domain.services.tts_service.v2.TTSViewModelAdapter(ttsController, scope) }
 
-        // Cover-based dynamic color theme: feed the current book cover to the
-        // AppThemeViewModel; the root AppTheme applies the resulting scheme globally.
-        val appThemeViewModel: AppThemeViewModel = koinInject()
-        val coverOwner = remember { Any() }  // composition-scoped claim token
-        val successStateForCover = readerState as? ReaderState.Success
-        val bookForCover = successStateForCover?.book
-        val rawCoverUrl = bookForCover?.let { BookCover.from(it).cover }
-        val effectiveCoverUrl = remember(bookForCover?.id, rawCoverUrl) {
-            rawCoverUrl?.takeIf { it.isNotBlank() }
-        }
-        val isSystemDark = isSystemInDarkTheme()
-        DisposableEffect(effectiveCoverUrl, isSystemDark) {
-            appThemeViewModel.setCurrentCoverUrl(effectiveCoverUrl, bookForCover?.sourceId, isSystemDark, coverOwner)
-            onDispose {
-                // Fires both on pop-away and on back-nav resume of the detail screen;
-                // owner check + grace delay keep the handoff flash-free.
-                appThemeViewModel.setCurrentCoverUrl(null, null, false, coverOwner)
+        val uiPreferences=koinInject<ireader.domain.preferences.prefs.UiPreferences>()
+        val appearance=ireader.presentation.ui.truyenplus.LocalReaderGlassTheme.current
+        val followAppearancePref=remember(uiPreferences) { uiPreferences.readerFollowsAppearance() }
+        val followAppearance by followAppearancePref.changes().collectAsState(initial=followAppearancePref.get())
+        LaunchedEffect(appearance,followAppearance) {
+            if(followAppearance) {
+                vm.backgroundColor.value=appearance.colors.background.toDomainColor()
+                vm.textColor.value=appearance.colors.onBackground.toDomainColor()
             }
         }
+        val speechIndex=remember(ttsState.paragraphSourceIndices) {
+            ireader.presentation.ui.truyenplus.ReaderSpeechIndex(ttsState.paragraphSourceIndices)
+        }
+        val selectSpeech: (Int)->Unit = remember(listeningAdapter) { { index ->
+            if(ttsController.state.value.chunkModeEnabled) listeningAdapter.disableChunkMode()
+            listeningAdapter.jumpToParagraph(index)
+        } }
 
         // Extract values from state
         val successState = readerState as? ReaderState.Success
@@ -222,43 +227,25 @@ data class ReaderScreenSpec(
         }
         var scrollRestoredForChapter by rememberSaveable(bookId, activeChapterId) { mutableStateOf(false) }
 
-        // Save scroll position continuously for process death and orientation change recovery
-        LaunchedEffect(
-            scrollState.value,
-            lazyListState.firstVisibleItemIndex,
-            lazyListState.firstVisibleItemScrollOffset,
-            chapter?.id
-        ) {
-            if (chapter != null) {
-                val isContinuous = vm.readingMode.value == ireader.domain.preferences.prefs.ReadingMode.Continues
-                val currentPosition = if (isContinuous) scrollState.value else lazyListState.firstVisibleItemIndex
-                val currentOffset = if (isContinuous) 0 else lazyListState.firstVisibleItemScrollOffset
-
-                if (currentPosition > 0 || currentOffset > 0) {
-                    savedScrollPosition = currentPosition
-                    savedScrollOffset = currentOffset
+        // Observe scrolling outside composition: no whole-screen invalidation for every pixel.
+        val latestReaderMode=rememberUpdatedState(successState?.isReaderModeEnabled ?: true)
+        LaunchedEffect(bookId,chapter?.id,lazyListState) {
+            val currentChapter=chapter ?: return@LaunchedEffect
+            snapshotFlow { scrollRestoredForChapter }.first { it }
+            snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
+                .collectLatest { (position,offset) ->
+                    savedScrollPosition=position
+                    savedScrollOffset=offset
+                    delay(300)
+                    processStateManager.saveReaderState(ReaderProcessState(
+                        bookId=bookId,chapterId=currentChapter.id,scrollPosition=position,scrollOffset=offset,
+                        readingParagraph=0,isReaderModeEnabled=latestReaderMode.value,timestamp=currentTimeToLong()))
                 }
-
-                // Debounce state saving to avoid excessive writes
-                delay(300)
-                processStateManager.saveReaderState(
-                    ReaderProcessState(
-                        bookId = bookId,
-                        chapterId = chapter.id,
-                        scrollPosition = if (currentPosition > 0) currentPosition else savedScrollPosition,
-                        scrollOffset = if (currentOffset > 0) currentOffset else savedScrollOffset,
-                        readingParagraph = 0,
-                        isReaderModeEnabled = successState?.isReaderModeEnabled ?: true,
-                        timestamp = currentTimeToLong()
-                    )
-                )
-            }
         }
 
         // Restore scroll position after content is rendered
         LaunchedEffect(successState?.currentChapter?.id, activeChapterId) {
             if (successState != null && !scrollRestoredForChapter) {
-                val isContinuous = vm.readingMode.value == ireader.domain.preferences.prefs.ReadingMode.Continues
                 val targetPosition = when {
                     restoredState != null && restoredState.bookId == bookId && restoredState.chapterId == (chapter?.id ?: activeChapterId) -> restoredState.scrollPosition
                     savedScrollPosition > 0 -> savedScrollPosition
@@ -270,18 +257,15 @@ data class ReaderScreenSpec(
                     else -> 0
                 }
 
-                if (targetPosition > 0 || targetOffset > 0) {
-                    try {
-                        delay(150) // Wait for layout pass
-                        if (isContinuous) {
-                            scrollState.scrollTo(targetPosition)
-                        } else {
-                            lazyListState.scrollToItem(targetPosition, targetOffset)
-                        }
-                        scrollRestoredForChapter = true
-                    } catch (e: Exception) {
-                        Log.warn { "Failed to restore scroll position: ${e.message}" }
+                try {
+                    val count=snapshotFlow { lazyListState.layoutInfo.totalItemsCount }.first { it>0 }
+                    if(targetPosition>0 || targetOffset>0) {
+                        lazyListState.scrollToItem(targetPosition.coerceIn(0,count-1),targetOffset)
                     }
+                } catch (e: Exception) {
+                    Log.warn { "Failed to restore scroll position: ${e.message}" }
+                } finally {
+                    scrollRestoredForChapter=true
                 }
             }
         }
@@ -363,10 +347,14 @@ data class ReaderScreenSpec(
         }
 
         val autoScrollMode = successState?.autoScrollMode ?: false
-        LaunchedEffect(key1 = autoScrollMode) {
-            while (vm.settingsViewModel.autoScrollInterval.value.toInt() != 0 && autoScrollMode) {
-                scrollState.scrollBy(vm.settingsViewModel.autoScrollOffset.value.toFloat())
-                delay(vm.settingsViewModel.autoScrollInterval.value.toLong())
+        LaunchedEffect(autoScrollMode,showListening) {
+            while(autoScrollMode && !showListening) {
+                delay(50)
+                if(!lazyListState.isScrollInProgress && !vm.showSettingsBottomSheet) {
+                    // The core speed control is 1..20: four dp/second per step.
+                    val delta=with(readerDensity) { (vm.autoScrollOffset.value.coerceIn(1,20)*.2f).dp.toPx() }
+                    lazyListState.scrollBy(delta)
+                }
             }
         }
 
@@ -379,8 +367,8 @@ data class ReaderScreenSpec(
                 ttsState.chapter?.id == chapter?.id && listeningSourceIndex != null) {
                 delay(100)
                 val item = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listeningSourceIndex }
-                if (item == null || item.offset < 0 || item.offset + item.size / 2 > lazyListState.layoutInfo.viewportEndOffset) {
-                    lazyListState.animateScrollToItem(listeningSourceIndex)
+                if (!lazyListState.isScrollInProgress && (item == null || item.offset < 0 || item.offset + item.size / 2 > lazyListState.layoutInfo.viewportEndOffset)) {
+                    lazyListState.scrollToItem(listeningSourceIndex)
                 }
             }
         }
@@ -546,9 +534,11 @@ data class ReaderScreenSpec(
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
-                            ireader.presentation.ui.truyenplus.ReaderListeningContext(if (ttsState.book?.id == bookId && ttsState.chapter?.id == chapter?.id) ttsState.paragraphSourceIndices else emptyList(), ttsState.currentParagraphIndex, highlightListening) {
-                                if (ttsState.chunkModeEnabled) listeningAdapter.disableChunkMode()
-                                listeningAdapter.jumpToParagraph(it)
+                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,ttsState.currentParagraphIndex,highlightListening) {
+                                val matching=ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id
+                                ireader.presentation.ui.truyenplus.ReaderListeningContext(
+                                    if(matching) ttsState.paragraphSourceIndices else emptyList(),ttsState.currentParagraphIndex,
+                                    highlightListening,if(matching) speechIndex else ireader.presentation.ui.truyenplus.ReaderSpeechIndex(emptyList()),selectSpeech)
                             } else null
                     ) {
                     ReadingScreen(
