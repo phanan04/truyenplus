@@ -8,12 +8,12 @@
 - Khám phá truyện Việt từ TruyenFull, TruyenHH và bảng xếp hạng Qidian, Fanqie, Jinjiang; lọc thể loại, tải thêm và lưu cache.
 - Đọc toàn bộ chương, tùy chỉnh font, cỡ chữ và màu nền.
 - Theo dõi tiến độ và lịch sử đọc.
-- Nghe truyện bằng TTS, chọn đoạn bắt đầu và hẹn giờ.
+- Nghe truyện bằng TTS ngay trên trang đọc, chọn đoạn bắt đầu, nhạc nền từ file và hẹn giờ.
 - Nhập EPUB/PDF và xuất EPUB.
 
 ## Tải và cập nhật
 
-[Tải APK 2.0.32 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.32/TruyenPlus-v2.0.32-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
+[Tải APK 2.0.33 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.33/TruyenPlus-v2.0.33-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
 
 Hỗ trợ Android 8.0 trở lên. Cài đè bản cũ để giữ thư viện và tiến độ.
 
