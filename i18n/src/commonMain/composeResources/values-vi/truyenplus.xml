@@ -260,4 +260,15 @@
     <string name="tp_board_truyenyy">Kim Thánh Bảng</string>
     <string name="tp_rank_week"> · Hạng %1$d trong tuần</string>
     <string name="tp_discovery_load_more">Tải thêm</string>
+    <string name="tp_previous_chapter">Chương trước</string>
+    <string name="tp_next_chapter">Chương sau</string>
+    <string name="tp_background_music">Nhạc nền</string>
+    <string name="tp_close_listening">Đóng bảng nghe</string>
+    <string name="tp_speech_volume">Âm lượng phát</string>
+    <string name="tp_choose_music">Chọn file nhạc</string>
+    <string name="tp_music_volume">Âm lượng nhạc nền</string>
+    <string name="tp_music_error">Không phát được file này. Hãy chọn file nhạc khác.</string>
+    <string name="tp_auto_next">Tự động chuyển chương</string>
+    <string name="tp_highlight_paragraph">Nổi bật đoạn văn</string>
+    <string name="tp_follow_paragraph">Tự động cuộn</string>
 </resources>

@@ -1021,6 +1021,7 @@ class TTSController(
                     book = content.book,
                     chapter = content.chapter,
                     paragraphs = content.paragraphs,
+                    paragraphSourceIndices = content.paragraphSourceIndices,
                     totalParagraphs = content.paragraphs.size,
                     currentParagraphIndex = startParagraph.coerceIn(0, content.paragraphs.lastIndex.coerceAtLeast(0)),
                     playbackState = PlaybackState.IDLE,
@@ -1072,6 +1073,7 @@ class TTSController(
         _state.update { 
             it.copy(
                 paragraphs = paragraphs,
+                paragraphSourceIndices = emptyList(),
                 totalParagraphs = paragraphs.size,
                 currentParagraphIndex = 0
             )
@@ -1566,6 +1568,7 @@ interface TTSContentLoader {
     data class ChapterContent(
         val book: Book?,
         val chapter: Chapter?,
-        val paragraphs: List<String>
+        val paragraphs: List<String>,
+        val paragraphSourceIndices: List<Int> = emptyList()
     )
 }

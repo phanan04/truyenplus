@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -105,7 +106,9 @@ fun resolveInitialReaderChapterId(
 @OptIn(ExperimentalMaterial3Api::class)
 data class ReaderScreenSpec(
     val bookId: Long,
-    val chapterId: Long
+    val chapterId: Long,
+    val listenOnOpen: Boolean = false,
+    val listeningParagraph: Int = 0
 ) {
 
 
@@ -146,6 +149,14 @@ data class ReaderScreenSpec(
                 )
             })
         val readerState by vm.state.collectAsState()
+
+        val ttsController: ireader.domain.services.tts_service.v2.TTSController = koinInject()
+        val ttsState by ttsController.state.collectAsState()
+        val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
+        var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
+        val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial = listeningPreferences.ttsHighlightText().get())
+        val followListening by listeningPreferences.ttsFollowParagraph().changes().collectAsState(initial = listeningPreferences.ttsFollowParagraph().get())
+        val listeningAdapter = remember(ttsController) { ireader.domain.services.tts_service.v2.TTSViewModelAdapter(ttsController, scope) }
 
         // Cover-based dynamic color theme: feed the current book cover to the
         // AppThemeViewModel; the root AppTheme applies the resulting scheme globally.
@@ -352,6 +363,20 @@ data class ReaderScreenSpec(
             }
         }
 
+        LaunchedEffect(showListening, ttsState.chapter?.id) {
+            if (showListening && ttsState.book?.id == bookId) vm.syncWithTTSChapter()
+        }
+        val listeningSourceIndex = ttsState.paragraphSourceIndices.getOrNull(ttsState.currentParagraphIndex)
+        LaunchedEffect(showListening, followListening, listeningSourceIndex, ttsState.chapter?.id, chapter?.id, ttsState.isPlaying) {
+            if (showListening && followListening && ttsState.isPlaying && ttsState.book?.id == bookId &&
+                ttsState.chapter?.id == chapter?.id && listeningSourceIndex != null) {
+                delay(100)
+                val item = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listeningSourceIndex }
+                if (item == null || item.offset < 0 || item.offset + item.size / 2 > lazyListState.layoutInfo.viewportEndOffset) {
+                    lazyListState.animateScrollToItem(listeningSourceIndex)
+                }
+            }
+        }
         // Sync with TTS chapter when screen becomes active
         // Observe the back stack to detect when we return from TTS screen
         val backStackEntry by navController.currentBackStackEntryFlow.collectAsState(initial = null)
@@ -510,8 +535,15 @@ data class ReaderScreenSpec(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize()
                 ) {
                     // Content first (below the top bar)
-                    val padding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) 156.dp else 0.dp)
 
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
+                            ireader.presentation.ui.truyenplus.ReaderListeningContext(if (ttsState.book?.id == bookId && ttsState.chapter?.id == chapter?.id) ttsState.paragraphSourceIndices else emptyList(), ttsState.currentParagraphIndex, highlightListening) {
+                                if (ttsState.chunkModeEnabled) listeningAdapter.disableChunkMode()
+                                listeningAdapter.jumpToParagraph(it)
+                            } else null
+                    ) {
                     ReadingScreen(
                         drawerState = drawerState,
                         vm = vm,
@@ -627,20 +659,7 @@ data class ReaderScreenSpec(
                         onSliderChange = {
                             // Slider change is now handled via state
                         },
-                        onReaderPlay = {
-                            successState?.book?.let { book ->
-                                chapter?.let { ch ->
-                                    navController.navigateTo(
-                                        TTSV2ScreenSpec(
-                                            bookId = book.id,
-                                            sourceId = book.sourceId,
-                                            chapterId = ch.id,
-                                            readingParagraph = 0
-                                        )
-                                    )
-                                }
-                            }
-                        },
+                        onReaderPlay = { showListening = true },
                         onReaderBottomOnSetting = {
                             scope.launch {
                                 sheetState.show()
@@ -685,18 +704,14 @@ data class ReaderScreenSpec(
                         onNavigateToQuoteCreation = null,
                         onNavigate = { navController.navigate(it) }
                     )
+                    }
 
                     // Top bar overlay (rendered on top of content)
                     val catalog = successState?.catalog
                     val book = successState?.book
 
                     ReaderScreenTopBar(
-                        onPlay = {
-                            if (book != null && chapter != null) {
-                                navController.navigateTo(TTSV2ScreenSpec(bookId = book.id, sourceId = book.sourceId,
-                                    chapterId = chapter.id, readingParagraph = 0))
-                            }
-                        },
+                        onPlay = { showListening = true },
                         modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopCenter),
                         isReaderModeEnable = successState?.isReaderModeEnabled ?: false,
                         isLoaded = successState?.isChapterLoaded ?: false,
@@ -753,6 +768,14 @@ data class ReaderScreenSpec(
                         hasPluginMenuItems = false,
                         onPluginMenu = {}
                     )
+
+                    if (showListening && book != null && chapter != null) {
+                        androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth()
+                            .then(Modifier.navigationBarsPadding())) {
+                            TTSV2ScreenSpec(book.id, chapter.id, book.sourceId, listeningParagraph).Content(
+                                embedded = true, onCloseListening = { listeningAdapter.pause(); showListening = false })
+                        }
+                    }
 
                     // Modal sheet rendered inside the Box to ensure it appears above content
                     val isSettingChanging = vm.settingsViewModel.isSettingChanging

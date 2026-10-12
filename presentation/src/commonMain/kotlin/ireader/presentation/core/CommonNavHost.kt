@@ -30,7 +30,7 @@ fun CommonNavHost(navController: NavHostController, startDestination: String = "
             val chapter = entry.stringArg("chapterId")?.toLongOrNull()
             val source = entry.stringArg("sourceId")?.toLongOrNull()
             val paragraph = entry.stringArg("readingParagraph")?.toIntOrNull() ?: 0
-            if (book != null && chapter != null && source != null) TTSV2ScreenSpec(book, chapter, source, paragraph).Content()
+            if (book != null && chapter != null && source != null) ReaderScreenSpec(book, chapter, listenOnOpen = true, listeningParagraph = paragraph).Content()
         }
         composable(NavigationRoutes.category) { CategoryScreenSpec().Content() }
         composable(NavigationRoutes.fontSettings) { FontScreenSpec().Content() }

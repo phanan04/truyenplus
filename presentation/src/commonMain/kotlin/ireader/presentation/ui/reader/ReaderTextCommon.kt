@@ -275,6 +275,11 @@ internal fun StyleTextOptimized(
     translatedText: String? = null,
     onTranslateRequest: (String) -> Unit = {},
 ) {
+    val listening = ireader.presentation.ui.truyenplus.LocalReaderListening.current
+    val speechIndex = listening?.paragraphForReaderPage(index)
+    val listenModifier = if (listening != null && speechIndex != null) modifier
+        .background(if (listening.isHighlighted(index)) preferences.textColor.copy(alpha = .1f) else Color.Transparent)
+        .clickable { listening.onSelect(speechIndex) } else modifier
     val originalText = remember(
         page.text,
         index,
@@ -328,7 +333,7 @@ internal fun StyleTextOptimized(
             originalText = originalText,
             translatedText = translatedText,
             mode = bilingualMode,
-            modifier = modifier.fillMaxWidth(),
+            modifier = listenModifier.fillMaxWidth(),
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),
@@ -360,7 +365,7 @@ internal fun StyleTextOptimized(
 
         Text(
             text = bionicText,
-            modifier = modifier.fillMaxWidth(),
+            modifier = listenModifier.fillMaxWidth(),
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),
@@ -372,7 +377,7 @@ internal fun StyleTextOptimized(
     } else {
         SelectableTranslatableText(
             text = originalText,
-            modifier = modifier.fillMaxWidth(),
+            modifier = listenModifier.fillMaxWidth(),
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),

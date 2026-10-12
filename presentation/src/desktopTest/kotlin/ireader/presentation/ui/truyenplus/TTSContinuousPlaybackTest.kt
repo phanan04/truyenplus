@@ -65,6 +65,23 @@ class TTSContinuousPlaybackTest {
             assertTrue(controller.state.value.isPlaying)
         } finally { controller.destroy() }
     }
+    @Test fun explicitAutoNextOffSurvivesPlayAndResume() = runTest(dispatcher) {
+        val engine = Engine()
+        val controller = TTSController(Loader(listOf(listOf("First"), listOf("Second"))), { engine })
+        try {
+            controller.dispatch(TTSCommand.Initialize)
+            controller.dispatch(TTSCommand.LoadChapter(1, 1))
+            testScheduler.advanceUntilIdle()
+            val adapter = TTSViewModelAdapter(controller, backgroundScope)
+            adapter.play(autoNextChapter = false)
+            testScheduler.advanceUntilIdle()
+            adapter.pause(); testScheduler.advanceUntilIdle()
+            adapter.play(autoNextChapter = false); testScheduler.advanceUntilIdle()
+            engine.complete(); testScheduler.advanceUntilIdle()
+            assertFalse(controller.state.value.autoNextChapter)
+            assertEquals(1L, controller.state.value.chapter?.id)
+        } finally { controller.destroy() }
+    }
     @Test fun completionWithoutStartedStillReadsTheNextParagraph() = runTest(dispatcher) {
         val engine = Engine().apply { sendStarted = false }
         val controller = TTSController(Loader(listOf(listOf("...", "Readable text"))), { engine })

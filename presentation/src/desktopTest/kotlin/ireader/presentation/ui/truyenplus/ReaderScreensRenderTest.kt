@@ -330,13 +330,45 @@ class ReaderScreensRenderTest {
         } finally { scene.close() }
     }
 
+    @OptIn(ExperimentalComposeUiApi::class)
+    @Test fun floatingListeningKeepsTheReaderTextAndSelectionAtPhoneAndTabletWidths() {
+        Locale.setDefault(Locale.forLanguageTag("vi"))
+        for (width in listOf(360,800)) for (expanded in listOf(false,true)) {
+            val selected = mutableListOf<Int>()
+            val scene = ImageComposeScene(width=width,height=900,density=Density(1f)) {
+                ReaderTestTheme(colorScheme=TruyenPlusDarkColors) {
+                    Box(Modifier.fillMaxSize()) {
+                        CompositionLocalProvider(LocalReaderListening provides ReaderListeningContext(chapterParagraphs.indices.toList(),1,true,selected::add)) {
+                            ReadingChapterPreview(dark=true)
+                        }
+                        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                            if(expanded) ReaderFloatingOptions("Giọng tiếng Việt",1f,true,true,true,false,30,
+                                ListeningAudioState(supported=true,musicTitle="Piano.mp3",musicEnabled=true),{},{},{},{},{},{},{},{},{},{})
+                            ReaderFloatingPlayer(true,2f,.4f,{},{},{},{},{},{},ListeningAudioState(supported=true,musicTitle="Piano.mp3",musicEnabled=true))
+                        }
+                    }
+                }
+            }
+            try {
+                scene.render(0); val bitmap=scene.render(1_000_000_000)
+                fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
+                val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+                val paragraph=nodes.first { it.config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(chapterParagraphs.first()) }==true && it.config.getOrNull(SemanticsActions.OnClick)?.action!=null }
+                requireNotNull(paragraph.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
+                assertEquals(listOf(0),selected)
+                val out=File("build/reports/truyenplus-v2/floating-listening-$width-${if(expanded) "expanded" else "collapsed"}.png")
+                out.parentFile.mkdirs(); out.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)
+            } finally { scene.close() }
+        }
+    }
+
     @Composable
-    private fun ReadingChapterPreview() {
-        val ink = Color(0xFF292521)
+    private fun ReadingChapterPreview(dark: Boolean = false) {
+        val ink = if (dark) Color(0xFFF0F0F2) else Color(0xFF292521)
         val preferences = ReaderTextPreferencesState(18, 29, 0, 400, 0,
             PreferenceValues.PreferenceTextAlignment.Left, ink, FontFamily.Serif,
             0, 1, 0, true, false, false, 0, false)
-        Surface(color = Color(0xFFFAF4E6), contentColor = ink, modifier = Modifier.fillMaxSize()) {
+        Surface(color = if (dark) Color(0xFF262627) else Color(0xFFFAF4E6), contentColor = ink, modifier = Modifier.fillMaxSize()) {
             Column {
                 ReaderChapterTopBar(Chapter(id = 245, bookId = 1, key = "245", name = "Chương 245"), {}, {}, {}, onListen = {})
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {

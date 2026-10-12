@@ -141,10 +141,10 @@ class TTSViewModelAdapter(
         controller.dispatch(TTSCommand.LoadChapter(bookId, chapterId, startParagraph))
     }
     
-    fun play() {
+    fun play(autoNextChapter: Boolean = true) {
         Log.warn { "$TAG: play()" }
-        // The app's listening UI always plays continuously across chapters.
-        controller.dispatch(TTSCommand.SetAutoNextChapter(true))
+        // The floating reader can explicitly disable continuous playback.
+        controller.dispatch(TTSCommand.SetAutoNextChapter(autoNextChapter))
         controller.dispatch(TTSCommand.Play)
     }
     

@@ -97,6 +97,7 @@ fun ReaderText(
     onOpenDrawer: () -> Unit = {},
     onCopyModeDone: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
 ) {
+    val mode = if (ireader.presentation.ui.truyenplus.LocalReaderListening.current != null) ReadingMode.Continues else vm.readingMode.value
     val interactionSource = remember { MutableInteractionSource() }
     val scope = rememberCoroutineScope()
 
@@ -129,8 +130,7 @@ fun ReaderText(
 
     // Single LaunchedEffect to handle initial scroll position restoration
     // Only active for Continuous mode — Page and InfiniteScroll handle their own scroll
-    LaunchedEffect(key1 = currentChapterId, key2 = vm.readingMode.value) {
-        val mode = vm.readingMode.value
+    LaunchedEffect(key1 = currentChapterId, key2 = mode) {
         val chapterId = currentChapterId ?: return@LaunchedEffect
 
         // Check if this is the same chapter we already processed
@@ -196,8 +196,7 @@ fun ReaderText(
     }
 
     // Separate LaunchedEffect for scrollToEnd changes (when navigating to previous chapter in Continuous mode)
-    LaunchedEffect(key1 = successState?.scrollToEndOnChapterChange, key2 = vm.readingMode.value) {
-        val mode = vm.readingMode.value
+    LaunchedEffect(key1 = successState?.scrollToEndOnChapterChange, key2 = mode) {
         if (mode != ReadingMode.Continues) return@LaunchedEffect
         val shouldScrollToEnd = successState?.scrollToEndOnChapterChange ?: false
         if (!shouldScrollToEnd) return@LaunchedEffect
@@ -282,7 +281,7 @@ fun ReaderText(
             .supportDesktopScroll(
                 lazyListState,
                 scope,
-                enable = vm.readingMode.value == ReadingMode.Continues
+                enable = mode == ReadingMode.Continues
             )
             .fillMaxSize()
             .background(vm.backgroundColor.value.toComposeColor()),
@@ -371,7 +370,7 @@ fun ReaderText(
                 state = swipeState,
                 indicators = listOf(
                     ISwipeRefreshIndicator(
-                        enable = vm.readingMode.value == ReadingMode.Continues && isAtTop && hasPrevChapter,
+                        enable = mode == ReadingMode.Continues && isAtTop && hasPrevChapter,
                         alignment = Alignment.TopCenter,
                         indicator = { state, _ ->
                             // Only render indicator when there's actual drag activity
@@ -391,7 +390,7 @@ fun ReaderText(
                         }
                     ),
                     ISwipeRefreshIndicator(
-                        enable = vm.readingMode.value == ReadingMode.Continues && isAtBottom && hasNextChapter,
+                        enable = mode == ReadingMode.Continues && isAtBottom && hasNextChapter,
                         alignment = Alignment.BottomCenter,
                         onRefresh = {
                             onNext()
@@ -417,7 +416,7 @@ fun ReaderText(
                         .fillMaxSize()
                         .graphicsLayer {
                             // Translate content based on swipe state for drag effect
-                            if (vm.readingMode.value == ReadingMode.Continues) {
+                            if (mode == ReadingMode.Continues) {
                                 translationY = swipeState.indicatorOffset * 0.3f
                             }
                         }
@@ -429,7 +428,7 @@ fun ReaderText(
                         modifier = Modifier
                             .fillMaxSize()
                             .then(
-                                if (vm.readingMode.value != ReadingMode.Page) {
+                                if (mode != ReadingMode.Page) {
                                     Modifier.pointerInput(contentDoesNotFillScreen, hasPrevChapter, hasNextChapter) {
                                         // Combined gesture handling
                                         if (contentDoesNotFillScreen && (hasPrevChapter || hasNextChapter)) {
@@ -527,7 +526,7 @@ fun ReaderText(
                     ) {
                     // Use copy mode OR selectable mode for text selection
                     TextSelectionContainer(selectable = vm.copyModeActive || vm.selectableMode.value) {
-                        when (vm.readingMode.value) {
+                        when (mode) {
                             ReadingMode.Page -> {
                                 PagedReaderContent(
                                     vm = vm,

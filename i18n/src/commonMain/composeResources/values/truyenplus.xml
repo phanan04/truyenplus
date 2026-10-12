@@ -260,4 +260,15 @@
     <string name="tp_board_truyenyy">Kim Thánh Bảng</string>
     <string name="tp_rank_week"> · Weekly rank %1$d</string>
     <string name="tp_discovery_load_more">Load more</string>
+    <string name="tp_previous_chapter">Previous chapter</string>
+    <string name="tp_next_chapter">Next chapter</string>
+    <string name="tp_background_music">Background music</string>
+    <string name="tp_close_listening">Close listening</string>
+    <string name="tp_speech_volume">Playback volume</string>
+    <string name="tp_choose_music">Choose an audio file</string>
+    <string name="tp_music_volume">Music volume</string>
+    <string name="tp_music_error">Cannot play this file. Choose another audio file.</string>
+    <string name="tp_auto_next">Auto next chapter</string>
+    <string name="tp_highlight_paragraph">Highlight paragraph</string>
+    <string name="tp_follow_paragraph">Auto scroll</string>
 </resources>

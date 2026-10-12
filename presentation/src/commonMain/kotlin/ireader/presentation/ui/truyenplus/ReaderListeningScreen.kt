@@ -48,11 +48,10 @@ fun ReaderListenChapterScreen(state: CommonTTSScreenState, actions: CommonTTSAct
                 highlightColor = MaterialTheme.colorScheme.primaryContainer,
                 fontSize = fontSize, lineHeight = fontSize + 10, textAlignment = textAlignment,
                 isTabletOrDesktop = isTabletOrDesktop, modifier = Modifier.weight(1f))
-            SpotifyLikeTTSPlayer(state.isPlaying, actions::onPreviousChapter, actions::onPreviousParagraph,
-                { if (state.isPlaying) actions.onPause() else actions.onPlay() },
-                actions::onNextParagraph, actions::onNextChapter, onSettings,
-                progressFraction = state.progressFraction, currentParagraph = state.currentReadingParagraph,
-                totalParagraphs = state.contentSize)
+            ReaderFloatingPlayer(state.isPlaying, state.speechSpeed, state.progressFraction,
+                actions::onPreviousChapter, { if (state.isPlaying) actions.onPause() else actions.onPlay() },
+                actions::onNextChapter, actions::onSpeedChange, onSettings, actions::onPause)
+
         }
     }
 }

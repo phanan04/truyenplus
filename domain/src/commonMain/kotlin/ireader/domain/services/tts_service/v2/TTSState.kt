@@ -20,6 +20,7 @@ data class TTSState(
     val book: Book? = null,
     val chapter: Chapter? = null,
     val paragraphs: List<String> = emptyList(),
+    val paragraphSourceIndices: List<Int> = emptyList(),
     
     // Translation support
     val translatedParagraphs: List<String>? = null,

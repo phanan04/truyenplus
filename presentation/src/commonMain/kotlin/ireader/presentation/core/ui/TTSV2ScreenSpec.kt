@@ -154,7 +154,7 @@ class TTSV2ScreenSpec(
 ) {
     @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
     @Composable
-    fun Content() {
+    fun Content(embedded: Boolean = false, onCloseListening: () -> Unit = {}) {
         val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
         val navController = requireNotNull(LocalNavigator.current) { "LocalNavigator not provided" }
         val scope = rememberCoroutineScope()
@@ -733,7 +733,8 @@ class TTSV2ScreenSpec(
         
         // Auto-scroll to current paragraph/chunk only when it is NOT visible on screen
         // Prevents screen jumping on every single line, allowing comfortable reading while listening
-        LaunchedEffect(currentParagraph, state.currentChunkIndex) {
+        LaunchedEffect(currentParagraph, state.currentChunkIndex, embedded) {
+            if (embedded) return@LaunchedEffect
             if (state.paragraphs.isNotEmpty() && currentParagraph < state.paragraphs.size) {
                 delay(100)
                 if (pageMode && pagerState != null) {
@@ -1039,7 +1040,7 @@ class TTSV2ScreenSpec(
                 // Restart service for notification when playing
                 val chId = state.chapter?.id ?: chapterId
                 serviceStarter.startService(bookId, chId, state.currentParagraphIndex)
-                viewModel.adapter.play() 
+                viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
             }
             override fun onPause() { viewModel.adapter.pause() }
             override fun onNextParagraph() {
@@ -1130,6 +1131,46 @@ class TTSV2ScreenSpec(
             }
         }
         
+        if (embedded) {
+            var optionsOpen by remember { mutableStateOf(false) }
+            ireader.presentation.core.ui.PlatformBackHandler(enabled = optionsOpen) { optionsOpen = false }
+            var voiceName by remember { mutableStateOf(runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")) }
+            val highlight by readerPreferences.ttsHighlightText().changes().collectAsState(initial = readerPreferences.ttsHighlightText().get())
+            val follow by readerPreferences.ttsFollowParagraph().changes().collectAsState(initial = readerPreferences.ttsFollowParagraph().get())
+            val audio = ireader.presentation.ui.truyenplus.rememberListeningAudio(viewModel.adapter)
+            val audioState by audio.state.collectAsState()
+            Column(Modifier.fillMaxWidth()) {
+                if (optionsOpen) ireader.presentation.ui.truyenplus.ReaderFloatingOptions(
+                    voice = voiceName.ifBlank { screenState.selectedVoiceModel ?: localizeHelper.localize(Res.string.tp_choose_voice) },
+                    pitch = state.pitch, autoNext = state.autoNextChapter, highlight = highlight, autoScroll = follow,
+                    timer = sleepModeEnabled, minutes = sleepTimeMinutes, audio = audioState,
+                    onVoice = { showVoiceSelection = true }, onMusic = audio::chooseMusic,
+                    onMusicEnabled = audio::musicEnabled, onMusicVolume = audio::musicVolume,
+                    onPitch = viewModel.adapter::setPitch, onAutoNext = viewModel.adapter::setAutoNextChapter,
+                    onHighlight = { readerPreferences.ttsHighlightText().set(it) },
+                    onAutoScroll = { readerPreferences.ttsFollowParagraph().set(it) },
+                    onTimer = {
+                        sleepModeEnabled = it; readerPreferences.sleepMode().set(it)
+                        if (it) viewModel.startSleepTimer(sleepTimeMinutes) else viewModel.cancelSleepTimer()
+                    }, onMinutes = {
+                        sleepTimeMinutes = it; readerPreferences.sleepTime().set(it.toLong())
+                        if (sleepModeEnabled) viewModel.startSleepTimer(it)
+                    })
+                ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
+                    isPlaying, state.speed, screenState.progressFraction,
+                    actions::onPreviousChapter, { if (isPlaying) actions.onPause() else actions.onPlay() },
+                    actions::onNextChapter, actions::onSpeedChange,
+                    { optionsOpen = !optionsOpen }, onCloseListening,
+                    audioState, audio::speechVolume,
+                    { if (audioState.musicTitle.isBlank()) audio.chooseMusic() else audio.musicEnabled(!audioState.musicEnabled) })
+            }
+            if (showVoiceSelection) TTSVoiceSelectionScreen(isDesktop = isTabletOrDesktop, onDismiss = {
+                showVoiceSelection = false
+                voiceName = runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")
+            })
+            return
+        }
+
         // Main UI with Settings Drawer (right-side) and Chapter Drawer (left-side)
         ireader.presentation.ui.truyenplus.ReaderListeningSettings(
             drawerState = settingsDrawerState, speed = state.speed, pitch = state.pitch,
@@ -1198,7 +1239,7 @@ class TTSV2ScreenSpec(
                                 // Resume playback if was playing
                                 if (wasPlaying) {
                                     delay(500) // Wait for content to load
-                                    viewModel.adapter.play()
+                                    viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
                                 }
                             }
                         },
@@ -1263,7 +1304,7 @@ class TTSV2ScreenSpec(
                         onPlayPause = {
                             if (isPlaying) viewModel.adapter.pause() else {
                                 serviceStarter.startService(bookId, state.chapter?.id ?: chapterId, state.currentParagraphIndex)
-                                viewModel.adapter.play()
+                                viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
                             }
                         },
                         onNext = { if (state.chunkModeEnabled) viewModel.adapter.nextChunk() else viewModel.adapter.nextParagraph() },

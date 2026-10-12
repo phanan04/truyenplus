@@ -713,8 +713,10 @@ Visit.*for more chapters"""
     }
 
     fun ttsAutoPlay(): Preference<Boolean> {
-        return preferenceStore.getBoolean("tts_auto_play", false)
+        return preferenceStore.getBoolean("tts_auto_play", true)
     }
+
+    fun ttsFollowParagraph(): Preference<Boolean> = preferenceStore.getBoolean("tts_follow_paragraph", true)
 
     fun ttsHighlightText(): Preference<Boolean> {
         return preferenceStore.getBoolean("tts_highlight_text", true)

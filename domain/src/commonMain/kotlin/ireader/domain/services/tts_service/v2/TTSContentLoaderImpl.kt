@@ -81,14 +81,19 @@ class TTSContentLoaderImpl(
         
         // Parse content into paragraphs (extract text from Page objects)
         // Note: content is already filtered by the use case
-        val paragraphs = parseContent(content, bookId)
+        val parsed = assembleSpeechParagraphs(content) { text ->
+            val replaced = textReplacementUseCase?.applyReplacementsToStrings(listOf(text), bookId) ?: listOf(text)
+            contentFilterUseCase?.filterStrings(replaced, bookId) ?: replaced
+        }
+        val paragraphs = parsed.texts
         
         Log.warn { "$TAG: Loaded chapter with ${paragraphs.size} paragraphs" }
         
         return TTSContentLoader.ChapterContent(
             book = book,
             chapter = chapter,
-            paragraphs = paragraphs
+            paragraphs = paragraphs,
+            paragraphSourceIndices = parsed.sources
         )
     }
     
@@ -126,65 +131,6 @@ class TTSContentLoaderImpl(
             Log.error { "$TAG: Failed to fetch chapter content: ${e.message}" }
             null
         }
-    }
-    
-    /**
-     * Parse chapter content (List<Page>) into paragraphs
-     * 
-     * Extracts text from Text pages and cleans HTML if present.
-     * Note: Content is already filtered at the Page level by FindChapterById use case.
-     * This method applies additional string-level processing after HTML cleaning/splitting.
-     */
-    private suspend fun parseContent(content: List<Page>, bookId: Long? = null): List<String> {
-        if (content.isEmpty()) {
-            return emptyList()
-        }
-        
-        // Extract text from Text pages (already filtered at Page level)
-        val textContent = content
-            .filterIsInstance<Text>()
-            .map { it.text }
-            .filter { it.isNotBlank() && !it.contains("PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER") }
-        
-        // If we have text pages, process them
-        if (textContent.isNotEmpty()) {
-            val paragraphs = textContent.flatMap { text ->
-                cleanAndSplitText(text)
-            }
-            
-            // Step 1: Apply text replacements first (with bookId support)
-            val replaced = textReplacementUseCase?.applyReplacementsToStrings(paragraphs, bookId) ?: paragraphs
-            
-            // Step 2: Apply content filter to remove unwanted patterns (with bookId support)
-            val filtered = contentFilterUseCase?.filterStrings(replaced, bookId) ?: replaced
-            
-            return filtered.filter { it.isNotBlank() && !it.contains("PLACEHOLDER_DO_NOT_DISPLAY_THIS_TEXT_TO_USER") }
-        }
-        
-        return emptyList()
-    }
-    
-    /**
-     * Clean HTML and split text into paragraphs
-     */
-    private fun cleanAndSplitText(text: String): List<String> {
-        // Basic HTML tag removal (if present)
-        val cleanContent = text
-            .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
-            .replace(Regex("<p[^>]*>", RegexOption.IGNORE_CASE), "\n")
-            .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n")
-            .replace(Regex("<[^>]+>"), "") // Remove remaining HTML tags
-            .replace("&nbsp;", " ")
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-        
-        // Split into paragraphs and filter empty ones
-        return cleanContent
-            .split(Regex("\n+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
     }
     
     /**
