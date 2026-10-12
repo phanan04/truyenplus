@@ -1,5 +1,11 @@
 package ireader.presentation.ui.reader
 
+import androidx.compose.foundation.layout.widthIn
+
+import androidx.compose.foundation.layout.wrapContentWidth
+
+import androidx.compose.foundation.layout.fillMaxWidth
+
 import androidx.compose.foundation.ScrollState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -357,7 +363,7 @@ fun ReaderText(
         val refreshTriggerPx = with(androidx.compose.ui.platform.LocalDensity.current) { 80.dp.toPx() }
 
         Box(
-            modifier = Modifier
+            modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max=840.dp)
                 .padding(
                     top = vm.topMargin.lazyValue.dp,
                     bottom = vm.bottomMargin.lazyValue.dp,

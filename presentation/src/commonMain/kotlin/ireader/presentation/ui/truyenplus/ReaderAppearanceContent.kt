@@ -97,15 +97,15 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
 @Composable private fun Levels(title: String, selected: Int, count: Int, tag: String, change: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (level in 1..count) Choice(level.toString(),selected==level,{change(level)},Modifier.weight(1f).testTag("$tag-$level"), padding = 0)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (level in 1..count) Choice(level.toString(),selected==level,{change(level)},Modifier.widthIn(min=48.dp).testTag("$tag-$level"), padding = 8)
         }
     }
 }
 
 @Composable private fun Choice(text: String, selected: Boolean, click: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, fontFamily: FontFamily? = null, padding: Int = 12) {
-    Surface(onClick = click, enabled = enabled, modifier = modifier.heightIn(min=44.dp).semantics { this.selected = selected },
+    Surface(onClick = click, enabled = enabled, modifier = modifier.heightIn(min=48.dp).semantics { this.selected = selected },
         shape = RoundedCornerShape(12.dp), color = Color.Transparent, contentColor = if (selected) ReaderControlAccent else LocalContentColor.current,
         border = BorderStroke(1.dp, if(selected) ReaderControlAccent else Color.Transparent)) {
         Box(Modifier.padding(horizontal = padding.dp), contentAlignment = Alignment.Center) { Text(text, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge) }

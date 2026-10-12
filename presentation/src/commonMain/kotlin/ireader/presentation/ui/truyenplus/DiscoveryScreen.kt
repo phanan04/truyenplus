@@ -54,8 +54,8 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
     LaunchedEffect(sourceIndex, sectionIndex, genre, query) { listState.scrollToItem(0) }
     LaunchedEffect(genres) { if (genre !in genres) genre = "" }
 
-    LazyVerticalGrid(columns = GridCells.Adaptive(320.dp), state = listState,
-        modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 185.dp),
+    LazyVerticalGrid(columns = GridCells.Adaptive((320f * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).dp), state = listState,
+        modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalReaderDockInset.current),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {

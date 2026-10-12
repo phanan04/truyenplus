@@ -41,31 +41,40 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
         Column {
             LinearProgressIndicator(progress = { progress.coerceIn(0f,1f) }, color = PlayerAccent,
                 trackColor = Color.Transparent, modifier = Modifier.fillMaxWidth().height(2.dp))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(Modifier.width(148.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-                    IconButton(onClick = onPrevious, Modifier.size(40.dp)) { Icon(Icons.Default.SkipPrevious, s.localize(Res.string.tp_previous_chapter), Modifier.size(22.dp)) }
-                    FilledIconButton(onClick = onPlayPause, colors = IconButtonDefaults.filledIconButtonColors(containerColor = PlayerAccent, contentColor = Color.White), modifier = Modifier.size(56.dp)) {
-                        Icon(if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, s.localize(if (isPlaying) Res.string.pause else Res.string.play), Modifier.size(34.dp))
-                    }
-                    IconButton(onClick = onNext, Modifier.size(40.dp)) { Icon(Icons.Default.SkipNext, s.localize(Res.string.tp_next_chapter), Modifier.size(22.dp)) }
-                }
-                VerticalDivider(Modifier.height(64.dp), color = Color.White.copy(alpha = .12f))
-                Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(onClick = onMusicToggle, enabled = audio.supported, modifier = Modifier.weight(1f).wrapContentWidth(Alignment.Start).widthIn(max = 104.dp).height(30.dp).semantics { contentDescription = s.localize(Res.string.tp_background_music) }, shape = CircleShape,
-                            color = if (audio.musicEnabled) Color(0xFFE8B442).copy(alpha = .18f) else Color.White.copy(alpha = .06f),
-                            border = BorderStroke(1.dp, if (audio.musicEnabled) Color(0xFFE8B442).copy(alpha = .55f) else Color.White.copy(alpha = .12f))) {
-                            Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.GraphicEq, null, tint = if (audio.musicEnabled) Color(0xFFE8B442) else PlayerMuted, modifier = Modifier.size(18.dp)) }
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=8.dp)) {
+                val compact = maxWidth.value < 340f || maxWidth.value / LocalDensity.current.fontScale < 300f
+                val playback: @Composable () -> Unit = {
+                    Row(Modifier.width(if(compact) 144.dp else 156.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceEvenly) {
+                        IconButton(onClick=onPrevious,Modifier.size(48.dp)) { Icon(Icons.Default.SkipPrevious,s.localize(Res.string.tp_previous_chapter),Modifier.size(22.dp)) }
+                        FilledIconButton(onClick=onPlayPause,colors=IconButtonDefaults.filledIconButtonColors(containerColor=PlayerAccent,contentColor=Color.White),modifier=Modifier.size(if(compact) 48.dp else 56.dp)) {
+                            Icon(if(isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying) Res.string.pause else Res.string.play),Modifier.size(34.dp))
                         }
-                        IconButton(onClick = onSettings, Modifier.size(36.dp)) { Icon(Icons.Outlined.Settings, s.localize(Res.string.tp_listening_settings), Modifier.size(20.dp)) }
-                        IconButton(onClick = onClose, Modifier.size(36.dp)) { Icon(Icons.Default.Close, s.localize(Res.string.tp_close_listening), Modifier.size(20.dp)) }
+                        IconButton(onClick=onNext,Modifier.size(48.dp)) { Icon(Icons.Default.SkipNext,s.localize(Res.string.tp_next_chapter),Modifier.size(22.dp)) }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.VolumeUp, s.localize(Res.string.tp_speech_volume), Modifier.size(16.dp))
-                        Slider(audio.speechVolume, onVolume, modifier = Modifier.weight(1f).height(32.dp), enabled = audio.supported,
-                            thumb = { Box(Modifier.size(12.dp).background(PlayerAccent, CircleShape)) },
-                            track = { SliderDefaults.Track(it, modifier = Modifier.height(3.dp), colors = SliderDefaults.colors(activeTrackColor = PlayerAccent, inactiveTrackColor = Color.White.copy(alpha = .2f))) })
+                }
+                val tools: @Composable RowScope.() -> Unit = {
+                    if(!compact) Surface(onClick=onMusicToggle,enabled=audio.supported,modifier=Modifier.weight(1f).wrapContentWidth(Alignment.Start).widthIn(max=104.dp).heightIn(min=48.dp),shape=CircleShape,
+                        color=if(audio.musicEnabled) Color(0xFFE8B442).copy(alpha=.18f) else Color.White.copy(alpha=.06f)) {
+                        Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.GraphicEq,s.localize(Res.string.tp_background_music),tint=if(audio.musicEnabled) Color(0xFFE8B442) else PlayerMuted) }
                     }
+                    IconButton(onClick=onSettings,Modifier.size(48.dp)) { Icon(Icons.Outlined.Settings,s.localize(Res.string.tp_listening_settings)) }
+                    IconButton(onClick=onClose,Modifier.size(48.dp)) { Icon(Icons.Default.Close,s.localize(Res.string.tp_close_listening)) }
+                }
+                val volume: @Composable () -> Unit = {
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        if(compact) IconButton(onClick=onMusicToggle,enabled=audio.supported) { Icon(Icons.Outlined.GraphicEq,s.localize(Res.string.tp_background_music),tint=if(audio.musicEnabled) Color(0xFFE8B442) else PlayerMuted) }
+                        Icon(Icons.Outlined.VolumeUp,s.localize(Res.string.tp_speech_volume),Modifier.size(16.dp))
+                        Slider(audio.speechVolume,onVolume,modifier=Modifier.weight(1f).heightIn(min=48.dp),enabled=audio.supported,
+                            thumb={Box(Modifier.size(12.dp).background(PlayerAccent,CircleShape))},
+                            track={SliderDefaults.Track(it,modifier=Modifier.height(3.dp),colors=SliderDefaults.colors(activeTrackColor=PlayerAccent,inactiveTrackColor=Color.White.copy(alpha=.2f)))})
+                    }
+                }
+                if(compact) Column {
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) { Box(Modifier.weight(1f)) { playback() };tools() }
+                    volume()
+                } else Row(verticalAlignment=Alignment.CenterVertically) {
+                    playback();VerticalDivider(Modifier.height(72.dp),color=Color.White.copy(alpha=.12f))
+                    Column(Modifier.weight(1f).padding(start=8.dp)) { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,content=tools);volume() }
                 }
             }
             HorizontalDivider(Modifier.padding(horizontal = 12.dp), color = Color.White.copy(alpha = .1f))
@@ -77,8 +86,8 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
                     val selected = kotlin.math.abs(speed - value) < .01f
                     Surface(onClick = { onSpeed(value) }, shape = RoundedCornerShape(10.dp),
                         color = if (selected) PlayerAccent else Color.Transparent,
-                        modifier = Modifier.width(48.dp).height(38.dp).semantics { this.selected = selected }) {
-                        Box(contentAlignment = Alignment.Center) { Text(listeningSpeedLabel(value), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else PlayerMuted) }
+                        modifier = Modifier.width((48f * LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).heightIn(min=48.dp).semantics { this.selected = selected }) {
+                        Box(contentAlignment = Alignment.Center) { Text(listeningSpeedLabel(value), maxLines=1, softWrap=false, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else PlayerMuted) }
                     }
                 }
             }
@@ -116,7 +125,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.VolumeUp, null, Modifier.size(16.dp))
-                    Slider(audio.musicVolume, onMusicVolume, modifier = Modifier.weight(1f).height(32.dp).semantics { contentDescription = s.localize(Res.string.tp_music_volume) },
+                    Slider(audio.musicVolume, onMusicVolume, modifier = Modifier.weight(1f).heightIn(min=48.dp).semantics { contentDescription = s.localize(Res.string.tp_music_volume) },
                         thumb = { Box(Modifier.size(12.dp).background(PlayerAccent, CircleShape)) },
                         track = { SliderDefaults.Track(it, modifier = Modifier.height(3.dp), colors = SliderDefaults.colors(activeTrackColor = PlayerAccent, inactiveTrackColor = Color.White.copy(alpha = .2f))) })
                 }

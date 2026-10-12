@@ -1,5 +1,8 @@
 package ireader.presentation.core.ui
 
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.heightIn
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -154,7 +157,7 @@ class TTSV2ScreenSpec(
 ) {
     @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
     @Composable
-    fun Content(embedded: Boolean = false, onCloseListening: () -> Unit = {}) {
+    fun Content(embedded: Boolean = false, onCloseListening: () -> Unit = {}, onPlayerHeightChanged: (Int) -> Unit = {}) {
         val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
         val navController = requireNotNull(LocalNavigator.current) { "LocalNavigator not provided" }
         val scope = rememberCoroutineScope()
@@ -1139,8 +1142,7 @@ class TTSV2ScreenSpec(
             val follow by readerPreferences.ttsFollowParagraph().changes().collectAsState(initial = readerPreferences.ttsFollowParagraph().get())
             val audio = ireader.presentation.ui.truyenplus.rememberListeningAudio(viewModel.adapter)
             val audioState by audio.state.collectAsState()
-            Column(Modifier.fillMaxWidth()) {
-                if (optionsOpen) ireader.presentation.ui.truyenplus.ReaderFloatingOptions(
+            ireader.presentation.ui.truyenplus.ReaderListeningDock(optionsOpen, options = { ireader.presentation.ui.truyenplus.ReaderFloatingOptions(
                     voice = voiceName.ifBlank { screenState.selectedVoiceModel ?: localizeHelper.localize(Res.string.tp_choose_voice) },
                     pitch = state.pitch, autoNext = state.autoNextChapter, highlight = highlight, autoScroll = follow,
                     timer = sleepModeEnabled, minutes = sleepTimeMinutes, audio = audioState,
@@ -1156,14 +1158,16 @@ class TTSV2ScreenSpec(
                         sleepTimeMinutes = it; readerPreferences.sleepTime().set(it.toLong())
                         if (sleepModeEnabled) viewModel.startSleepTimer(it)
                     })
+                }, player = {
                 ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
                     isPlaying, state.speed, screenState.progressFraction,
                     actions::onPreviousChapter, { if (isPlaying) actions.onPause() else actions.onPlay() },
                     actions::onNextChapter, actions::onSpeedChange,
                     { optionsOpen = !optionsOpen }, onCloseListening,
                     audioState, audio::speechVolume,
-                    { if (audioState.musicTitle.isBlank()) audio.chooseMusic() else audio.musicEnabled(!audioState.musicEnabled) })
-            }
+                    { if (audioState.musicTitle.isBlank()) audio.chooseMusic() else audio.musicEnabled(!audioState.musicEnabled) },
+                    modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) })
+            })
             if (showVoiceSelection) TTSVoiceSelectionScreen(isDesktop = isTabletOrDesktop, onDismiss = {
                 showVoiceSelection = false
                 voiceName = runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")

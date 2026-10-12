@@ -8,6 +8,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ireader.i18n.LocalizeHelper
@@ -32,7 +33,7 @@ fun ReaderDestination.localizedLabel(strings: LocalizeHelper): String = strings.
 fun ReaderSettingsScreen(language: ReaderUiLanguage, onLanguage: (ReaderUiLanguage) -> Unit,
     onProgress: () -> Unit, onUpdate: () -> Unit) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 185.dp),
+    LazyColumn(Modifier.fillMaxSize().wrapContentWidth(androidx.compose.ui.Alignment.CenterHorizontally).widthIn(max=760.dp), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = LocalReaderDockInset.current),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Column(Modifier.padding(vertical = 18.dp)) {

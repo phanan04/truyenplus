@@ -14,6 +14,7 @@ private fun NavBackStackEntry.stringArg(key: String) = arguments?.read { getStri
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommonNavHost(navController: NavHostController, startDestination: String = "main", additionalRoutes: (NavGraphBuilder.() -> Unit)? = null) {
+    ireader.presentation.ui.truyenplus.ReaderResponsiveFrame {
     AnimatedNavHost(navController = navController, startDestination = startDestination.takeIf(ReaderAppScope::allows) ?: "main",
         backgroundColor = androidx.compose.material3.MaterialTheme.colorScheme.background) {
         composable("main") { MainStarterScreen() }
@@ -39,5 +40,6 @@ fun CommonNavHost(navController: NavHostController, startDestination: String = "
             val vm: ireader.presentation.ui.settings.textreplacement.TextReplacementViewModel = getIViewModel()
             ireader.presentation.ui.settings.textreplacement.TextReplacementScreen(vm = vm)
         }
+    }
     }
 }

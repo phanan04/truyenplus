@@ -1,4 +1,5 @@
 package ireader.presentation.core.ui
+import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -156,6 +159,10 @@ data class ReaderScreenSpec(
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
         val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial = listeningPreferences.ttsHighlightText().get())
         val followListening by listeningPreferences.ttsFollowParagraph().changes().collectAsState(initial = listeningPreferences.ttsFollowParagraph().get())
+        val readerDensity = androidx.compose.ui.platform.LocalDensity.current
+        var readerFooterHeight by remember { mutableStateOf(72.dp) }
+        var readerPlayerHeight by remember { mutableStateOf(156.dp) }
+        val navigationInset = androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         val listeningAdapter = remember(ttsController) { ireader.domain.services.tts_service.v2.TTSViewModelAdapter(ttsController, scope) }
 
         // Cover-based dynamic color theme: feed the current book cover to the
@@ -535,7 +542,7 @@ data class ReaderScreenSpec(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize()
                 ) {
                     // Content first (below the top bar)
-                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) 156.dp else if (!vm.isReaderModeEnable) 72.dp else 0.dp)
+                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else 0.dp)
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
@@ -702,7 +709,8 @@ data class ReaderScreenSpec(
                             vm.autoBrightnessMode.value = !vm.autoBrightnessMode.value
                         },
                         onNavigateToQuoteCreation = null,
-                        onNavigate = { navController.navigate(it) }
+                        onNavigate = { navController.navigate(it) },
+                        onControlsHeightChanged = { readerFooterHeight = with(readerDensity) { it.toDp() } }
                     )
                     }
 
@@ -770,10 +778,11 @@ data class ReaderScreenSpec(
                     )
 
                     if (showListening && book != null && chapter != null) {
-                        androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).fillMaxWidth()
+                        androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).widthIn(max=760.dp).fillMaxWidth()
                             .then(Modifier.navigationBarsPadding())) {
                             TTSV2ScreenSpec(book.id, chapter.id, book.sourceId, listeningParagraph).Content(
-                                embedded = true, onCloseListening = { listeningAdapter.pause(); showListening = false })
+                                embedded = true, onCloseListening = { listeningAdapter.pause(); showListening = false },
+                                onPlayerHeightChanged = { readerPlayerHeight = with(readerDensity) { it.toDp() } })
                         }
                     }
 

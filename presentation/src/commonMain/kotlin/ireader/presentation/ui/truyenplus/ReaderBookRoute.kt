@@ -85,6 +85,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     val visible = chapters.filter { (filter != 1 || it.bookmark) && (filter != 2 || !it.read) && it.name.contains(query, true) }
+    ReaderContentPane(maxWidth=960.dp) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -94,16 +95,27 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
             }
         }
         item {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                ReaderCover(book, Modifier.widthIn(max = 198.dp).fillMaxWidth().height(270.dp))
-                Text(book.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                val wide = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 520f
+                val details: @Composable () -> Unit = {
+                    Column(Modifier.fillMaxWidth()) {
+                Text(book.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = if(wide) 0.dp else 24.dp))
                 if (author.isNotBlank()) Text(author, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 Text(strings.localize(Res.string.tp_book_summary, book.total, book.progress.percent), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onRead, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.weight(1f).height(52.dp)) {
+                    Button(onClick = onRead, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.weight(1f).heightIn(min=52.dp)) {
                         Icon(Icons.Outlined.AutoStories, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(if (book.read > 0) strings.localize(Res.string.tp_continue_reading) else strings.localize(Res.string.tp_start_reading))
                     }
-                    OutlinedButton(onClick = onListen, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.height(52.dp)) { Icon(Icons.Outlined.Headphones, strings.localize(Res.string.tp_listen_book)) }
+                    OutlinedButton(onClick = onListen, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.heightIn(min=52.dp)) { Icon(Icons.Outlined.Headphones, strings.localize(Res.string.tp_listen_book)) }
+                }
+                    }
+                }
+                if(wide) Row(horizontalArrangement=Arrangement.spacedBy(28.dp),verticalAlignment=Alignment.CenterVertically) {
+                    ReaderCover(book,Modifier.width(198.dp).height(270.dp))
+                    Box(Modifier.weight(1f)) { details() }
+                } else Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    ReaderCover(book,Modifier.widthIn(max=198.dp).fillMaxWidth().height(270.dp))
+                    details()
                 }
             }
         }
@@ -116,5 +128,6 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
                 leadingContent = { Icon(if (chapter.bookmark) Icons.Filled.Bookmark else Icons.Outlined.Description, null, tint = if (chapter.bookmark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingContent = { Icon(Icons.Default.ChevronRight, null) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent), modifier = Modifier.clickable { onChapter(chapter) })
         }
+    }
     }
 }

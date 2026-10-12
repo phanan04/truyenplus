@@ -1,5 +1,7 @@
 package ireader.presentation.ui.reader
 
+import androidx.compose.ui.layout.onSizeChanged
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -114,7 +116,8 @@ fun ReadingScreen(
     onChangeBrightness: (Float) -> Unit = {},
     onToggleAutoBrightness: () -> Unit = {},
     onNavigateToQuoteCreation: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
-    onNavigate: ((String) -> Unit)
+    onNavigate: ((String) -> Unit),
+    onControlsHeightChanged: (Int) -> Unit = {},
 ) {
 
     val scope = rememberCoroutineScope()
@@ -159,7 +162,8 @@ fun ReadingScreen(
             onChangeBrightness = onChangeBrightness,
             onToggleAutoBrightness = onToggleAutoBrightness,
             onNavigateToQuoteCreation = onNavigateToQuoteCreation,
-            onNavigate = onNavigate
+            onNavigate = onNavigate,
+            onControlsHeightChanged = onControlsHeightChanged
         )
     }
 }
@@ -195,6 +199,7 @@ private fun ReadingScreenContent(
     onToggleAutoBrightness: () -> Unit,
     onNavigateToQuoteCreation: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
     onNavigate: ((String) -> Unit),
+    onControlsHeightChanged: (Int) -> Unit = {},
 ) {
     val localizeHelper =
         requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
@@ -347,7 +352,7 @@ private fun ReadingScreenContent(
                                     onTextAlign = { alignment ->
                                         vm.saveTextAlignment(alignment)
                                     },
-                                    onNavigate = onNavigate
+                                    onNavigate = onNavigate,
                                 )
                             }
 
@@ -453,7 +458,7 @@ private fun ReadingScreenContent(
                             modifier = Modifier.align(Alignment.BottomCenter)
                         ) {
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().onSizeChanged { onControlsHeightChanged(it.height) },
                                 shape = RoundedCornerShape(0.dp),
                                 color = vm.backgroundColor.value.toComposeColor(),
                                 contentColor = vm.textColor.value.toComposeColor(),

@@ -1,4 +1,6 @@
 package ireader.presentation.ui.truyenplus
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.layout.onSizeChanged
 
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
@@ -89,8 +91,12 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
         if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else destinationIndex = 0
     }
+    var dockHeight by remember { mutableStateOf(185.dp) }
+    val viewportDensity = androidx.compose.ui.platform.LocalDensity.current
     ReaderBackdrop {
+        CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+            ReaderContentPane {
             when (destination) {
                 ReaderDestination.Home -> ReaderHomeScreen(books, state.isLoading, onBook,
                     onLibrary = { destinationIndex = 1 }, onImport = { showImport = true },
@@ -137,16 +143,19 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     }
                 }
             }
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            }
+            Column(Modifier.align(Alignment.BottomCenter).widthIn(max=1120.dp).fillMaxWidth().onSizeChanged {
+                dockHeight = with(viewportDensity) { it.height.toDp() }
+            }) {
                 if (state.selectionMode) {
                     Surface(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                        Column(Modifier.padding(12.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.heightIn(max=LocalReaderViewport.current.height * .45f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(12.dp)) {
+                            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = vm::unselectAll) { Text(strings.localize(Res.string.tp_unselect)) }
                                 TextButton(onClick = { showCategories = true }) { Text(strings.localize(Res.string.tp_collections)) }
                                 TextButton(onClick = { confirmRemove = true }) { Text(strings.localize(Res.string.tp_remove_books)) }
                             }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = { vm.markAsReadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_mark_read)) }
                                 TextButton(onClick = { vm.markAsUnreadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_unread)) }
                             }
@@ -182,6 +191,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     ReaderBottomNav(destination) { destinationIndex = it.ordinal }
                 }
             }
+        }
         }
     }
     if (showUpdate) ReaderUpdateSheet(updatePlatform.installedApp.versionName, updatePlatform.endpoint,
