@@ -59,7 +59,7 @@ low-RAM Android devices retain the inexpensive tinted fallback. There are no new
 bitmap assets or dependencies. The decorative library/home/progress subtitles and
 pre-download metadata explanation were removed.
 
-These source changes require a newer APK. Device frame rate is not measured.
+These changes are included in version 2.0.38 (92). Device frame rate is not measured.
 
 ## Reader interaction fixes (after 2.0.37)
 
@@ -84,7 +84,7 @@ During a fling/scroll, chapter display-list recording and control blur use the
 cheap tinted path. They resume when scrolling settles. This removes specific
 sources of extra work; it is not a physical-device FPS measurement.
 
-These changes remain source-only until a new APK is built.
+These changes are included in version 2.0.38 (92).
 
 
 ## Edge TTS removal (after 2.0.37)
@@ -94,7 +94,7 @@ voice picker, strings and dedicated client WebSocket dependency have been remove
 The listening voice button opens the existing system voice selector directly.
 A one-way preference migration removes saved Edge keys; users who selected Edge
 return to Native, while other engine selections remain unchanged. No library,
-reading progress or music file is removed. This source change needs a newer APK.
+reading progress or music file is removed. This change is included in 2.0.38 (92).
 
 
 ## Listening controller redesign (after 2.0.37)
@@ -126,3 +126,5 @@ Based on source and rendered layouts, the highest-value remaining improvements a
 
 These are follow-up recommendations, not shipped changes. Physical Tab A9 audio
 quality and frame rate still require device verification.
+
+The listening controller redesign is included in version 2.0.38 (92).
