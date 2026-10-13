@@ -279,7 +279,7 @@ private fun ReadingScreenContent(
         }
     }
 
-    Box(
+    ireader.presentation.ui.truyenplus.ReaderContentAndAppearance(
         modifier = ReaderScreenModifiers.fillMaxSize
             .background(backgroundColor)
             .volumeKeyHandler(
@@ -288,7 +288,7 @@ private fun ReadingScreenContent(
                 onVolumeDown = { handleVolumeAction(isVolumeUp = false) }
             ),
         contentAlignment = Alignment.Center,
-    ) {
+        chapter = {
 
         Crossfade(
             modifier = ReaderScreenModifiers.fillMaxSize,
@@ -337,22 +337,6 @@ private fun ReadingScreenContent(
                                 onOpenDrawer = { scope.launch { drawerState.open() } },
                                 onCopyModeDone = onNavigateToQuoteCreation
                             )
-
-                            // Settings Bottom Sheet
-                            if (vm.showSettingsBottomSheet) {
-                                ReaderSettingsBottomSheet(
-                                    vm = vm,
-                                    onDismiss = { vm.showSettingsBottomSheet = false },
-                                    onToggleAutoBrightness = onToggleAutoBrightness,
-                                    onChangeBrightness = onChangeBrightness,
-                                    onBackgroundChange = { themeId ->
-                                        vm.changeBackgroundColor(themeId)
-                                    },
-                                    onTextAlign = { alignment ->
-                                        vm.saveTextAlignment(alignment)
-                                    },
-                                )
-                            }
 
                             // Preload indicator
                             PreloadIndicator(
@@ -501,6 +485,24 @@ private fun ReadingScreenContent(
                 }
             }
         }
-    }
+
+    }, appearance = {
+                            // Settings Bottom Sheet
+                            if (vm.showSettingsBottomSheet) {
+                                ReaderSettingsBottomSheet(
+                                    vm = vm,
+                                    onDismiss = { vm.showSettingsBottomSheet = false },
+                                    onToggleAutoBrightness = onToggleAutoBrightness,
+                                    onChangeBrightness = onChangeBrightness,
+                                    onBackgroundChange = { themeId ->
+                                        vm.changeBackgroundColor(themeId)
+                                    },
+                                    onTextAlign = { alignment ->
+                                        vm.saveTextAlignment(alignment)
+                                    },
+                                )
+                            }
+
+    })
 }
 

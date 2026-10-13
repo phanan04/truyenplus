@@ -76,7 +76,7 @@ class ReaderSettingsViewModel(
     init {
         // Ensure preferences are loaded (lazy initialization for startup performance)
         preferencesController.ensurePreferencesLoaded()
-        loadFonts()
+        // The reader exposes built-in fonts; fetch remote font lists only on explicit picker use.
         subscribeToControllerEvents()
     }
     
@@ -261,6 +261,7 @@ class ReaderSettingsViewModel(
      * Toggle font picker
      */
     fun toggleFontPicker() {
+        if (fonts.isEmpty() && !fontsLoading) loadFonts()
         showFontPicker = !showFontPicker
     }
     

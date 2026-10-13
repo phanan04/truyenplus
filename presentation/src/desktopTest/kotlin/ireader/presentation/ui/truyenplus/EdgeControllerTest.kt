@@ -73,4 +73,29 @@ class EdgeControllerTest {
             assertEquals("Đoạn hai", created.last().second.spoken.single().first)
         } finally { controller.destroy();Dispatchers.resetMain() }
     }
+    @Test fun audioFocusGainNeverRestartsActiveOrUserPausedSpeech() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val native = Engine()
+        val controller = TTSController(Loader(), { native })
+        try {
+            controller.dispatch(TTSCommand.LoadChapter(1, 2));advanceUntilIdle()
+            controller.dispatch(TTSCommand.Play);advanceUntilIdle()
+            controller.dispatch(TTSCommand.AudioFocusGained);advanceUntilIdle()
+            controller.dispatch(TTSCommand.AudioFocusGained);advanceUntilIdle()
+            controller.dispatch(TTSCommand.Resume);advanceUntilIdle()
+            assertEquals(1, native.spoken.size, "Gaining focus must never restart already active speech")
+            controller.dispatch(TTSCommand.AudioFocusLost(transient = true));advanceUntilIdle()
+            assertTrue(controller.state.value.isPaused)
+            controller.dispatch(TTSCommand.AudioFocusGained);advanceUntilIdle()
+            assertEquals(2, native.spoken.size)
+            controller.dispatch(TTSCommand.Pause);advanceUntilIdle()
+            controller.dispatch(TTSCommand.AudioFocusGained);advanceUntilIdle()
+            assertEquals(2, native.spoken.size, "Explicit pause must survive a focus gain")
+            controller.dispatch(TTSCommand.Play);advanceUntilIdle()
+            controller.dispatch(TTSCommand.AudioFocusLost(transient = false));advanceUntilIdle()
+            controller.dispatch(TTSCommand.AudioFocusGained);advanceUntilIdle()
+            assertEquals(3, native.spoken.size, "Permanent focus loss must not auto resume")
+        } finally { controller.destroy();Dispatchers.resetMain() }
+    }
+
 }

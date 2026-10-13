@@ -8,6 +8,7 @@ import io.ktor.websocket.*
 import ireader.domain.services.tts_service.v2.*
 import ireader.domain.utils.extensions.currentTimeToLong
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okio.Buffer
@@ -23,20 +24,23 @@ class EdgeSpeechClient(private val client:HttpClient):EdgeSpeechSynthesizer {
         fun n(i:Int)=i.toString().padStart(2,'0')
         return "$day $month ${n(t.dayOfMonth)} ${t.year} ${n(t.hours)}:${n(t.minutes)}:${n(t.seconds)} GMT+0000 (Coordinated Universal Time)"
     }
-    override suspend fun synthesize(text:String,voice:EdgeVoice):ByteArray=connection.withLock {
-        require(text.encodeToByteArray().size<=65536) { "Edge paragraph too large" }
-        val output=Buffer()
-        for(chunk in EdgeSpeechWire.textChunks(text)) {
-            if(chunk.isBlank()) continue
-            val bytes=try { request(chunk,voice) } catch(e:CancellationException) { throw e } catch(_:Exception) {
-                delay(350);request(chunk,voice)
-            }
-            require(output.size+bytes.size<=4*1024*1024) { "Edge audio too large" }
+    override suspend fun synthesize(text: String, voice: EdgeVoice): ByteArray {
+        val output = Buffer()
+        stream(text, voice).collect { bytes ->
+            require(output.size + bytes.size <= 4 * 1024 * 1024) { "Edge audio too large" }
             output.write(bytes)
         }
-        output.readByteArray().also { require(it.isNotEmpty()) { "Edge returned no audio" } }
+        return output.readByteArray().also { require(it.isNotEmpty()) { "Edge returned no audio" } }
     }
-    private suspend fun request(text:String,voice:EdgeVoice):ByteArray=withTimeout(25000) {
+    override fun stream(text: String, voice: EdgeVoice): kotlinx.coroutines.flow.Flow<ByteArray> = kotlinx.coroutines.flow.flow {
+        require(text.encodeToByteArray().size <= 65536) { "Edge paragraph too large" }
+        // Short, natural sentences become playable before the entire paragraph is downloaded.
+        for (chunk in TTSSentenceSplitter.split(text, maxChunkLength = 180)) {
+            val bytes = connection.withLock { request(chunk, voice) }
+            emit(bytes)
+        }
+    }
+    private suspend fun request(text:String,voice:EdgeVoice):ByteArray=withTimeout(8000) {
         val output=Buffer();var completed=false
         val url="wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${EdgeSpeechWire.clientToken}&ConnectionId=${id()}&Sec-MS-GEC=${EdgeSpeechWire.token(currentTimeToLong())}&Sec-MS-GEC-Version=1-${EdgeSpeechWire.browserVersion}"
         client.webSocket(request={

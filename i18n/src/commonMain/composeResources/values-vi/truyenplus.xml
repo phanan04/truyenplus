@@ -283,4 +283,22 @@
     <string name="tp_edge_namminh">Nam Minh · Nam</string>
     <string name="tp_system_voice">Giọng hệ thống</string>
     <string name="tp_edge_fallback">Edge không phản hồi. Đang dùng giọng hệ thống.</string>
+    <string name="tp_reader_appearance">Tùy chỉnh chữ</string>
+    <string name="tp_book_about">Giới thiệu truyện</string>
+    <string name="tp_book_metadata">Cập nhật thông tin</string>
+    <string name="tp_metadata_epub">Từ tệp EPUB gốc</string>
+    <string name="tp_metadata_online">Tìm trên TruyenFull · Internet</string>
+    <string name="tp_metadata_updated">Đã cập nhật thông tin, giữ nguyên tiến độ đọc.</string>
+    <string name="tp_metadata_failed">Chưa có thông tin khớp. Kiểm tra tệp EPUB hoặc thử nguồn sau.</string>
+    <string name="tp_metadata_missing">EPUB chưa có giới thiệu. Có thể cập nhật từ tệp EPUB hoặc nguồn khớp.</string>
+    <string name="tp_metadata_source">Nguồn thông tin</string>
+    <string name="tp_metadata_updating">Đang cập nhật thông tin…</string>
+    <string name="tp_mode_system">Hệ thống</string>
+    <string name="tp_mode_light">Sáng</string>
+    <string name="tp_mode_dark">Tối</string>
+    <string name="tp_recently_added">Mới thêm</string>
+    <string name="tp_pinned_books">Yêu thích</string>
+    <string name="tp_device_appearance">Theo giao diện của thiết bị</string>
+    <string name="tp_frosted_navigation">Thanh điều hướng kính mờ</string>
+    <string name="tp_frosted_navigation_hint">Làm mờ nền phía sau thanh điều hướng trên thiết bị hỗ trợ.</string>
 </resources>

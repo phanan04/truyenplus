@@ -4,6 +4,7 @@ import com.fleeksoft.ksoup.Ksoup
 import com.fleeksoft.ksoup.nodes.Element
 import ireader.domain.models.discovery.*
 import kotlinx.serialization.json.*
+import io.ktor.http.Url
 
 /** Public Vietnamese catalog only; explicit top-num values are the only source of ranks. */
 object TruyenFullParser {
@@ -55,7 +56,12 @@ object TruyenFullParser {
     fun details(book: DiscoveryBook, html: String): DiscoveryBook {
         val doc = document(html)
         val canonical = doc.selectFirst("link[rel=canonical]")?.absUrl("href")
-        require(canonical == null || canonical == book.url) { "Trang trả về sai truyện" }
+        val sameBook = canonical?.let { runCatching {
+            val actual = Url(it); val expected = Url(book.url)
+            actual.protocol.name == "https" && actual.host in setOf(source.host, "truyenfull.vision", "truyenfull.today") &&
+                actual.encodedPath == expected.encodedPath && actual.parameters.isEmpty()
+        }.getOrDefault(false) } ?: true
+        require(sameBook) { "Trang trả về sai truyện" }
         val title = doc.selectFirst("#truyen .title[itemprop=name], #truyen h3.title")?.text().orEmpty()
         val author = doc.selectFirst(".info [itemprop=author]")?.text().orEmpty()
         val description = doc.selectFirst(".desc-text[itemprop=description]")

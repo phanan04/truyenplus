@@ -1,6 +1,7 @@
 package ireader.domain.services.tts_service
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import ireader.core.log.Log
@@ -75,6 +76,9 @@ class NativeTTSPlayer(
             tts = TextToSpeech(appContext) { status ->
                 if (status == TextToSpeech.SUCCESS) {
                     isInitialized = true
+                    tts?.setAudioAttributes(AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
                     ensureUtteranceListener()
                     Log.info { "Native TTS initialized successfully" }
                     

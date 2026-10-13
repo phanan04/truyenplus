@@ -12,18 +12,7 @@ import kotlin.test.*
 import kotlinx.coroutines.flow.toList
 
 @OptIn(ExperimentalComposeUiApi::class)
-class ReaderGlassTest {
-    @Test fun allFourPalettesHaveDistinctAccentsAndReadableSurfaces() {
-        assertEquals(4, ReaderGlassTheme.entries.size)
-        assertEquals(4, ReaderGlassTheme.entries.map { it.colors.primary }.distinct().size)
-        for(theme in ReaderGlassTheme.entries) {
-            val c=theme.colors
-            val a=c.onSurface.luminance();val b=c.surface.luminance()
-            assertTrue((maxOf(a,b)+.05f)/(minOf(a,b)+.05f)>=7f, theme.name)
-            assertEquals(theme,ReaderGlassTheme.fromId(theme.id))
-        }
-        assertEquals(ReaderGlassTheme.Violet,ReaderGlassTheme.fromId("unknown"))
-    }
+class ReaderRenderingPerformanceTest {
     @Test fun playbackCacheAndTimerUpdatesDoNotInvalidateReaderContent() = kotlinx.coroutines.runBlocking {
         val original=ireader.domain.services.tts_service.v2.TTSState(paragraphSourceIndices=listOf(1,1,4))
         assertEquals(original.readerProjection(),original.copy(cachedParagraphs=setOf(1,2),sleepTimeRemaining=20).readerProjection())
@@ -37,31 +26,6 @@ class ReaderGlassTest {
         assertEquals(0,index.paragraphForReaderPage(1))
         assertEquals(2,index.paragraphForReaderPage(4))
         assertNull(index.paragraphForReaderPage(3))
-    }
-    @Test fun allThemeChoicesSwitchPaletteAndKeepSelectedState() {
-        val chosen=mutableStateOf(ReaderGlassTheme.Violet)
-        var visibleColors=ReaderGlassTheme.Violet.colors
-        val scene=ImageComposeScene(width=360,height=900) {
-            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),LocalReaderGlassTheme provides chosen.value) {
-                MaterialTheme(colorScheme=chosen.value.colors) {
-                    val colors=MaterialTheme.colorScheme
-                    SideEffect { visibleColors=colors }
-                    ReaderAppearancePicker(chosen.value) { chosen.value=it }
-                }
-            }
-        }
-        try {
-            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
-            for((i,theme) in ReaderGlassTheme.entries.withIndex()) {
-                scene.render(i*1_000_000_000L);scene.render(i*1_000_000_000L+1)
-                val all=scene.semanticsOwners.flatMap { nodes(it.rootSemanticsNode) }
-                val choice=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="appearance-${theme.id}" }
-                requireNotNull(choice.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
-                scene.render(i*1_000_000_000L+500_000_000)
-                assertEquals(theme,chosen.value)
-                assertEquals(theme.colors,visibleColors)
-            }
-        } finally { scene.close() }
     }
     @Test fun listeningParagraphUpdatesDoNotRecomposeUnrelatedControls() {
         val current=mutableStateOf(ReaderListeningContext(listOf(0,1),0,true) {})

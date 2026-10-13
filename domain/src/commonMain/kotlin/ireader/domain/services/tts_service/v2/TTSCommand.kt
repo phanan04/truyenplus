@@ -12,6 +12,8 @@ sealed class TTSCommand {
     object Pause : TTSCommand()
     object Stop : TTSCommand()
     object Resume : TTSCommand()
+    object AudioFocusGained : TTSCommand()
+    data class AudioFocusLost(val transient: Boolean) : TTSCommand()
     
     // Navigation commands
     object NextParagraph : TTSCommand()

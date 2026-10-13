@@ -30,8 +30,9 @@ fun AppTheme(
     val preferences=koinInject<ireader.domain.preferences.prefs.UiPreferences>()
     val themePreference=remember(preferences) { preferences.readerAppearance() }
     val themeId by themePreference.changes().collectAsState(initial=themePreference.get())
-    val appearance=ireader.presentation.ui.truyenplus.ReaderGlassTheme.fromId(themeId)
-    val materialColors=appearance.colors
+    val appearance=ireader.presentation.ui.truyenplus.ReaderAppearanceMode.fromId(themeId)
+    val systemDark=androidx.compose.foundation.isSystemInDarkTheme()
+    val materialColors=if(appearance.isDark(systemDark)) ireader.presentation.ui.core.theme.themes.TruyenPlusDarkColors else ireader.presentation.ui.core.theme.themes.TruyenPlusLightColors
     val customColors = ireader.domain.models.theme.ExtraColors(
         bars = materialColors.background.toDomainColor(),
         onBars = materialColors.onBackground.toDomainColor(),
@@ -134,7 +135,6 @@ fun AppTheme(
             shape = Shapes
         ) {
             CompositionLocalProvider(
-                ireader.presentation.ui.truyenplus.LocalReaderGlassTheme provides appearance,
                 LocalLayoutDirection provides layoutDirection,
                 LocalIsRtl provides isRtl,
                 LocalLocalizeHelper provides mainLocalizeHelper,

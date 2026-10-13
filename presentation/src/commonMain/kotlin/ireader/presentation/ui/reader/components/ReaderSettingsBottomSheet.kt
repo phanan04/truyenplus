@@ -33,9 +33,8 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
     IBackHandler(enabled=true) { onDismiss() }
     MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(surface=background,background=background,onSurface=ink,onBackground=ink,
         onSurfaceVariant=ink.copy(alpha=.7f),outline=ink.copy(alpha=.2f))) {
-        ModalBottomSheet(onDismissRequest=onDismiss,modifier=modifier,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
-            shape=RoundedCornerShape(topStart=24.dp,topEnd=24.dp),containerColor=background,contentColor=ink,tonalElevation=0.dp) {
-            Column(Modifier.fillMaxWidth().heightIn(max=720.dp).fillMaxHeight(.78f)) {
+        ReaderAppearanceOverlay(onDismiss=onDismiss,background=background,ink=ink) {
+            Column(Modifier.fillMaxWidth().weight(1f)) {
                 ReaderAppearanceContent(
                     ReaderAppearanceUi(fontSize=vm.fontSize.value,lineHeight=vm.lineHeight.value,margin=vm.leftMargin.value,
                         scrollSpeed=vm.autoScrollOffset.value,scrollEnabled=if(listening) follow else vm.autoScrollMode,

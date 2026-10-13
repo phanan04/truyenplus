@@ -40,6 +40,16 @@ val repositoryInjectModule = module {
             ireader.data.discovery.createDiscoveryTranslator(),
         )
     }
+    single<ireader.domain.data.repository.BookMetadataLookup> {
+        val http = get<ireader.core.http.HttpClients>().default
+        ireader.data.discovery.TruyenFullMetadataLookup { url ->
+            withTimeoutOrNull(8_000) {
+                val response = http.get(url) { header("User-Agent", "TruyenPlus/2.0 (Android; metadata)") }
+                check(response.status.value == 200) { "Metadata source unavailable" }
+                response.bodyAsText().also { check(it.length <= 2_000_000) }
+            } ?: error("Metadata source timeout")
+        }
+    }
     single<DiscoveryRepository> {
         val http = get<ireader.core.http.HttpClients>().default
         suspend fun fetchText(url: String): String = withTimeoutOrNull(20_000) {

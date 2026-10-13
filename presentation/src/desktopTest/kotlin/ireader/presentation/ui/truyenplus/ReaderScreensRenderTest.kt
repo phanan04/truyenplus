@@ -110,7 +110,7 @@ class ReaderScreensRenderTest {
         for (width in listOf(360, 800)) {
             val scene = ImageComposeScene(width = width, height = 1000, density = Density(1f)) {
                 ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
-                    ReaderBackdrop { Shell(ReaderDestination.Discover, miniPlayer = false) {
+                    ReaderBackdrop { Box {
                         DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds = mapOf(feed.source to feed)), {})
                     } }
                 }
@@ -238,7 +238,7 @@ class ReaderScreensRenderTest {
 
     @OptIn(ExperimentalComposeUiApi::class)
     @Test
-    fun navigationUsesTheSameWidthAsTheMiniPlayerOnWidePhones() {
+    fun capsuleAndSeparateSearchFillTheDockOnWidePhones() {
         val scene = ImageComposeScene(width = 600, height = 1000, density = Density(1f)) {
             ReaderTestTheme(colorScheme = TruyenPlusDarkColors) {
                 ReaderBackdrop { Shell(ReaderDestination.Home) { ReaderHomeScreen(books, false, {}, {}, {}, {}, onUpdate = {}) } }
@@ -249,15 +249,12 @@ class ReaderScreensRenderTest {
             val bitmap = scene.render(1_000_000_000)
             fun descendants(node: SemanticsNode): List<SemanticsNode> = listOf(node) + node.children.flatMap(::descendants)
             val nodes = scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
-            val navButtons = nodes.filter { node ->
-                node.config.getOrNull(SemanticsActions.OnClick)?.action != null &&
-                    node.config.getOrNull(SemanticsProperties.Text)?.any { text ->
-                        ReaderDestination.entries.any { it.localizedLabel(LocalizeHelper()) == text.text }
-                    } == true
-            }
-            assertEquals(4, navButtons.size)
-            assertTrue(navButtons.minOf { it.boundsInRoot.left } <= 27f, "Navigation should start at the mini player inset")
-            assertTrue(navButtons.maxOf { it.boundsInRoot.right } >= 573f, "Navigation should reach the right mini player inset")
+            val navButtons=nodes.filter { it.config.getOrNull(SemanticsProperties.Selected)!=null && it.config.getOrNull(SemanticsActions.OnClick)!=null }
+            val search=nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="nav-search" }
+            assertEquals(3,navButtons.size)
+            assertTrue(navButtons.minOf {it.boundsInRoot.left} <= 27f)
+            assertTrue(search.boundsInRoot.right >=573f)
+            assertTrue(search.boundsInRoot.left>navButtons.maxOf {it.boundsInRoot.right},"Search has its own circle")
             val output = File("build/reports/truyenplus-v2/home-wide.png")
             output.parentFile.mkdirs()
             output.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)

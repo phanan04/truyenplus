@@ -12,6 +12,7 @@ import ireader.domain.models.entities.Chapter
 data class TTSState(
     // Playback state
     val playbackState: PlaybackState = PlaybackState.IDLE,
+    val pausedByAudioFocus: Boolean = false,
     val currentParagraphIndex: Int = 0,
     val previousParagraphIndex: Int = 0,
     val totalParagraphs: Int = 0,

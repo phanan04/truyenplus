@@ -172,6 +172,12 @@ class TTSController(
             is TTSCommand.Pause -> pause()
             is TTSCommand.Stop -> stop()
             is TTSCommand.Resume -> resume()
+            is TTSCommand.AudioFocusGained -> {
+                if (_state.value.isPaused && _state.value.pausedByAudioFocus) resume()
+            }
+            is TTSCommand.AudioFocusLost -> {
+                if (_state.value.isPlaying || _state.value.isLoading) pause(command.transient)
+            }
             
             is TTSCommand.NextParagraph -> nextParagraph()
             is TTSCommand.PreviousParagraph -> previousParagraph()
@@ -408,6 +414,7 @@ class TTSController(
     // ========== Playback ==========
     
     private suspend fun play() {
+        _state.update { it.copy(pausedByAudioFocus = false) }
         val currentState = _state.value
         
         if (!currentState.hasContent) {
@@ -549,7 +556,7 @@ class TTSController(
         }
     }
     
-    private suspend fun pause() {
+    private suspend fun pause(forAudioFocus: Boolean = false) {
         pendingPlay = false
         // Native pause cancels speech. Remote audio can resume the same utterance.
         if (_state.value.engineType == EngineType.NATIVE) currentUtteranceId = null
@@ -557,7 +564,7 @@ class TTSController(
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
         engine?.pause()
-        _state.update { it.copy(playbackState = PlaybackState.PAUSED) }
+        _state.update { it.copy(playbackState = PlaybackState.PAUSED, pausedByAudioFocus = forAudioFocus) }
         _events.emit(TTSEvent.PlaybackPaused)
     }
     
@@ -568,11 +575,12 @@ class TTSController(
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
         engine?.stop()
-        _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+        _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
         _events.emit(TTSEvent.PlaybackStopped)
     }
     
     private suspend fun resume() {
+        _state.update { it.copy(pausedByAudioFocus = false) }
         val currentState = _state.value
         
         if (currentState.isPaused) {
@@ -584,7 +592,7 @@ class TTSController(
                 _state.update { it.copy(playbackState = if (it.engineType == EngineType.EDGE) PlaybackState.LOADING else PlaybackState.PLAYING) }
                 engine?.resume()
             }
-        } else {
+        } else if (!currentState.isPlaying && !currentState.isLoading) {
             play()
         }
     }
@@ -637,7 +645,7 @@ class TTSController(
             // overtaken by a separately dispatched auto-next command.
             nextChapter()
         } else {
-            _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+            _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
         }
     }
 
@@ -796,7 +804,7 @@ class TTSController(
                     // Auto-next disabled and no content — settle cleanly to STOPPED
                     // rather than erroring or staying stuck in LOADING.
                     Log.debug { "$TAG: Next chapter $nextChapterId has no content and autoNext is off, stopping" }
-                    _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+                    _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
                 }
             } else if (_state.value.autoNextChapter && book.sourceId != ireader.core.source.LocalSource.SOURCE_ID) {
                 // Next chapter not in DB yet — watch for new chapters from remote fetch
@@ -804,7 +812,7 @@ class TTSController(
                 startNextChapterWatch(book.id, chapter.id, wasPlaying)
             } else {
                 Log.debug { "$TAG: No next chapter available" }
-                _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+                _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
             }
         } catch (e: Exception) {
             Log.error { "$TAG: Failed to load next chapter: ${e.message}" }
@@ -850,7 +858,7 @@ class TTSController(
                 }
             } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
                 Log.debug { "$TAG: nextChapterWatch timed out, no new chapter appeared" }
-                _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+                _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -934,7 +942,7 @@ class TTSController(
                 // Only settle to STOPPED if the user is still on the watched chapter — a
                 // late timeout must not clobber playback the user has since started elsewhere.
                 if (_state.value.chapter?.id == chapterId) {
-                    _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+                    _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -974,7 +982,7 @@ class TTSController(
                 if (wasPlaying) { play() }
             } else {
                 Log.debug { "$TAG: No previous chapter available" }
-                _state.update { it.copy(playbackState = PlaybackState.STOPPED) }
+                _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
             }
         } catch (e: Exception) {
             Log.error { "$TAG: Failed to load previous chapter: ${e.message}" }

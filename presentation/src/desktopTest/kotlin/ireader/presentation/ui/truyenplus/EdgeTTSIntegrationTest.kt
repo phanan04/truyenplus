@@ -70,4 +70,34 @@ class EdgeTTSIntegrationTest {
         engine.release()
     }
 
+    @Test fun selectingAnInflightPrefetchDoesNotDownloadAgain()=runTest {
+        var calls=0
+        val engine=EdgeTTSEngine(EdgeVoice.HoaiMy,EdgeSpeechSynthesizer { _,_->calls++;delay(1000);byteArrayOf(1) },Audio(),backgroundScope)
+        engine.precacheNext(listOf("p_next" to "Đoạn tiếp"));runCurrent();advanceTimeBy(100);runCurrent()
+        engine.speak("Đoạn tiếp", "p_current");runCurrent();advanceTimeBy(1200);runCurrent()
+        assertEquals(1,calls,"The paragraph being prefetched must be reused when selected")
+        engine.release()
+    }
+
+    @Test fun firstSegmentPlaysBeforeWholeParagraphAndCompletesOnlyAfterLastSegment()=runTest {
+        val audio=Audio();val events=mutableListOf<EngineEvent>()
+        val synth=object:EdgeSpeechSynthesizer {
+            override suspend fun synthesize(text:String,voice:EdgeVoice):ByteArray=error("Do not buffer the entire paragraph")
+            override fun stream(text:String,voice:EdgeVoice)=flow {
+                emit(byteArrayOf(1));delay(1000);emit(byteArrayOf(2))
+            }
+        }
+        val engine=EdgeTTSEngine(EdgeVoice.HoaiMy,synth,audio,backgroundScope)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { engine.events.toList(events) }
+        engine.speak("Một đoạn dài", "paragraph");runCurrent()
+        assertEquals(1,audio.starts,"First segment must play before the second is downloaded")
+        advanceTimeBy(1200);runCurrent();assertEquals(1,audio.starts)
+        requireNotNull(audio.done).invoke();runCurrent()
+        assertEquals(2,audio.starts);assertFalse(events.any { it is EngineEvent.Completed })
+        requireNotNull(audio.done).invoke();runCurrent()
+        assertEquals(1,events.count { it is EngineEvent.Completed })
+        assertEquals(1,events.count { it is EngineEvent.Started })
+        engine.release()
+    }
+
 }

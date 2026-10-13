@@ -662,7 +662,7 @@ class ReaderScreenViewModel(
      * Toggle settings bottom sheet
      */
     fun toggleSettingsBottomSheet(show: Boolean) {
-        updateSuccessState { it.copy(showSettingsBottomSheet = show) }
+        showSettingsBottomSheet = show
     }
 
     /**
@@ -1085,9 +1085,8 @@ class ReaderScreenViewModel(
         get() = scrollVM.scrollToEndOnChapterChange
         set(value) { scrollVM.scrollToEndOnChapterChange = value }
     
-    var showSettingsBottomSheet: Boolean
-        get() = (_state.value as? ReaderState.Success)?.showSettingsBottomSheet ?: false
-        set(value) { updateSuccessState { it.copy(showSettingsBottomSheet = value) } }
+    // Transient chrome visibility must not emit the entire chapter/book state.
+    var showSettingsBottomSheet by mutableStateOf(false)
     
     val showRepairBanner: Boolean
         get() = (_state.value as? ReaderState.Success)?.showRepairBanner ?: false

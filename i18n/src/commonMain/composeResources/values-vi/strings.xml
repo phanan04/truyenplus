@@ -2941,12 +2941,7 @@
     <string name="custom_text_color">Tùy chỉnh màu chữ trang đọc</string>
     <string name="invert_volume_keys">Đảo chức năng phím âm lượng</string>
     <string name="tp_appearance">Giao diện</string>
-    <string name="tp_glass_violet">Kính tím</string>
-    <string name="tp_glass_pearl">Kính sáng</string>
-    <string name="tp_glass_graphite">Kính tối tối giản</string>
-    <string name="tp_glass_amber">Kính tông ấm</string>
     <string name="tp_follow_appearance">Theo giao diện ứng dụng</string>
-    <string name="tp_glass_hint">Hiệu ứng kính nhẹ, tối ưu khi đọc truyện.</string>
     <string name="tp_reader_brightness">Độ sáng</string>
     <string name="tp_reader_auto_brightness">Độ sáng tự động</string>
 </resources>

@@ -262,6 +262,8 @@ class AppPreferences(
     /**
      * Whether to use Local TTS server (e.g. Chatterbox Persian TTS)
      */
+    fun bookMetadataSource(bookId: Long): Preference<String> = preferenceStore.getString("book_metadata_source_$bookId", "")
+
     fun useEdgeTTS(): Preference<Boolean> = preferenceStore.getBoolean("use_edge_tts", false)
     fun edgeTTSVoice(): Preference<String> = preferenceStore.getString("edge_tts_voice", "vi-VN-HoaiMyNeural")
 

@@ -47,6 +47,8 @@ actual class ImportEpub {
         }
     }
     
+    actual suspend fun refreshMetadata(bookId: Long, uri: Uri) { error("EPUB metadata repair is not supported on iOS") }
+
     private suspend fun parseEpub(uri: Uri) {
         val path = uri.toString()
         val epubPath = path.toPath()

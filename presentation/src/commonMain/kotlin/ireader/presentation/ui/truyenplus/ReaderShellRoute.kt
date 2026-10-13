@@ -44,7 +44,8 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val ttsState by remember(tts) { tts.state.readerUpdates() }.collectAsState(initial=tts.state.value.readerProjection())
     val ttsService: ireader.domain.services.tts_service.v2.TTSV2ServiceStarter = koinInject()
     var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, ReaderDestination.entries.lastIndex)) }
-    val destination = ReaderDestination.entries[destinationIndex]
+    val destination = ReaderDestination.entries.getOrElse(destinationIndex) { ReaderDestination.Home }
+    var searchRequested by rememberSaveable { mutableStateOf(false) }
     var showImport by rememberSaveable { mutableStateOf(false) }
     var showProgress by rememberSaveable { mutableStateOf(false) }
     val uiPreferences: ireader.domain.preferences.prefs.UiPreferences = koinInject()
@@ -91,16 +92,24 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
         if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else destinationIndex = 0
     }
-    var dockHeight by remember { mutableStateOf(185.dp) }
+    val appearancePref=remember(uiPreferences) { uiPreferences.readerAppearance() }
+    val appearanceId by appearancePref.changes().collectAsState(initial=appearancePref.get())
+    val blurSupported=rememberReaderBlurSupported()
+    val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
+    val backdrop=remember(sourceLayer,blurSupported) { if(blurSupported) ReaderNavigationBackdrop(sourceLayer) else null }
+    val onSearch: ()->Unit = { destinationIndex=ReaderDestination.Library.ordinal; searchRequested=true; vm.setSearchMode(true) }
+    var dockHeight by remember { mutableStateOf(100.dp) }
     val viewportDensity = androidx.compose.ui.platform.LocalDensity.current
     ReaderBackdrop {
-        CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp) {
+        CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp, LocalReaderNavigationBackdrop provides backdrop) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
             ReaderContentPane {
             when (destination) {
                 ReaderDestination.Home -> ReaderHomeScreen(books, state.isLoading, onBook,
                     onLibrary = { destinationIndex = 1 }, onImport = { showImport = true },
-                    onSearch = { destinationIndex = 1; vm.setSearchMode(true) }, onUpdate = { showUpdate = true })
+                    onSearch = onSearch, onUpdate = { showUpdate = true },
+                    onContinue={navigator.navigateTo(ReaderScreenSpec(it,LAST_CHAPTER))})
                 ReaderDestination.Library -> ReaderLibraryScreen(books,
                     categories = state.categories.map { when (it.category.id) {
                         0L -> strings.localize(Res.string.tp_all)
@@ -113,21 +122,15 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onBook = onBook, onSelect = vm::toggleSelection, onImport = { showImport = true },
                     onCollections = { navigator.navigate(NavigationRoutes.category) },
                     onSort = { vm.toggleSort(if (state.sort.type == LibrarySort.Type.Title) LibrarySort.Type.LastRead else LibrarySort.Type.Title) },
-                    onLoadMore = { vm.loadMoreBooks(state.selectedCategory?.id ?: 0L) })
-                ReaderDestination.Discover -> {
-                    val discoveryVm: DiscoveryViewModel = getIViewModel()
-                    val discoveryState by discoveryVm.state.collectAsState()
-                    LaunchedEffect(discoveryVm) { discoveryVm.load() }
-                    val translationState by discoveryVm.translated.collectAsState()
-                    DiscoveryScreen(discoveryState, discoveryVm::refresh, translationState, language.code,
-                        discoveryVm::configure, discoveryVm::retryTranslation, discoveryVm::loadMore)
-                }
+                    onLoadMore = { vm.loadMoreBooks(state.selectedCategory?.id ?: 0L) },
+                    requestSearch=searchRequested,onSearchFocused={searchRequested=false})
                 ReaderDestination.Settings -> {
                     if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->
                         uiPreferences.language().set(selected.code)
                         localeHelper.updateLocal()
                     }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true },
-                        onAppearance = { uiPreferences.readerAppearance().set(it.id) })
+                        appearance=ReaderAppearanceMode.fromId(appearanceId),
+                        onAppearance = { appearancePref.set(it.id) }, onImport={showImport=true})
                     else {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }
@@ -143,6 +146,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     }
                     }
                 }
+            }
             }
             }
             Column(Modifier.align(Alignment.BottomCenter).widthIn(max=1120.dp).fillMaxWidth().onSizeChanged {
@@ -191,7 +195,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                             })
                     }
                     }
-                    ReaderBottomNav(destination) { destinationIndex = it.ordinal }
+                    Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) { ReaderBottomNav(destination, { destinationIndex = it.ordinal }, onSearch=onSearch) }
                 }
             }
         }

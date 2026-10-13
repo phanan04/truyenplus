@@ -64,7 +64,7 @@ class ResponsiveReaderTest {
             try {
                 val all=rendered(scene)
                 val tabs=all.filter { it.config.getOrNull(SemanticsProperties.Selected)!=null && it.config.getOrNull(SemanticsActions.OnClick)!=null }
-                assertEquals(4,tabs.size,"$w")
+                assertEquals(3,tabs.size,"$w")
                 tabs.forEach { assertVisible(it,w);click(it) }
                 assertEquals(ReaderAppScope.destinations,selected)
                 assertEquals(1,tabs.count { it.config[SemanticsProperties.Selected] })

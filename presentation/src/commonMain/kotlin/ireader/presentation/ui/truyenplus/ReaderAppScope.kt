@@ -1,12 +1,12 @@
 package ireader.presentation.ui.truyenplus
 
-enum class ReaderFeature { Library, Reading, Progress, TextToSpeech, EbookFiles, Discovery }
-enum class ReaderDestination { Home, Library, Settings, Discover }
+enum class ReaderFeature { Library, Reading, Progress, TextToSpeech, EbookFiles }
+enum class ReaderDestination { Home, Library, Settings }
 
-/** Reader features plus the explicitly requested public discovery catalog. */
+/** Local library, reading, listening, progress and ebook files. */
 object ReaderAppScope {
     val features = ReaderFeature.entries.toSet()
-    val destinations = listOf(ReaderDestination.Home, ReaderDestination.Discover, ReaderDestination.Library, ReaderDestination.Settings)
+    val destinations = listOf(ReaderDestination.Home, ReaderDestination.Library, ReaderDestination.Settings)
     private val screens = setOf("main", "category", "fontSettings", "ttsEngineManager", "textReplacement")
     fun allows(route: String): Boolean = route in screens ||
         Regex("bookDetail/-?\\d+").matches(route) ||

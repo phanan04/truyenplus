@@ -119,7 +119,7 @@ class UiPreferences(private val preferenceStore: PreferenceStore) {
         return preferenceStore.getBoolean("hide_bottom_bar_on_scroll", true)
     }
 
-    fun readerAppearance(): Preference<String> = preferenceStore.getString("truyenplus_glass_theme", "violet")
+    fun readerAppearance(): Preference<String> = preferenceStore.getString("truyenplus_glass_theme", "system")
     fun readerFollowsAppearance(): Preference<Boolean> = preferenceStore.getBoolean("truyenplus_reader_follows_theme", true)
 
     fun language(): Preference<String> {

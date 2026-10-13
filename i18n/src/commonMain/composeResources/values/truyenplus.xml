@@ -283,4 +283,22 @@
     <string name="tp_edge_namminh">Nam Minh · Male</string>
     <string name="tp_system_voice">System voice</string>
     <string name="tp_edge_fallback">Edge is unavailable. Using the system voice.</string>
+    <string name="tp_reader_appearance">Reading appearance</string>
+    <string name="tp_book_about">About this story</string>
+    <string name="tp_book_metadata">Update book information</string>
+    <string name="tp_metadata_epub">From the original EPUB</string>
+    <string name="tp_metadata_online">Find on TruyenFull · Internet</string>
+    <string name="tp_metadata_updated">Book information updated; reading progress kept.</string>
+    <string name="tp_metadata_failed">No matching information. Check the EPUB or try the source later.</string>
+    <string name="tp_metadata_missing">This EPUB has no description. Update from an EPUB or a matching source.</string>
+    <string name="tp_metadata_source">Metadata source</string>
+    <string name="tp_metadata_updating">Updating information…</string>
+    <string name="tp_mode_system">System</string>
+    <string name="tp_mode_light">Light</string>
+    <string name="tp_mode_dark">Dark</string>
+    <string name="tp_recently_added">Recently added</string>
+    <string name="tp_pinned_books">Favorites</string>
+    <string name="tp_device_appearance">Follow the device appearance</string>
+    <string name="tp_frosted_navigation">Frosted navigation</string>
+    <string name="tp_frosted_navigation_hint">Blur the background behind the navigation bar on supported devices.</string>
 </resources>

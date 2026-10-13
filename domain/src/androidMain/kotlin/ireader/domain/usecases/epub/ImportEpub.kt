@@ -61,6 +61,23 @@ actual class ImportEpub(
         }
     }
     
+    actual suspend fun refreshMetadata(bookId: Long, uri: ireader.domain.models.common.Uri) = withContext(Dispatchers.IO) {
+        val book = bookRepository.findBookById(bookId) ?: error("Book not found")
+        val file = File.createTempFile("epub-metadata-", ".epub", appContext.cacheDir)
+        try {
+            fileSaver.readSource(uri).buffer().use { source -> FileSystem.SYSTEM.sink(file.toOkioPath()).buffer().use { it.writeAll(source) } }
+            ZipFile(file).use { zip ->
+                val opf = findOpfFile(zip) ?: error("No OPF file found")
+                val xml = zip.getInputStream(opf).bufferedReader().use { it.readText() }
+                val doc = Ksoup.parse(xml, Parser.xmlParser())
+                val metadata = EpubMetadataReader.read(opf.name, doc) { path -> zip.getEntry(path)?.let { zip.getInputStream(it).bufferedReader().use { r -> r.readText() } } }
+                require(metadata.title.equals(book.title, ignoreCase = true)) { "EPUB title does not match this book" }
+                val cover = extractCover(zip, doc, book.key)
+                bookRepository.updateBook(EpubMetadataReader.merge(book, metadata, cover, currentTimeToLong()))
+            }
+        } finally { file.delete() }
+    }
+
     private suspend fun importEpub(uri: ireader.domain.models.common.Uri) {
         // For content:// URIs, we need to copy to a temp file first
         val tempFile = File(appContext.cacheDir, "temp_epub_${currentTimeToLong()}.epub")
@@ -85,17 +102,25 @@ actual class ImportEpub(
                 
                 // Extract metadata
                 val metadata = extractMetadata(opfDoc)
-                val title = metadata["title"] ?: tempFile.nameWithoutExtension
-                val author = metadata["author"] ?: "Unknown"
+                val title = metadata["title"]?.takeIf { it.isNotBlank() } ?: tempFile.nameWithoutExtension
+                val author = metadata["author"]?.takeIf { it.isNotBlank() } ?: "Unknown"
                 val description = metadata["description"] ?: ""
                 
                 // Generate unique key
-                val key = generateBookKey(title, author)
-                bookRepository.delete(key)
+                val existing = bookRepository.findDuplicateBook(title, LocalSource.SOURCE_ID)?.takeIf {
+                    it.author.isBlank() || it.author == "Unknown" || it.author.equals(author, ignoreCase = true)
+                }
+                val key = existing?.key ?: generateBookKey(title, author)
                 
                 // Extract cover
                 val coverPath = extractCover(zip, opfDoc, key)
                 
+                if (existing != null) {
+                    val recovered = EpubMetadataReader.read(opfEntry.name, opfDoc) { path -> zip.getEntry(path)?.let { zip.getInputStream(it).bufferedReader().use { r -> r.readText() } } }
+                    bookRepository.updateBook(EpubMetadataReader.merge(existing, recovered, coverPath, currentTimeToLong()))
+                    return
+                }
+
                 // Create book
                 val bookId = Book(
                     title = title,
@@ -143,46 +168,35 @@ actual class ImportEpub(
     }
     
     private fun extractMetadata(opfDoc: Document): Map<String, String> {
-        val metadata = mutableMapOf<String, String>()
-        
-        opfDoc.selectFirst("metadata")?.let { meta ->
-            meta.selectFirst("dc|title, title")?.text()?.let { metadata["title"] = it }
-            meta.selectFirst("dc|creator, creator")?.text()?.let { metadata["author"] = it }
-            meta.selectFirst("dc|description, description")?.text()?.let { metadata["description"] = it }
-        }
-        
-        return metadata
+        val m = EpubMetadataReader.read("book.opf", opfDoc) { null }
+        return mapOf("title" to m.title, "author" to m.author, "description" to m.description)
     }
-    
+
     private fun extractCover(zip: ZipFile, opfDoc: Document, key: String): String {
-        val cacheDir = cacheManager.getCacheSubDirectory("library_covers")
-        val coverFile = cacheDir / "$key.jpg"
-        
-        try {
-            // Try to find cover image reference
-            val coverItem = opfDoc.select("item[properties*=cover-image], item[id=cover], item[id=cover-image]").firstOrNull()
-            val coverHref = coverItem?.attr("href")
-            
-            if (coverHref != null) {
-                val opfPath = findOpfFile(zip)?.name ?: ""
-                val basePath = if (opfPath.contains("/")) opfPath.substringBeforeLast("/") + "/" else ""
-                val fullPath = basePath + coverHref
-                
-                zip.getEntry(fullPath)?.let { entry ->
-                    zip.getInputStream(entry).use { input ->
-                        FileSystem.SYSTEM.sink(coverFile).buffer().use { sink ->
-                            sink.write(input.readBytes())
-                        }
-                    }
+        val opf = findOpfFile(zip) ?: return ""
+        val metadata = EpubMetadataReader.read(opf.name, opfDoc) { path ->
+            zip.getEntry(path)?.let { zip.getInputStream(it).bufferedReader().use { r -> r.readText() } }
+        }
+        val entry = metadata.coverPath?.let { zip.getEntry(it) } ?: return ""
+        if (entry.size > 8 * 1024 * 1024 || entry.isDirectory) return ""
+        // Persistent storage: cache eviction must not erase library covers.
+        val directory = File(appContext.filesDir, "library_covers").toOkioPath()
+        FileSystem.SYSTEM.createDirectories(directory)
+        val extension = entry.name.substringAfterLast('.', "jpg").lowercase()
+        val destination = directory / "${key.hashCode()}.$extension"
+        zip.getInputStream(entry).use { input ->
+            FileSystem.SYSTEM.sink(destination).buffer().use { sink ->
+                val buffer = ByteArray(8192); var total = 0
+                while (true) {
+                    val count = input.read(buffer); if (count < 0) break
+                    total += count; require(total <= 8 * 1024 * 1024) { "Cover is too large" }
+                    sink.write(buffer, 0, count)
                 }
             }
-        } catch (e: Exception) {
-            println("Failed to extract cover: ${e.message}")
         }
-        
-        return coverFile.toString()
+        return destination.toString()
     }
-    
+
     private suspend fun extractAndInsertChapters(zip: ZipFile, opfDoc: Document, bookId: Long, key: String): Int {
         val opfPath = findOpfFile(zip)?.name ?: ""
         val basePath = if (opfPath.contains("/")) opfPath.substringBeforeLast("/") + "/" else ""

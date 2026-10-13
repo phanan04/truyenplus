@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +30,10 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -73,19 +79,28 @@ fun ReaderScreenTopBar(
 ) {
     if (!isReaderModeEnable || !isLoaded) {
         ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, { vm.showSettingsBottomSheet = true }, modifier, onPlay,
-            backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor())
+            backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor(), bookTitle = vm.book?.title.orEmpty())
     }
 }
 
 @Composable
 fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () -> Unit,
     onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null,
-    backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface) {
+    backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "") {
     Surface(modifier = modifier.fillMaxWidth(), color = backgroundColor, contentColor = textColor) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            TopAppBarBackButton(tint = textColor, onClick = onBack)
-            Text(chapter?.name.orEmpty(), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(horizontal = 8.dp))
-            AppIconButton(imageVector = Icons.Default.Tune, contentDescription = localize(Res.string.settings), onClick = onSettings, tint = textColor)
+            FilledTonalIconButton(onClick=onBack,modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
+                Icon(Icons.Default.ChevronLeft,localize(Res.string.tp_back))
+            }
+            Column(Modifier.weight(1f).padding(horizontal=10.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+                if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f) Text(bookTitle,style=MaterialTheme.typography.labelSmall,
+                    color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.titleSmall,
+                    fontWeight=FontWeight.SemiBold,textAlign=TextAlign.Center,maxLines=1,overflow=TextOverflow.Ellipsis)
+            }
+            FilledTonalIconButton(onClick=onSettings,modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
+                Icon(Icons.Default.Tune,localize(Res.string.settings))
+            }
         }
     }
 }

@@ -65,7 +65,7 @@ fun main() {
         ireader.core.log.Log.enableProductionLogging()
         
         // Check and create app data directory if needed
-        val appDataDir = File(System.getProperty("user.home"), "AppData\\Local\\IReader")
+        val appDataDir = ireader.core.storage.AppDir
         val cacheDir = File(appDataDir, "cache")
         
         if (!appDataDir.exists()) {

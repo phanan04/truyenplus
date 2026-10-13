@@ -173,13 +173,13 @@ data class ReaderScreenSpec(
         val listeningAdapter = remember(ttsController) { ireader.domain.services.tts_service.v2.TTSViewModelAdapter(ttsController, scope) }
 
         val uiPreferences=koinInject<ireader.domain.preferences.prefs.UiPreferences>()
-        val appearance=ireader.presentation.ui.truyenplus.LocalReaderGlassTheme.current
+        val appearance=androidx.compose.material3.MaterialTheme.colorScheme
         val followAppearancePref=remember(uiPreferences) { uiPreferences.readerFollowsAppearance() }
         val followAppearance by followAppearancePref.changes().collectAsState(initial=followAppearancePref.get())
         LaunchedEffect(appearance,followAppearance) {
             if(followAppearance) {
-                vm.backgroundColor.value=appearance.colors.background.toDomainColor()
-                vm.textColor.value=appearance.colors.onBackground.toDomainColor()
+                vm.backgroundColor.value=appearance.background.toDomainColor()
+                vm.textColor.value=appearance.onBackground.toDomainColor()
             }
         }
         val speechIndex=remember(ttsState.paragraphSourceIndices) {

@@ -27,6 +27,15 @@ import ireader.presentation.ui.book.viewmodel.*
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.*
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
+import org.koin.compose.koinInject
+import ireader.domain.usecases.epub.ImportEpub
+import ireader.domain.data.repository.BookMetadataLookup
+import ireader.domain.data.repository.BookRepository
+import ireader.domain.preferences.prefs.AppPreferences
+import ireader.presentation.ui.settings.advance.OnShowImportEpub
 
 @Composable
 fun ReaderBookRoute(bookId: Long) {
@@ -35,6 +44,62 @@ fun ReaderBookRoute(bookId: Long) {
     val vm: BookDetailViewModel = koinViewModel(parameters = { parametersOf(BookDetailViewModel.Param(bookId)) })
     val state by vm.state.collectAsState()
     val snackbars = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val importer: ImportEpub = koinInject()
+    val lookup: BookMetadataLookup = koinInject()
+    val books: BookRepository = koinInject()
+    val preferences: AppPreferences = koinInject()
+    val sourcePreference = remember(bookId) { preferences.bookMetadataSource(bookId) }
+    val metadataSource by sourcePreference.changes().collectAsState(initial = sourcePreference.get())
+    val uriHandler = LocalUriHandler.current
+    var showMetadataChoice by remember { mutableStateOf(false) }
+    var pickMetadataEpub by remember { mutableStateOf(false) }
+    var updatingMetadata by remember { mutableStateOf(false) }
+    OnShowImportEpub(pickMetadataEpub) { uris ->
+        withContext(Dispatchers.Main) { pickMetadataEpub = false; updatingMetadata = uris.isNotEmpty() }
+        if (uris.isNotEmpty()) {
+            try {
+                val previous = books.findBookById(bookId)
+                importer.refreshMetadata(bookId, uris.first())
+                val refreshed = books.findBookById(bookId)
+                if (previous?.description != refreshed?.description) sourcePreference.set("")
+                withContext(Dispatchers.Main) { updatingMetadata = false }
+                snackbars.showSnackbar(strings.localize(Res.string.tp_metadata_updated))
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (_: Exception) {
+                withContext(Dispatchers.Main) { updatingMetadata = false }
+                snackbars.showSnackbar(strings.localize(Res.string.tp_metadata_failed))
+            }
+            finally { withContext(Dispatchers.Main) { updatingMetadata = false } }
+        }
+    }
+    if (showMetadataChoice) AlertDialog(onDismissRequest = { showMetadataChoice = false },
+        title = { Text(strings.localize(Res.string.tp_book_metadata)) }, text = {
+            Column {
+                TextButton(onClick = { showMetadataChoice = false; pickMetadataEpub = true }, Modifier.fillMaxWidth()) {
+                    Text(strings.localize(Res.string.tp_metadata_epub))
+                }
+                TextButton(onClick = {
+                    showMetadataChoice = false
+                    scope.launch {
+                        updatingMetadata = true
+                        try {
+                            val book = books.findBookById(bookId) ?: error("Book not found")
+                            val found = lookup.find(book)
+                            if (found == null) { updatingMetadata = false; snackbars.showSnackbar(strings.localize(Res.string.tp_metadata_failed)) }
+                            else {
+                                withContext(Dispatchers.IO) { books.updateBook(found.book) }
+                                sourcePreference.set(found.sourceUrl)
+                                updatingMetadata = false
+                                snackbars.showSnackbar(strings.localize(Res.string.tp_metadata_updated))
+                            }
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (_: Exception) { updatingMetadata = false; snackbars.showSnackbar(strings.localize(Res.string.tp_metadata_failed)) }
+                        finally { updatingMetadata = false }
+                    }
+                }, Modifier.fillMaxWidth()) { Text(strings.localize(Res.string.tp_metadata_online)) }
+            }
+        }, confirmButton = {})
     LaunchedEffect(bookId) { vm.onScreenResumed() }
     LaunchedEffect(vm) {
         vm.events.collectLatest { event ->
@@ -50,7 +115,7 @@ fun ReaderBookRoute(bookId: Long) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
             when (val current = state) {
                 is BookDetailState.Success -> {
-                    val chapters = current.chapters.sortedBy { it.number }
+                    val chapters = remember(current.chapters) { current.chapters.sortedBy { it.number } }
                     val resume = chapters.firstOrNull { it.id == current.lastReadChapterId }
                         ?: chapters.firstOrNull { !it.read } ?: chapters.firstOrNull()
                     ReaderBookScreen(
@@ -59,7 +124,10 @@ fun ReaderBookRoute(bookId: Long) {
                         onRead = { resume?.let { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) } },
                         onListen = { resume?.let { nav.navigateTo(TTSV2ScreenSpec(bookId, it.id, current.book.sourceId, 0)) } },
                         onChapter = { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) },
-                        onExport = { vm.showEpubExportDialog = true })
+                        onExport = { vm.showEpubExportDialog = true },
+                        description = current.book.description, activeChapterId = current.lastReadChapterId,
+                        onMetadata = { showMetadataChoice = true }, metadataUpdating = updatingMetadata,
+                        onMetadataSource = if (metadataSource.isNotBlank()) ({ uriHandler.openUri(metadataSource) }) else null)
                     if (vm.showEpubExportDialog) EpubExportDialog(current.book, current.chapters,
                         hasTranslations = false,
                         onExport = { options -> vm.showEpubExportDialog = false; vm.exportAsEpub(options) },
@@ -80,11 +148,15 @@ fun ReaderBookRoute(bookId: Long) {
 
 @Composable
 fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>, onBack: () -> Unit,
-    onRead: () -> Unit, onListen: () -> Unit, onChapter: (Chapter) -> Unit, onExport: () -> Unit) {
+    onRead: () -> Unit, onListen: () -> Unit, onChapter: (Chapter) -> Unit, onExport: () -> Unit,
+    description: String = "", activeChapterId: Long? = null, onMetadata: () -> Unit = {},
+    metadataUpdating: Boolean = false, onMetadataSource: (() -> Unit)? = null) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     var filter by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
-    val visible = chapters.filter { (filter != 1 || it.bookmark) && (filter != 2 || !it.read) && it.name.contains(query, true) }
+    var expandedSummary by rememberSaveable { mutableStateOf(false) }
+    val visible = remember(chapters, filter, query) { chapters.filter { (filter != 1 || it.bookmark) && (filter != 2 || !it.read) && it.name.contains(query, true) } }
+    val positions = remember(chapters) { chapters.mapIndexed { index, chapter -> chapter.id to index + 1 }.toMap() }
     ReaderContentPane(maxWidth=960.dp) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
@@ -100,7 +172,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
                 val details: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth()) {
                 Text(book.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = if(wide) 0.dp else 24.dp))
-                if (author.isNotBlank()) Text(author, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                if (author.isNotBlank()) Text(if(author=="Unknown") strings.localize(Res.string.unknown) else author, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                 Text(strings.localize(Res.string.tp_book_summary, book.total, book.progress.percent), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(onClick = onRead, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.weight(1f).heightIn(min=52.dp)) {
@@ -119,14 +191,49 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
                 }
             }
         }
+        item {
+            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                color=androidx.compose.ui.graphics.Color.Transparent) {
+                Column(Modifier.padding(vertical=16.dp)) {
+                    Row(verticalAlignment=Alignment.CenterVertically) {
+                        Text(strings.localize(Res.string.tp_book_about),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
+                        IconButton(onClick=onMetadata,enabled=!metadataUpdating,modifier=Modifier.testTag("book-metadata-refresh")) {
+                            Icon(Icons.Default.Refresh,strings.localize(Res.string.tp_book_metadata))
+                        }
+                    }
+                    Text(description.ifBlank { strings.localize(Res.string.tp_metadata_missing) },
+                        style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines=if(expandedSummary) Int.MAX_VALUE else 5,overflow=TextOverflow.Ellipsis,
+                        modifier=Modifier.clickable(enabled=description.isNotBlank()) { expandedSummary=!expandedSummary })
+                    if(metadataUpdating) Text(strings.localize(Res.string.tp_metadata_updating),Modifier.padding(top=8.dp),style=MaterialTheme.typography.labelSmall)
+                    onMetadataSource?.let { action -> TextButton(onClick=action) { Text(strings.localize(Res.string.tp_metadata_source)+" · TruyenFull") } }
+                }
+            }
+        }
         item { ReaderChips(listOf(strings.localize(Res.string.tp_chapters), strings.localize(Res.string.tp_bookmarks), strings.localize(Res.string.tp_unread)), filter) { filter = it } }
         item { OutlinedTextField(query, { query = it }, placeholder = { Text(strings.localize(Res.string.tp_search_chapters)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = CircleShape, modifier = Modifier.fillMaxWidth().padding(20.dp)) }
         if (visible.isEmpty()) item { Text(if (chapters.isEmpty()) strings.localize(Res.string.tp_no_content) else strings.localize(Res.string.tp_no_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
         items(visible, key = { it.id }) { chapter ->
-            ListItem(headlineContent = { Text(chapter.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                supportingContent = { Text(if (chapter.read) strings.localize(Res.string.tp_read) else strings.localize(Res.string.tp_unread)) },
-                leadingContent = { Icon(if (chapter.bookmark) Icons.Filled.Bookmark else Icons.Outlined.Description, null, tint = if (chapter.bookmark) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, null) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent), modifier = Modifier.clickable { onChapter(chapter) })
+            val current = chapter.id == activeChapterId
+            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=4.dp).clickable { onChapter(chapter) },
+                shape=androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                color=if(current) MaterialTheme.colorScheme.primaryContainer.copy(alpha=.5f) else androidx.compose.ui.graphics.Color.Transparent) {
+                Row(Modifier.padding(horizontal=12.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    Surface(shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceContainerHigh) {
+                        Box(Modifier.size(44.dp),contentAlignment=Alignment.Center) {
+                            if(chapter.bookmark) Icon(Icons.Default.Bookmark,null,Modifier.size(18.dp))
+                            else Text((positions[chapter.id] ?: 0).toString(),style=MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(readerChapterDisplayTitle(chapter.name),maxLines=2,overflow=TextOverflow.Ellipsis,
+                            style=MaterialTheme.typography.bodyMedium,fontWeight=if(current) FontWeight.SemiBold else FontWeight.Normal)
+                        Text(if(current) strings.localize(Res.string.tp_continue_reading) else if(chapter.read) strings.localize(Res.string.tp_read) else strings.localize(Res.string.tp_unread),
+                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(top=4.dp))
+                    }
+                    Icon(if(chapter.read) Icons.Default.CheckCircleOutline else Icons.Default.ChevronRight,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
     }

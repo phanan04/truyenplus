@@ -18,6 +18,11 @@ runtime_cp = os.pathsep.join([stdlib, coroutines, test])
 java = Path(os.environ['JAVA_HOME']) / 'bin/java'
 fakes = {
 'Context.kt': 'package android.content; class Context { val applicationContext get() = this }',
+'AudioAttributes.kt': '''package android.media
+class AudioAttributes(val usage:Int,val contentType:Int) {
+ companion object { const val USAGE_MEDIA=1; const val CONTENT_TYPE_SPEECH=2 }
+ class Builder { var usage=0;var type=0;fun setUsage(v:Int)=apply {usage=v};fun setContentType(v:Int)=apply {type=v};fun build()=AudioAttributes(usage,type) }
+}''',
 'Chapter.kt': 'package ireader.domain.models.entities; class Chapter',
 'Coqui.kt': 'package ireader.domain.services.tts; class CoquiTTSService',
 'Voice.kt': 'package ireader.domain.preferences.models.prefs; data class IReaderVoice(val name: String)',
@@ -37,6 +42,8 @@ class TextToSpeech(context: Context, val initialize: (Int) -> Unit) {
  lateinit var listener: UtteranceProgressListener
  val queued = mutableListOf<String>()
  val texts = mutableListOf<String>()
+ var attributes: android.media.AudioAttributes? = null
+ fun setAudioAttributes(value:android.media.AudioAttributes):Int { attributes=value;return SUCCESS }
  var calls = 0
  var rejectCall = -1
  var rejectAll = false
@@ -75,6 +82,8 @@ fun main() = runTest {
   val engine = TextToSpeech.instance
   engine.initialize(TextToSpeech.SUCCESS)
   runCurrent()
+  check(engine.attributes?.usage == android.media.AudioAttributes.USAGE_MEDIA && engine.attributes?.contentType == android.media.AudioAttributes.CONTENT_TYPE_SPEECH) { "Native speech must share the media route explicitly" }
+  println("PASS: native TTS uses media/speech audio attributes")
   engine.rejectCall = 3
   player.speak("First sentence. Second sentence. Third sentence.", "paragraph")
   val first = engine.queued[0]

@@ -5,7 +5,6 @@
 ## Tính năng
 
 - Quản lý thư viện và tìm kiếm sách.
-- Khám phá truyện Việt từ TruyenFull, TruyenHH và bảng xếp hạng Qidian, Fanqie, Jinjiang; lọc thể loại, tải thêm và lưu cache.
 - Đọc toàn bộ chương, tùy chỉnh font, cỡ chữ và màu nền.
 - Theo dõi tiến độ và lịch sử đọc.
 - Nghe truyện bằng TTS, chọn đoạn bắt đầu và hẹn giờ.
@@ -13,7 +12,7 @@
 
 ## Tải và cập nhật
 
-[Tải APK 2.0.32 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.32/TruyenPlus-v2.0.32-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
+[Tải APK 2.0.36 cho Android ARM64](https://github.com/phanan04/truyenplus/releases/download/v2.0.36/TruyenPlus-v2.0.36-arm64-v8a.apk) · [Các bản phát hành](https://github.com/phanan04/truyenplus/releases)
 
 Hỗ trợ Android 8.0 trở lên. Cài đè bản cũ để giữ thư viện và tiến độ.
 
@@ -25,4 +24,4 @@ Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát
 
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
 
-Chọn Việt/Anh trong Cài đặt. Các nguồn Việt hiển thị thông tin tiếng Việt nguyên bản; nguồn Trung dùng Google Translate qua [ML Kit](https://developers.google.com/ml-kit/language/translation) khi cần dịch.
+Chọn Việt/Anh và giao diện Sáng/Tối/Hệ thống trong Cài đặt. Mã nguồn hiện tại dùng giao diện tối giản với thanh điều hướng nổi và tìm kiếm thư viện riêng. Có trong bản 2.0.36.

@@ -1,6 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -18,7 +20,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
     onBookmark: () -> Unit, onAutoScroll: () -> Unit, modifier: Modifier = Modifier) {
     val ink = LocalContentColor.current
     val s = requireNotNull(LocalLocalizeHelper.current)
-    BoxWithConstraints(modifier.fillMaxWidth()) {
+    BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=8.dp)) {
         val compact = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale < 360f
         val listen: @Composable () -> Unit = {
             IconButton(onClick=onListen,modifier=Modifier.size(48.dp).testTag("reader-listen")) { Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book),tint=ink) }
@@ -43,8 +45,8 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
         val next: @Composable () -> Unit = {
             IconButton(onClick=onNext,enabled=chapterIndex<totalChapters-1,modifier=Modifier.size(48.dp).testTag("reader-next")) { Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter),tint=ink.copy(alpha=if(chapterIndex<totalChapters-1) 1f else .35f)) }
         }
+        Surface(shape=RoundedCornerShape(22.dp),color=ink.copy(alpha=.035f),contentColor=ink,border=BorderStroke(1.dp,ink.copy(alpha=.09f))) {
         Column {
-            HorizontalDivider(color=ink.copy(alpha=.08f))
             if(compact) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     listen(); Box(Modifier.weight(1f),contentAlignment=Alignment.Center) { automatic() };mark()
@@ -53,6 +55,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
             } else Row(Modifier.fillMaxWidth().heightIn(min=68.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
                 listen();Box(Modifier.weight(1f),contentAlignment=Alignment.CenterStart) { automatic() };mark();previous();contents();next()
             }
+        }
         }
     }
 }

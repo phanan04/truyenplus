@@ -103,6 +103,7 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
     private lateinit var audioManager: AudioManager
     private var focusRequest: AudioFocusRequest? = null
     private var isNoisyReceiverRegistered = false
+    private var audioFocusGranted = false
     private var silentPlayer: MediaPlayer? = null
     private var silentAudioTrack: AudioTrack? = null
     private var audioDeviceCallback: AudioDeviceCallback? = null
@@ -202,13 +203,6 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
         registerNoisyReceiver()
         registerAudioDeviceCallback()
         
-        // Start silent audio playback to claim the media audio route.
-        // Android's TTS engine plays audio through its own internal AudioTrack,
-        // so the system doesn't see our app as "currently playing media".
-        // By playing silent audio, MediaSessionManager recognizes our session
-        // as active and routes headset button presses to us.
-        startSilentPlayback()
-        
         // Initialize controller
         controller.dispatch(TTSCommand.Initialize)
         
@@ -285,23 +279,27 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
         
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
-                controller.dispatch(TTSCommand.Resume)
+                audioFocusGranted = true
+                controller.dispatch(TTSCommand.AudioFocusGained)
             }
             AudioManager.AUDIOFOCUS_LOSS -> {
-                controller.dispatch(TTSCommand.Pause)
+                audioFocusGranted = false
+                controller.dispatch(TTSCommand.AudioFocusLost(transient = false))
                 abandonAudioFocus()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                controller.dispatch(TTSCommand.Pause)
+                audioFocusGranted = false
+                controller.dispatch(TTSCommand.AudioFocusLost(transient = true))
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
-                // Could lower volume, but for TTS we pause
-                controller.dispatch(TTSCommand.Pause)
+                audioFocusGranted = false
+                controller.dispatch(TTSCommand.AudioFocusLost(transient = true))
             }
         }
     }
     
     private fun requestAudioFocus(): Boolean {
+        if (audioFocusGranted) return true
         val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(
@@ -321,10 +319,12 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
                 AudioManager.AUDIOFOCUS_GAIN
             )
         }
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        audioFocusGranted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        return audioFocusGranted
     }
     
     private fun abandonAudioFocus() {
+        audioFocusGranted = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
         } else {
@@ -763,12 +763,12 @@ class TTSV2Service : Service(), AudioManager.OnAudioFocusChangeListener {
                 updateNotification()
                 
                 // Request audio focus when starting playback and ensure silent player is active
-                if (state.isPlaying || state.isLoading) {
-                    requestAudioFocus()
-                    if (silentPlayer == null && silentAudioTrack == null) {
-                        startSilentPlayback()
-                    }
-                }
+                val activePlayback = state.isPlaying || (state.isLoading && state.book != null && state.chapter != null)
+                if (activePlayback) requestAudioFocus()
+                else if (audioFocusGranted && !state.pausedByAudioFocus) abandonAudioFocus()
+                val needsSilentRoute = state.engineType == EngineType.NATIVE && activePlayback
+                if (needsSilentRoute && silentPlayer == null && silentAudioTrack == null) startSilentPlayback()
+                else if (!needsSilentRoute && (silentPlayer != null || silentAudioTrack != null)) stopSilentPlayback()
                 
                 // Stop service if playback stopped
                 if (state.playbackState == PlaybackState.STOPPED && !state.hasContent) {

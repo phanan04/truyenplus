@@ -35,7 +35,7 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     audio: ListeningAudioState = ListeningAudioState(), onVolume: (Float) -> Unit = {},
     onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier) {
     val s = requireNotNull(LocalLocalizeHelper.current)
-    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).readerGlass(22),
+    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).readerPanel(22),
         shape = RoundedCornerShape(22.dp), color = Color.Transparent, contentColor = PlayerMuted,
         shadowElevation = 0.dp) {
         Column {
@@ -103,7 +103,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     onPitch: (Float) -> Unit, onAutoNext: (Boolean) -> Unit, onHighlight: (Boolean) -> Unit, onAutoScroll: (Boolean) -> Unit,
     onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "") {
     val s = requireNotNull(LocalLocalizeHelper.current)
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(max = 380.dp).readerGlass(20), color = Color.Transparent,
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(max = 380.dp).readerPanel(20), color = Color.Transparent,
         contentColor = PlayerMuted, shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(14.dp)) {
             Text(s.localize(Res.string.tp_choose_voice), style = MaterialTheme.typography.labelMedium)
