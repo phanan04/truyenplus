@@ -214,7 +214,7 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
     hasMore: Boolean, isLoading: Boolean, selected: Set<Long>, onQuery: (String) -> Unit, onCategory: (Int) -> Unit,
     onBook: (Long) -> Unit, onSelect: (Long) -> Unit, onImport: () -> Unit,
     onCollections: () -> Unit, onSort: () -> Unit, onLoadMore: () -> Unit,
-    requestSearch:Boolean=false,onSearchFocused:()->Unit={}) {
+    requestSearch:Boolean=false,onSearchFocused:()->Unit={},onShelf:(()->Unit)?=null) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     val gridState=rememberLazyGridState()
     val searchFocus=remember { androidx.compose.ui.focus.FocusRequester() }
@@ -227,6 +227,7 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
                     Column(Modifier.weight(1f)) { Text(strings.localize(Res.string.tp_library), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold); Text(strings.localize(Res.string.tp_library_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp)) }
                     IconButton(onClick = onImport) { Icon(Icons.Default.Add, strings.localize(Res.string.tp_import_ebook)) }
                 }
+                if(onShelf!=null) ReaderLibrarySourceTabs(false,{},onShelf)
                 OutlinedTextField(query, onQuery, modifier = Modifier.fillMaxWidth().padding(top = 16.dp).then(Modifier.focusRequester(searchFocus)), singleLine = true,
                     placeholder = { Text(strings.localize(Res.string.tp_search_books)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, shape = CircleShape)
             }

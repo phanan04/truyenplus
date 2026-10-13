@@ -25,3 +25,5 @@ Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
 
 Chọn Việt/Anh và giao diện Sáng/Tối/Hệ thống trong Cài đặt. Mã nguồn hiện tại dùng giao diện tối giản với thanh điều hướng nổi và tìm kiếm thư viện riêng. Có trong bản 2.0.36.
+
+Kho truyện Drive đang được bổ sung trong mã nguồn: thêm link thư mục, tìm tên truyện và tải EPUB khi cần. Kết nối Android cần cấu hình Google Cloud theo [hướng dẫn](docs/DRIVE_SHELF.md). Chức năng này chưa có trong APK 2.0.36.

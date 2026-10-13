@@ -13,7 +13,7 @@ object DatabaseMigrations {
     /**
      * Current database schema version. Increment this when adding new migrations.
      */
-    const val CURRENT_VERSION = 38
+    const val CURRENT_VERSION = 39
     
     /**
      * Applies all necessary migrations to bring the database from [oldVersion] to [CURRENT_VERSION]
@@ -103,6 +103,7 @@ object DatabaseMigrations {
             35 -> migrateV35toV36(driver)
             36 -> migrateV36toV37(driver)
             37 -> migrateV37toV38(driver)
+            38 -> migrateV38toV39(driver)
             // Add more migration cases as the database evolves
         }
     }
@@ -2794,5 +2795,37 @@ object DatabaseMigrations {
                 }
             }
         }
+    }
+
+    private fun migrateV38toV39(driver: SqlDriver) {
+        driver.execute(null, """CREATE TABLE IF NOT EXISTS shelf_source (
+ id TEXT NOT NULL PRIMARY KEY,
+ name TEXT NOT NULL,
+ resource_key TEXT,
+ updated_at INTEGER NOT NULL DEFAULT 0,
+ generation INTEGER NOT NULL DEFAULT 0,
+ pending INTEGER NOT NULL DEFAULT 0
+)""", 0)
+        driver.execute(null, """CREATE TABLE IF NOT EXISTS shelf_entry (
+ source_id TEXT NOT NULL,
+ file_id TEXT NOT NULL,
+ name TEXT NOT NULL,
+ search_key TEXT NOT NULL,
+ size INTEGER NOT NULL DEFAULT 0,
+ modified_time TEXT NOT NULL,
+ resource_key TEXT,
+ generation INTEGER NOT NULL,
+ book_id INTEGER,
+ PRIMARY KEY(source_id,file_id)
+)""", 0)
+        driver.execute(null, """CREATE INDEX IF NOT EXISTS shelf_entry_search ON shelf_entry(source_id, search_key, file_id)""", 0)
+        driver.execute(null, """CREATE TABLE IF NOT EXISTS shelf_cursor (
+ source_id TEXT NOT NULL,
+ folder_id TEXT NOT NULL,
+ resource_key TEXT,
+ token TEXT,
+ done INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(source_id,folder_id)
+)""", 0)
     }
 } 

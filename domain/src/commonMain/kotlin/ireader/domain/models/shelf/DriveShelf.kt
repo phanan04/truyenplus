@@ -1,0 +1,47 @@
+package ireader.domain.models.shelf
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+
+/** Links are identifiers, never arbitrary HTTP endpoints or local paths. */
+data class DriveFolderLink(val folderId: String, val resourceKey: String? = null) {
+    val url: String get() = "https://drive.google.com/drive/folders/$folderId" + (resourceKey?.let { "?resourcekey=$it" } ?: "")
+    companion object {
+        fun parse(input: String): DriveFolderLink {
+            val match = Regex("^https://drive\\.google\\.com/drive/(?:u/[0-9]+/)?folders/([A-Za-z0-9_-]{1,200})/?(?:\\?([^#]*))?(?:#.*)?$").matchEntire(input.trim())
+                ?: throw ShelfException(ShelfFailure.InvalidLink)
+            val key = match.groupValues[2].split('&').firstOrNull { it.startsWith("resourcekey=") }?.substringAfter('=')
+            if (key != null && !Regex("[A-Za-z0-9_-]{1,200}").matches(key)) throw ShelfException(ShelfFailure.InvalidLink)
+            return DriveFolderLink(match.groupValues[1], key)
+        }
+    }
+}
+
+fun shelfSearchKey(value: String): String {
+    val groups = listOf("aàáạảãâầấậẩẫăằắặẳẵ", "eèéẹẻẽêềếệểễ", "iìíịỉĩ", "oòóọỏõôồốộổỗơờớợởỡ", "uùúụủũưừứựửữ", "yỳýỵỷỹ", "dđ")
+    return value.lowercase().mapNotNull { c -> if(c in '\u0300'..'\u036f') null else groups.firstOrNull { c in it }?.first() ?: c }.joinToString("").trim().replace(Regex("\\s+"), " ")
+}
+
+data class ShelfSource(val id: String, val name: String, val resourceKey: String? = null, val updatedAt: Long = 0, val entryCount: Long = 0, val pending: Boolean = false)
+data class ShelfEntry(val sourceId: String, val fileId: String, val name: String, val size: Long = 0, val modifiedTime: String = "", val resourceKey: String? = null, val bookId: Long? = null)
+data class ShelfSearchPage(val entries: List<ShelfEntry>, val hasMore: Boolean)
+enum class ShelfFailure { InvalidLink, InvalidCursor, Authentication, AccessDenied, RateLimited, Network, InvalidFile, FileTooLarge, ImportFailed, Unsupported, Configuration }
+class ShelfException(val reason: ShelfFailure) : Exception(reason.name)
+enum class ShelfTask { Syncing, Downloading, Importing, Paused, Failed }
+data class ShelfOperation(val task: ShelfTask, val processed: Long = 0, val bytes: Long = 0, val totalBytes: Long? = null, val failure: ShelfFailure? = null)
+
+interface DriveShelfRepository {
+    val sources: Flow<List<ShelfSource>>
+    val operations: StateFlow<Map<String, ShelfOperation>>
+    suspend fun add(link: String, name: String): ShelfSource
+    suspend fun rename(sourceId: String, name: String)
+    suspend fun remove(sourceId: String)
+    fun refresh(sourceId: String)
+    fun refreshStale()
+    fun cancel(key: String)
+    fun download(entry: ShelfEntry)
+    suspend fun search(query: String, sourceId: String? = null, offset: Int = 0): ShelfSearchPage
+}
+
+/** Access token is supplied by platform authorization, never stored in shelf data. */
+interface ShelfAccess { suspend fun token(): String; fun invalidate() }

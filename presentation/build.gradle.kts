@@ -115,8 +115,12 @@ kotlin {
                 implementation(libs.test.truth)
             }
         }
+        val desktopTest by getting {
+            dependencies { implementation(libs.sqldelight.jvm);implementation(libs.ktor.client.mock) }
+        }
         androidMain {
             dependencies {
+                implementation("com.google.android.gms:play-services-auth:21.0.0")
                 api(libs.koin.android)
                 api(androidx.biometric)
                 api(libs.core.splashscreen)

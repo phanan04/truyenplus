@@ -1,0 +1,74 @@
+CREATE TABLE IF NOT EXISTS shelf_source (
+ id TEXT NOT NULL PRIMARY KEY,
+ name TEXT NOT NULL,
+ resource_key TEXT,
+ updated_at INTEGER NOT NULL DEFAULT 0,
+ generation INTEGER NOT NULL DEFAULT 0,
+ pending INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS shelf_entry (
+ source_id TEXT NOT NULL,
+ file_id TEXT NOT NULL,
+ name TEXT NOT NULL,
+ search_key TEXT NOT NULL,
+ size INTEGER NOT NULL DEFAULT 0,
+ modified_time TEXT NOT NULL,
+ resource_key TEXT,
+ generation INTEGER NOT NULL,
+ book_id INTEGER,
+ PRIMARY KEY(source_id,file_id)
+);
+CREATE INDEX IF NOT EXISTS shelf_entry_search ON shelf_entry(source_id, search_key, file_id);
+CREATE TABLE IF NOT EXISTS shelf_cursor (
+ source_id TEXT NOT NULL,
+ folder_id TEXT NOT NULL,
+ resource_key TEXT,
+ token TEXT,
+ done INTEGER NOT NULL DEFAULT 0,
+ PRIMARY KEY(source_id,folder_id)
+);
+
+sources:
+SELECT s.*, (SELECT count(*) FROM shelf_entry e WHERE e.source_id=s.id) AS entry_count FROM shelf_source s ORDER BY name COLLATE NOCASE,id;
+source:
+SELECT * FROM shelf_source WHERE id=?;
+addSource:
+INSERT OR IGNORE INTO shelf_source(id,name,resource_key) VALUES (?,?,?);
+renameSource:
+UPDATE shelf_source SET name=? WHERE id=?;
+removeSource:
+DELETE FROM shelf_source WHERE id=?;
+removeEntries:
+DELETE FROM shelf_entry WHERE source_id=?;
+clearCursors:
+DELETE FROM shelf_cursor WHERE source_id=?;
+startScan:
+UPDATE shelf_source SET generation=generation+1,pending=1 WHERE id=?;
+queueFolder:
+INSERT OR IGNORE INTO shelf_cursor(source_id,folder_id,resource_key) VALUES (?,?,?);
+nextCursor:
+SELECT * FROM shelf_cursor WHERE source_id=? AND done=0 ORDER BY folder_id LIMIT 1;
+advanceCursor:
+UPDATE shelf_cursor SET token=?,done=? WHERE source_id=? AND folder_id=?;
+upsertEntry:
+INSERT INTO shelf_entry(source_id,file_id,name,search_key,size,modified_time,resource_key,generation) VALUES (?,?,?,?,?,?,?,?)
+ON CONFLICT(source_id,file_id) DO UPDATE SET name=excluded.name,search_key=excluded.search_key,size=excluded.size,modified_time=excluded.modified_time,resource_key=excluded.resource_key,generation=excluded.generation;
+finishScan:
+UPDATE shelf_source SET pending=0,updated_at=? WHERE id=?;
+pruneEntries:
+DELETE FROM shelf_entry WHERE source_id=? AND generation!=?;
+search:
+SELECT source_id,file_id,name,search_key,size,modified_time,resource_key,generation,
+ CASE WHEN EXISTS(SELECT 1 FROM book WHERE book._id=shelf_entry.book_id AND book.favorite=1) THEN book_id ELSE NULL END AS imported_book_id
+ FROM shelf_entry WHERE (:source IS NULL OR source_id=:source) AND search_key LIKE :pattern ESCAPE '\' ORDER BY search_key,file_id,source_id LIMIT :pageLimit OFFSET :pageOffset;
+markImported:
+UPDATE shelf_entry SET book_id=? WHERE source_id=? AND file_id=?;
+
+importedBookForMetadata:
+SELECT _id FROM book WHERE source=? AND title=? AND (author=? OR author='Unknown' OR author='' OR author IS NULL) ORDER BY _id DESC LIMIT 1;
+
+resetScan:
+UPDATE shelf_source SET pending=0 WHERE id=?;
+
+importedChapterCount:
+SELECT count(*) FROM chapter WHERE book_id=?;

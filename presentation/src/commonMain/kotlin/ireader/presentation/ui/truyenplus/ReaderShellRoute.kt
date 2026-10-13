@@ -45,6 +45,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val ttsService: ireader.domain.services.tts_service.v2.TTSV2ServiceStarter = koinInject()
     var destinationIndex by rememberSaveable { mutableIntStateOf(initialIndex.coerceIn(0, ReaderDestination.entries.lastIndex)) }
     val destination = ReaderDestination.entries.getOrElse(destinationIndex) { ReaderDestination.Home }
+    var showShelf by rememberSaveable { mutableStateOf(false) }
     var searchRequested by rememberSaveable { mutableStateOf(false) }
     var showImport by rememberSaveable { mutableStateOf(false) }
     var showProgress by rememberSaveable { mutableStateOf(false) }
@@ -90,7 +91,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         }
     }
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
-        if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else destinationIndex = 0
+        if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else if(showShelf && destination==ReaderDestination.Library) showShelf=false else destinationIndex = 0
     }
     val appearancePref=remember(uiPreferences) { uiPreferences.readerAppearance() }
     val appearanceId by appearancePref.changes().collectAsState(initial=appearancePref.get())
@@ -110,7 +111,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onLibrary = { destinationIndex = 1 }, onImport = { showImport = true },
                     onSearch = onSearch, onUpdate = { showUpdate = true },
                     onContinue={navigator.navigateTo(ReaderScreenSpec(it,LAST_CHAPTER))})
-                ReaderDestination.Library -> ReaderLibraryScreen(books,
+                ReaderDestination.Library -> if(showShelf) ReaderShelfRoute(onLibrary={showShelf=false},onBook=onBook,requestSearch=searchRequested,onSearchFocused={searchRequested=false}) else ReaderLibraryScreen(books,
                     categories = state.categories.map { when (it.category.id) {
                         0L -> strings.localize(Res.string.tp_all)
                         -1L -> strings.localize(Res.string.uncategorized)
@@ -123,7 +124,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onCollections = { navigator.navigate(NavigationRoutes.category) },
                     onSort = { vm.toggleSort(if (state.sort.type == LibrarySort.Type.Title) LibrarySort.Type.LastRead else LibrarySort.Type.Title) },
                     onLoadMore = { vm.loadMoreBooks(state.selectedCategory?.id ?: 0L) },
-                    requestSearch=searchRequested,onSearchFocused={searchRequested=false})
+                    requestSearch=searchRequested,onSearchFocused={searchRequested=false},onShelf={vm.unselectAll();showShelf=true})
                 ReaderDestination.Settings -> {
                     if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->
                         uiPreferences.language().set(selected.code)
