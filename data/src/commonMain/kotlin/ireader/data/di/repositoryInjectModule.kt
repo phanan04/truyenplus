@@ -75,6 +75,7 @@ val repositoryInjectModule = module {
     
     // Include feature-specific repository modules
     includes(driveShelfModule)
+    includes(chapterEditingModule)
     includes(bookRepositoryModule)
     includes(chapterRepositoryModule)
     includes(libraryRepositoryModule)

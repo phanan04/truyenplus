@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS chapter_edit_original (
+ chapter_id INTEGER NOT NULL PRIMARY KEY REFERENCES chapter(_id) ON DELETE CASCADE,
+ original TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS book_edit_characters (
+ book_id INTEGER NOT NULL PRIMARY KEY REFERENCES book(_id) ON DELETE CASCADE,
+ characters TEXT NOT NULL
+);

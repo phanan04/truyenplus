@@ -196,7 +196,9 @@ class TextReplacementUseCase(
             preparedCache[bookId]?.let { return it }
         }
         val rawReplacements = getEnabledReplacements(bookId)
-        val prepared = rawReplacements.flatMap { replacement ->
+        // Prioritize longer explicit editor rules; keep the order of legacy rules.
+        val ordered = rawReplacements.sortedByDescending { ireader.domain.models.editing.EditingRule.fromMetadata(it.description)?.find?.length ?: 0 }
+        val prepared = ordered.flatMap { replacement ->
             val pattern = replacement.findText
             val normalizedPattern = normalizeText(pattern)
             // If literal replacement spans multiple lines, also generate per-line rules

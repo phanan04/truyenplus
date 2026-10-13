@@ -90,6 +90,15 @@ fun InfiniteScrollReaderContent(
         }
     }
 
+    // Replace edited content in place; keep the user's current list/scroll position.
+    LaunchedEffect(vm) {
+        vm.editingChapterRefreshes.collect { fresh ->
+            val index = loadedChapters.indexOfFirst { it.first.id == fresh.id }
+            if (index >= 0) loadedChapters[index] = fresh to fresh.content
+            if (vm.contentVM.infiniteScrollVisibleChapter.value?.id == fresh.id) vm.contentVM.updateCurrentChapterForInfiniteScroll(fresh)
+        }
+    }
+
     // Build flat content
     val flatContent = remember(loadedChapters.toList()) {
         val result = mutableListOf<InfiniteScrollItem>()

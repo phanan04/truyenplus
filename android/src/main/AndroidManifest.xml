@@ -67,6 +67,8 @@
         android:allowBackup="true"
         android:configChanges="orientation|screenSize|screenLayout"
         android:fullBackupOnly="true"
+        android:fullBackupContent="@xml/truyenplus_backup_rules"
+        android:dataExtractionRules="@xml/truyenplus_extraction_rules"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/truyenplus_launcher"
         android:label="Truyện+"

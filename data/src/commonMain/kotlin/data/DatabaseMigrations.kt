@@ -13,7 +13,7 @@ object DatabaseMigrations {
     /**
      * Current database schema version. Increment this when adding new migrations.
      */
-    const val CURRENT_VERSION = 39
+    const val CURRENT_VERSION = 40
     
     /**
      * Applies all necessary migrations to bring the database from [oldVersion] to [CURRENT_VERSION]
@@ -104,6 +104,7 @@ object DatabaseMigrations {
             36 -> migrateV36toV37(driver)
             37 -> migrateV37toV38(driver)
             38 -> migrateV38toV39(driver)
+            39 -> migrateV39toV40(driver)
             // Add more migration cases as the database evolves
         }
     }
@@ -2828,4 +2829,13 @@ object DatabaseMigrations {
  PRIMARY KEY(source_id,folder_id)
 )""", 0)
     }
+    private fun migrateV39toV40(driver: SqlDriver) {
+        driver.execute(null, """CREATE TABLE IF NOT EXISTS chapter_edit_original (
+ chapter_id INTEGER NOT NULL PRIMARY KEY REFERENCES chapter(_id) ON DELETE CASCADE,
+ original TEXT NOT NULL)""", 0)
+        driver.execute(null, """CREATE TABLE IF NOT EXISTS book_edit_characters (
+ book_id INTEGER NOT NULL PRIMARY KEY REFERENCES book(_id) ON DELETE CASCADE,
+ characters TEXT NOT NULL)""", 0)
+    }
+
 } 

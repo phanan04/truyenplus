@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS chapter_edit_original (
+ chapter_id INTEGER NOT NULL PRIMARY KEY REFERENCES chapter(_id) ON DELETE CASCADE,
+ original TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS book_edit_characters (
+ book_id INTEGER NOT NULL PRIMARY KEY REFERENCES book(_id) ON DELETE CASCADE,
+ characters TEXT NOT NULL
+);
+
+hasOriginal:
+SELECT count(*) FROM chapter_edit_original WHERE chapter_id=?;
+backupOriginal:
+INSERT OR IGNORE INTO chapter_edit_original(chapter_id,original) SELECT _id, CAST(content AS TEXT) FROM chapter WHERE _id=?;
+setEditedContent:
+UPDATE chapter SET content=? WHERE _id=?;
+restoreOriginal:
+UPDATE chapter SET content=(SELECT original FROM chapter_edit_original WHERE chapter_id=:id) WHERE _id=:id AND EXISTS(SELECT 1 FROM chapter_edit_original WHERE chapter_id=:id);
+deleteOriginal:
+DELETE FROM chapter_edit_original WHERE chapter_id=?;
+characters:
+SELECT characters FROM book_edit_characters WHERE book_id=?;
+saveCharacters:
+INSERT INTO book_edit_characters(book_id,characters) VALUES(?,?) ON CONFLICT(book_id) DO UPDATE SET characters=excluded.characters;

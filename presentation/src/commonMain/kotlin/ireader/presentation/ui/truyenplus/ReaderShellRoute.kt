@@ -69,6 +69,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val updateManager = remember(updatePlatform) { ReaderUpdateManager(updatePlatform) }
     val updateState by updateManager.state.collectAsState()
     var showUpdate by rememberSaveable { mutableStateOf(false) }
+    var showEditingSettings by rememberSaveable { mutableStateOf(false) }
     var updateJob by remember { mutableStateOf<Job?>(null) }
     val books = state.books.map { it.toReaderBookUi() }
     val onBook: (Long) -> Unit = { navigator.navigateTo(BookDetailScreenSpec(it)) }
@@ -131,7 +132,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                         localeHelper.updateLocal()
                     }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true },
                         appearance=ReaderAppearanceMode.fromId(appearanceId),
-                        onAppearance = { appearancePref.set(it.id) }, onImport={showImport=true})
+                        onAppearance = { appearancePref.set(it.id) }, onImport={showImport=true},onEditing={showEditingSettings=true})
                     else {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }
@@ -202,6 +203,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         }
         }
     }
+    if (showEditingSettings) EditingSettingsSheet { showEditingSettings=false }
     if (showUpdate) ReaderUpdateSheet(updatePlatform.installedApp.versionName, updatePlatform.endpoint,
         updatePlatform.supported, updateState,
         onCheck = { address -> updateJob = scope.launch { updateManager.check(address) } },

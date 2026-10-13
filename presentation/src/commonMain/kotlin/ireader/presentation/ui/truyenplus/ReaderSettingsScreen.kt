@@ -39,7 +39,7 @@ fun ReaderAppearanceMode.localizedLabel(strings:LocalizeHelper):String = strings
 @Composable
 fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)->Unit,
     onProgress:()->Unit,onUpdate:()->Unit,appearance:ReaderAppearanceMode=ReaderAppearanceMode.System,
-    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={}) {
+    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={}) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     var languageOpen by remember { mutableStateOf(false) }
     var appearanceOpen by remember { mutableStateOf(false) }
@@ -64,6 +64,9 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
                 }
             }
         }
+        item { Surface(shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surface) {
+            SettingsRow(strings.localize(Res.string.tp_edit_settings),strings.localize(Res.string.tp_edit_settings_hint),Icons.Outlined.AutoFixHigh,onEditing)
+        } }
         item { Surface(shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surface) {
             SettingsRow(strings.localize(Res.string.tp_app_update),"Truyện+",Icons.Outlined.SystemUpdate,onUpdate)
         } }

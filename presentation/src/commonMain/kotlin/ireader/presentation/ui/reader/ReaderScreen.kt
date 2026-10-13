@@ -487,6 +487,11 @@ private fun ReadingScreenContent(
         }
 
     }, appearance = {
+                            vm.chapterEditorId?.let { id ->
+                                ireader.presentation.ui.truyenplus.ChapterEditorSheet(id,
+                                    onDismiss = { vm.chapterEditorId = null },
+                                    beforeChange = { vm.stopSpeechForEditing(id) }, onChanged = vm::refreshAfterEditing)
+                            }
                             // Settings Bottom Sheet
                             if (vm.showSettingsBottomSheet) {
                                 ReaderSettingsBottomSheet(

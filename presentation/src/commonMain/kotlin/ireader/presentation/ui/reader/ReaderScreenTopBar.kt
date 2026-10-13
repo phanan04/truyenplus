@@ -35,7 +35,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -79,14 +82,15 @@ fun ReaderScreenTopBar(
 ) {
     if (!isReaderModeEnable || !isLoaded) {
         ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, { vm.showSettingsBottomSheet = true }, modifier, onPlay,
-            backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor(), bookTitle = vm.book?.title.orEmpty())
+            backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor(), bookTitle = vm.book?.title.orEmpty(), onEdit = { chapter?.id?.let { vm.chapterEditorId = it } })
     }
 }
 
 @Composable
 fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () -> Unit,
     onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null,
-    backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "") {
+    backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "", onEdit: (() -> Unit)? = null) {
+    var moreOpen by remember { mutableStateOf(false) }
     Surface(modifier = modifier.fillMaxWidth(), color = backgroundColor, contentColor = textColor) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().height(60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             FilledTonalIconButton(onClick=onBack,modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
@@ -97,6 +101,15 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
                     color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis)
                 Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.titleSmall,
                     fontWeight=FontWeight.SemiBold,textAlign=TextAlign.Center,maxLines=1,overflow=TextOverflow.Ellipsis)
+            }
+            if (onEdit != null) Box {
+                FilledTonalIconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
+                    Icon(Icons.Default.MoreHoriz,localize(Res.string.expand_menu))
+                }
+                DropdownMenu(expanded=moreOpen,onDismissRequest={moreOpen=false}) {
+                    DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
+                    DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
+                }
             }
             FilledTonalIconButton(onClick=onSettings,modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
                 Icon(Icons.Default.Tune,localize(Res.string.settings))

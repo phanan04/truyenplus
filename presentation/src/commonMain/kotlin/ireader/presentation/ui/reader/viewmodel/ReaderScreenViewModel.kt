@@ -1087,6 +1087,31 @@ class ReaderScreenViewModel(
     
     // Transient chrome visibility must not emit the entire chapter/book state.
     var showSettingsBottomSheet by mutableStateOf(false)
+    var chapterEditorId by mutableStateOf<Long?>(null)
+    val editingChapterRefreshes = MutableSharedFlow<Chapter>(extraBufferCapacity = 1)
+    fun stopSpeechForEditing(chapterId: Long) {
+        if (ttsController.state.value.chapter?.id == chapterId) ttsController.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Stop)
+    }
+    fun refreshAfterEditing(chapterId: Long) {
+        textReplacementUseCase.invalidateCache()
+        contentFilterUseCase.invalidateCache()
+        contentVM.clearPreloadCache()
+        if (ttsController.state.value.chapter?.id == chapterId) {
+            ttsController.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.SetTranslatedContent(null))
+            ttsController.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.RefreshContent)
+        }
+        scope.launch {
+            val fresh = getChapterUseCase.findChapterById(chapterId) ?: return@launch
+            updateSuccessState { state -> state.copy(
+                currentChapter = if(state.currentChapter.id == chapterId) fresh else state.currentChapter,
+                content = if(state.currentChapter.id == chapterId) fresh.content else state.content,
+                chapterShell = state.chapterShell.map {if(it.id==chapterId)fresh else it},
+                chapters = state.chapters.map {if(it.id==chapterId)fresh else it},
+                showTranslatedContent = false, hasTranslation = false, translatedContent = emptyList()
+            ) }
+            editingChapterRefreshes.emit(fresh)
+        }
+    }
     
     val showRepairBanner: Boolean
         get() = (_state.value as? ReaderState.Success)?.showRepairBanner ?: false
