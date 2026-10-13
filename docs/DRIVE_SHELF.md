@@ -4,6 +4,19 @@ The library keeps downloaded books separate from connected Drive folders. An emp
 search shows sources only; a non-empty query searches a persisted filename index,
 with 40 results per page. It does not open or download EPUBs to build that index.
 
+Search folds Vietnamese accents (including decomposed filenames), treats punctuation
+and underscores as word separators, and requires all query words. The final word
+may be a prefix while typing; arbitrary matches inside words are excluded. Words
+may be entered in another order. Ranking prefers exact titles, title prefixes and
+phrases, then title-word matches, author/filename matches, and incomplete final words.
+The author suffix after the last spaced dash remains searchable but has lower priority.
+
+Existing cached filenames are reindexed locally in batches of 500 once after
+upgrading, preserving import links and scan cursors. No Drive/EPUB download is
+needed for that repair. Results and loading state belong to the latest request;
+changing input clears the previous results immediately with a 250ms typing debounce.
+These search improvements are source changes after APK2.0.37; they require a newer APK.
+
 Only Google Drive folder links are accepted. With a configured restricted Drive
 API key, the app reads public folders without Google account sign-in. REST requests
 send the Android package and actual signing-certificate SHA-1. Tokens and keys are

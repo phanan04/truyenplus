@@ -1,0 +1,2 @@
+ALTER TABLE shelf_entry ADD COLUMN title_key TEXT NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS shelf_search_state (singleton INTEGER NOT NULL PRIMARY KEY CHECK(singleton=1),version INTEGER NOT NULL);

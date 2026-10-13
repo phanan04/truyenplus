@@ -17,9 +17,24 @@ data class DriveFolderLink(val folderId: String, val resourceKey: String? = null
     }
 }
 
-fun shelfSearchKey(value: String): String {
-    val groups = listOf("aàáạảãâầấậẩẫăằắặẳẵ", "eèéẹẻẽêềếệểễ", "iìíịỉĩ", "oòóọỏõôồốộổỗơờớợởỡ", "uùúụủũưừứựửữ", "yỳýỵỷỹ", "dđ")
-    return value.lowercase().mapNotNull { c -> if(c in '\u0300'..'\u036f') null else groups.firstOrNull { c in it }?.first() ?: c }.joinToString("").trim().replace(Regex("\\s+"), " ")
+private val shelfAccentFold = listOf("aàáạảãâầấậẩẫăằắặẳẵ", "eèéẹẻẽêềếệểễ", "iìíịỉĩ", "oòóọỏõôồốộổỗơờớợởỡ", "uùúụủũưừứựửữ", "yỳýỵỷỹ", "dđ")
+    .flatMap { group -> group.map { it to group.first() } }.toMap()
+private val shelfWhitespace = Regex("\\s+")
+fun shelfSearchKey(value: String): String = buildString {
+    for(c in value.lowercase()) {
+        when {
+            c in '\u0300'..'\u036f' -> Unit
+            c.isLetterOrDigit() -> append(shelfAccentFold[c] ?: c)
+            else -> append(' ')
+        }
+    }
+}.trim().replace(shelfWhitespace," ")
+
+/** Filename title only; author stays searchable through the full filename key. */
+fun shelfTitleKey(value: String): String {
+    val stem=value.trim().replace(Regex("\\.epub$",RegexOption.IGNORE_CASE),"")
+    val separator=Regex("\\s+[-–—]\\s+").findAll(stem).lastOrNull()?.range?.first
+    return shelfSearchKey(if(separator==null)stem else stem.substring(0,separator)).ifBlank { shelfSearchKey(value) }
 }
 
 data class ShelfSource(val id: String, val name: String, val resourceKey: String? = null, val updatedAt: Long = 0, val entryCount: Long = 0, val pending: Boolean = false)

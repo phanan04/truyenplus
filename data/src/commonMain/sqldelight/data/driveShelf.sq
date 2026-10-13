@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS shelf_entry (
  file_id TEXT NOT NULL,
  name TEXT NOT NULL,
  search_key TEXT NOT NULL,
+ title_key TEXT NOT NULL DEFAULT '',
  size INTEGER NOT NULL DEFAULT 0,
  modified_time TEXT NOT NULL,
  resource_key TEXT,
@@ -51,16 +52,36 @@ SELECT * FROM shelf_cursor WHERE source_id=? AND done=0 ORDER BY folder_id LIMIT
 advanceCursor:
 UPDATE shelf_cursor SET token=?,done=? WHERE source_id=? AND folder_id=?;
 upsertEntry:
-INSERT INTO shelf_entry(source_id,file_id,name,search_key,size,modified_time,resource_key,generation) VALUES (?,?,?,?,?,?,?,?)
-ON CONFLICT(source_id,file_id) DO UPDATE SET name=excluded.name,search_key=excluded.search_key,size=excluded.size,modified_time=excluded.modified_time,resource_key=excluded.resource_key,generation=excluded.generation;
+INSERT INTO shelf_entry(source_id,file_id,name,search_key,title_key,size,modified_time,resource_key,generation) VALUES (?,?,?,?,?,?,?,?,?)
+ON CONFLICT(source_id,file_id) DO UPDATE SET name=excluded.name,search_key=excluded.search_key,title_key=excluded.title_key,size=excluded.size,modified_time=excluded.modified_time,resource_key=excluded.resource_key,generation=excluded.generation;
+
 finishScan:
 UPDATE shelf_source SET pending=0,updated_at=? WHERE id=?;
 pruneEntries:
 DELETE FROM shelf_entry WHERE source_id=? AND generation!=?;
 search:
+WITH RECURSIVE terms(word,remaining) AS (
+ SELECT '', :queryKey || ' '
+ UNION ALL
+ SELECT substr(remaining,1,instr(remaining,' ')-1), substr(remaining,instr(remaining,' ')+1)
+ FROM terms WHERE remaining!=''
+)
 SELECT source_id,file_id,name,search_key,size,modified_time,resource_key,generation,
  CASE WHEN EXISTS(SELECT 1 FROM book WHERE book._id=shelf_entry.book_id AND book.favorite=1) THEN book_id ELSE NULL END AS imported_book_id
- FROM shelf_entry WHERE (:source IS NULL OR source_id=:source) AND search_key LIKE :pattern ESCAPE '\' ORDER BY search_key,file_id,source_id LIMIT :pageLimit OFFSET :pageOffset;
+FROM shelf_entry
+WHERE (:source IS NULL OR source_id=:source)
+ AND NOT EXISTS(SELECT 1 FROM terms WHERE word!=''
+  AND instr(' ' || search_key || ' ',' ' || word || ' ')=0
+  AND (remaining!='' OR instr(' ' || search_key,' ' || word)=0))
+ORDER BY CASE
+ WHEN title_key=:queryKey THEN 0
+ WHEN title_key LIKE :titlePrefix THEN 1
+ WHEN instr(' ' || title_key || ' ',' ' || :queryKey || ' ')>0 THEN 2
+ WHEN NOT EXISTS(SELECT 1 FROM terms WHERE word!='' AND instr(' ' || title_key || ' ',' ' || word || ' ')=0) THEN 3
+ WHEN NOT EXISTS(SELECT 1 FROM terms WHERE word!='' AND instr(' ' || search_key || ' ',' ' || word || ' ')=0) THEN 4
+ ELSE 5 END,
+ length(title_key),title_key,file_id,source_id LIMIT :pageLimit OFFSET :pageOffset;
+
 markImported:
 UPDATE shelf_entry SET book_id=? WHERE source_id=? AND file_id=?;
 
@@ -72,3 +93,18 @@ UPDATE shelf_source SET pending=0 WHERE id=?;
 
 importedChapterCount:
 SELECT count(*) FROM chapter WHERE book_id=?;
+
+CREATE TABLE IF NOT EXISTS shelf_search_state (
+ singleton INTEGER NOT NULL PRIMARY KEY CHECK(singleton=1),
+ version INTEGER NOT NULL
+);
+searchIndexVersion:
+SELECT version FROM shelf_search_state WHERE singleton=1;
+markSearchIndexReady:
+INSERT OR REPLACE INTO shelf_search_state(singleton,version) VALUES(1,1);
+indexDocuments:
+SELECT source_id,file_id,name,search_key,title_key FROM shelf_entry
+WHERE (:afterSource IS NULL OR source_id>:afterSource OR (source_id=:afterSource AND file_id>:afterFile))
+ORDER BY source_id,file_id LIMIT 500;
+updateSearchDocument:
+UPDATE shelf_entry SET search_key=:key,title_key=:title WHERE source_id=:source AND file_id=:file AND name=:expectedName;

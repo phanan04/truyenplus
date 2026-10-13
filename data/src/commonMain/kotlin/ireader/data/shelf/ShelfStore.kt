@@ -7,6 +7,10 @@ import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class DriveItem(val id: String, val name: String, val mimeType: String, val size: Long=0, val modifiedTime: String="", val resourceKey: String?=null) {
     val isFolder get()=mimeType=="application/vnd.google-apps.folder"
@@ -16,6 +20,8 @@ data class ShelfCursor(val folderId: String, val resourceKey: String?, val token
 
 class SqlShelfStore(private val db: Database) {
     private val q get()=db.driveShelfQueries
+    private val searchMutex=Mutex()
+    private var searchReady=false
     val sources: Flow<List<ShelfSource>> get()=q.sources { id,name,key,updated,_,pending,count -> ShelfSource(id,name,key,updated,count,pending!=0L) }.asFlow().mapToList(Dispatchers.IO)
     suspend fun add(link: DriveFolderLink,name:String): ShelfSource=withContext(Dispatchers.IO) {
         q.addSource(link.folderId,name.trim().take(100).ifBlank{"Google Drive"},link.resourceKey)
@@ -37,7 +43,7 @@ class SqlShelfStore(private val db: Database) {
         db.transaction {
             items.forEach { item ->
                 if(item.isFolder) q.queueFolder(id,item.id,item.resourceKey)
-                else if(item.isEpub) q.upsertEntry(id,item.id,item.name,shelfSearchKey(item.name),item.size,item.modifiedTime,item.resourceKey,generation)
+                else if(item.isEpub) q.upsertEntry(id,item.id,item.name,shelfSearchKey(item.name),shelfTitleKey(item.name),item.size,item.modifiedTime,item.resourceKey,generation)
             }
             q.advanceCursor(token,if(token==null)1L else 0L,id,cursor.folderId)
         }
@@ -50,9 +56,29 @@ class SqlShelfStore(private val db: Database) {
     suspend fun search(query:String,source:String?,offset:Int):ShelfSearchPage=withContext(Dispatchers.IO) {
         val key=shelfSearchKey(query).take(200)
         if(key.isBlank()) return@withContext ShelfSearchPage(emptyList(),false)
-        val pattern="%"+key.replace("\\","\\\\").replace("%","\\%").replace("_","\\_").replace(" ","%")+"%"
-        val rows=q.search(source,pattern,41,offset.coerceIn(0,1000000).toLong()) { sourceId,fileId,name,_,size,modified,resource,_,book -> ShelfEntry(sourceId,fileId,name,size,modified,resource,book) }.executeAsList()
+        prepareSearchIndex()
+        val rows=q.search(key,source,key+" %",41,offset.coerceIn(0,1000000).toLong()) { sourceId,fileId,name,_,size,modified,resource,_,book -> ShelfEntry(sourceId,fileId,name,size,modified,resource,book) }.executeAsList()
         ShelfSearchPage(rows.take(40),rows.size>40)
+    }
+    private suspend fun prepareSearchIndex()=searchMutex.withLock {
+        if(searchReady)return@withLock
+        if((q.searchIndexVersion().executeAsOneOrNull()?:0)<1L) {
+            var source:String?=null;var file=""
+            while(true) {
+                currentCoroutineContext().ensureActive()
+                val rows=q.indexDocuments(source,file).executeAsList()
+                if(rows.isEmpty())break
+                db.transaction {
+                    rows.forEach { row ->
+                        val key=shelfSearchKey(row.name);val title=shelfTitleKey(row.name)
+                        if(row.search_key!=key || row.title_key!=title) q.updateSearchDocument(key,title,row.source_id,row.file_id,row.name)
+                    }
+                }
+                source=rows.last().source_id;file=rows.last().file_id
+            }
+            q.markSearchIndexReady()
+        }
+        searchReady=true
     }
     suspend fun chapterCount(bookId:Long):Long=withContext(Dispatchers.IO) { q.importedChapterCount(bookId).executeAsOne() }
     suspend fun findImportedBook(sourceId:Long,title:String,author:String):Long?=withContext(Dispatchers.IO) { q.importedBookForMetadata(sourceId,title,author).executeAsOneOrNull() }

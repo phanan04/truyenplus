@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import ireader.domain.models.shelf.*
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -54,11 +53,8 @@ import org.koin.compose.koinInject
  val sources by repo.sources.collectAsState(emptyList())
  val operations by repo.operations.collectAsState()
  var query by rememberSaveable { mutableStateOf("") }
- var searchTerm by remember { mutableStateOf("") }
  var selectedSource by rememberSaveable { mutableStateOf<String?>(null) }
  var offset by rememberSaveable { mutableIntStateOf(0) }
- var page by remember { mutableStateOf(ShelfSearchPage(emptyList(),false)) }
- var loading by remember { mutableStateOf(false) }
  var showAdd by rememberSaveable { mutableStateOf(false) }
  var link by rememberSaveable { mutableStateOf("") }
  var name by rememberSaveable { mutableStateOf("") }
@@ -67,6 +63,9 @@ import org.koin.compose.koinInject
  var removeSource by remember { mutableStateOf<ShelfSource?>(null) }
  var retryAdd by remember { mutableStateOf(false) }
  val scope=rememberCoroutineScope()
+ val searches=remember(repo,scope){ShelfSearchController(scope,repo::search)}
+ val searchState by searches.state.collectAsState()
+ DisposableEffect(searches){onDispose{searches.invalidate(false)}}
  fun add() { scope.launch {
   adding=true;error=null
   try { repo.add(link,name);showAdd=false;link="";name="";retryAdd=false }
@@ -76,18 +75,14 @@ import org.koin.compose.koinInject
  } }
  val connect=rememberShelfAuthorization(onSuccess={error=null;if(retryAdd)add() else sources.forEach { repo.refresh(it.id) }},onFailure={code->error=when(code){"configuration"->ShelfFailure.Configuration;"unsupported"->ShelfFailure.Unsupported;else->ShelfFailure.Authentication}})
  LaunchedEffect(Unit){repo.refreshStale()}
- LaunchedEffect(query) { delay(250);searchTerm=query }
- LaunchedEffect(searchTerm,selectedSource,offset,sources,operations.mapValues { it.value.task }) {
-  if(searchTerm.isBlank()){page=ShelfSearchPage(emptyList(),false);loading=false;return@LaunchedEffect}
-  loading=true
-  try { page=repo.search(searchTerm,selectedSource,offset) }
-  finally{loading=false}
+ LaunchedEffect(query,selectedSource,offset,sources,operations.mapValues { it.value.task }) {
+  searches.submit(query,selectedSource,offset)
  }
- ReaderShelfScreen(sources,query,page,loading,selectedSource,operations,
-  onQuery={query=it;offset=0;page=ShelfSearchPage(emptyList(),false)},onSource={selectedSource=it;offset=0},onAdd={showAdd=true;error=null},onRefresh=repo::refresh,
+ ReaderShelfScreen(sources,query,searchState.page,searchState.loading,selectedSource,operations,
+  onQuery={query=it;offset=0;searches.invalidate(it.isNotBlank())},onSource={selectedSource=it;offset=0;searches.invalidate(query.isNotBlank())},onAdd={showAdd=true;error=null},onRefresh=repo::refresh,
   onRemove={removeSource=it},onDownload=repo::download,onBook=onBook,onLibrary=onLibrary,
-  onPrevious={offset=(offset-40).coerceAtLeast(0)},onNext={offset+=40},onConnect={retryAdd=false;connect()},onCancel=repo::cancel,
-  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error,showConnect=!repo.publicAccess)
+  onPrevious={offset=(offset-40).coerceAtLeast(0);searches.invalidate(query.isNotBlank())},onNext={offset+=40;searches.invalidate(query.isNotBlank())},onConnect={retryAdd=false;connect()},onCancel=repo::cancel,
+  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error?:searchState.failure,showConnect=!repo.publicAccess)
  if(showAdd) AlertDialog(onDismissRequest={if(!adding){showAdd=false;retryAdd=false}},title={Text(strings.localize(Res.string.tp_shelf_add))},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   OutlinedTextField(link,{link=it},label={Text(strings.localize(Res.string.tp_shelf_link))},singleLine=true,enabled=!adding)
   OutlinedTextField(name,{name=it},label={Text(strings.localize(Res.string.tp_shelf_name))},singleLine=true,enabled=!adding)
