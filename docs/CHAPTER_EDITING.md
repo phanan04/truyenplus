@@ -29,4 +29,4 @@ Triển khai độc lập dựa trên luồng sử dụng NovelTools, không sao
 - [Gemini generateContent](https://ai.google.dev/api/generate-content)
 - [DeepSeek chat completions](https://api-docs.deepseek.com/api/create-chat-completion/)
 
-Không có yêu cầu AI trả phí thật trong kiểm thử; chất lượng trên một chương thực tế cần kiểm tra sau khi người dùng nhập key của mình. Tính năng đang ở mã nguồn; cần APK mới để có trên app đã cài.
+Không có yêu cầu AI trả phí thật trong kiểm thử; chất lượng trên một chương thực tế cần kiểm tra sau khi người dùng nhập key của mình. Có từ APK 2.0.37.
