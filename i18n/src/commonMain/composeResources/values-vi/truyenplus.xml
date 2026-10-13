@@ -275,11 +275,7 @@
     <string name="tp_reader_pages">Lật trang</string>
     <string name="tp_reader_default_font">Mặc định</string>
     <string name="tp_reader_more_options">Thêm tùy chỉnh</string>
-    <string name="tp_edge_online">Trực tuyến · cần Internet</string>
-    <string name="tp_edge_hoaimy">Hoài My · Nữ</string>
-    <string name="tp_edge_namminh">Nam Minh · Nam</string>
     <string name="tp_system_voice">Giọng hệ thống</string>
-    <string name="tp_edge_fallback">Edge không phản hồi. Đang dùng giọng hệ thống.</string>
     <string name="tp_reader_appearance">Tùy chỉnh chữ</string>
     <string name="tp_book_about">Giới thiệu truyện</string>
     <string name="tp_book_metadata">Cập nhật thông tin</string>
@@ -350,4 +346,10 @@
     <string name="tp_settings_timer">Hẹn giờ</string>
     <string name="tp_system_serif">Có chân (Serif)</string>
     <string name="tp_system_sans">Không chân (Sans serif)</string>
+    <string name="tp_listening_paragraph">Đoạn %1$d / %2$d</string>
+    <string name="tp_listening_previous">Trước</string>
+    <string name="tp_listening_next">Sau</string>
+    <string name="tp_listening_active">Đang nghe</string>
+    <string name="tp_listening_paused">Tạm dừng</string>
+    <string name="tp_listening_preparing">Đang chuẩn bị…</string>
 </resources>

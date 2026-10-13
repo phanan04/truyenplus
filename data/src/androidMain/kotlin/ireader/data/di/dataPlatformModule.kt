@@ -29,11 +29,6 @@ import ireader.domain.monitoring.MemoryTracker
 import org.koin.dsl.module
 
 actual val dataPlatformModule = module {
-    single<ireader.domain.services.tts_service.v2.EdgeSpeechSynthesizer>(createdAtStart = false) {
-        ireader.data.tts.edge.EdgeSpeechClient(io.ktor.client.HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
-            install(io.ktor.client.plugins.websocket.WebSockets)
-        })
-    }
     // SqlDriver - LAZY: Database driver creation is expensive
     single<SqlDriver>(createdAtStart = false) { 
         DatabaseDriverFactory(get()).create() 

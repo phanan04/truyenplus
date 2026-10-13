@@ -7,7 +7,7 @@
 - Quản lý thư viện và tìm kiếm sách.
 - Đọc toàn bộ chương, tùy chỉnh font, cỡ chữ và màu nền.
 - Theo dõi tiến độ và lịch sử đọc.
-- Nghe truyện ngay trên trang đọc, chọn đoạn bắt đầu, nhạc nền từ file và hẹn giờ. Có Edge TTS: Hoài My và Nam Minh (cần Internet), kèm giọng hệ thống dự phòng.
+- Nghe truyện ngay trên trang đọc, chọn đoạn bắt đầu, nhạc nền từ file và hẹn giờ. Dùng giọng đọc hệ thống và chọn giọng có trên thiết bị.
 - Nhập EPUB/PDF và xuất EPUB.
 
 ## Tải và cập nhật

@@ -38,8 +38,9 @@ class ReaderMinimalistRenderTest {
             }
             Box(Modifier.align(Alignment.BottomCenter)) {
                 ReaderListeningDock(options,options={ReaderFloatingOptions("Giọng trên máy",1f,true,true,true,false,30,
-                    ListeningAudioState(supported=true,musicTitle="Nhạc trên máy.mp3",musicEnabled=true),{},{},{},{},{},{},{},{},{},{})},player={
-                    ReaderFloatingPlayer(false,1f,.3f,{},{},{},{},{},{},ListeningAudioState(supported=true))
+                    ListeningAudioState(supported=true,musicTitle="Nhạc trên máy.mp3",musicEnabled=true),{},{},{},{},{},{},{},{},{},{},onDismiss={})},player={
+                    if(options) ReaderCollapsedPlayer(true,{},{},{},{},voiceLabel="Giọng hệ thống")
+                    else ReaderFloatingPlayer(true,1.25f,.25f,{},{},{},{},{},{},onMinimize={},voiceLabel="Giọng hệ thống",chapterLabel="Chương 273: Luận Kiếm Thiếp",paragraphIndex=11,paragraphCount=48)
                 })
             }
         }

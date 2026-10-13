@@ -103,7 +103,6 @@ fun rememberTTSV2StateAdapter(
                 sleepTimeRemaining = sleepTimerState?.remainingTimeMs ?: 0L,
                 sleepModeEnabled = sleepTimerState?.isEnabled == true,
                 currentEngine = when (engineType) {
-                    EngineType.EDGE -> "Edge TTS"
                     EngineType.NATIVE -> "Native TTS"
                     EngineType.GRADIO -> "Gradio TTS"
                     EngineType.LOCAL -> "Local Server TTS"

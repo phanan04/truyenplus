@@ -35,10 +35,6 @@ actual object TTSEngineFactory : KoinComponent {
         )
     }
     
-    actual fun supportsEdge() = true
-    actual fun createEdgeEngine(voice: EdgeVoice): TTSEngine? = EdgeTTSEngine(
-        voice, getKoin().get<EdgeSpeechSynthesizer>(), AndroidEdgeAudioOutput(context))
-
     actual fun createNativeEngine(): TTSEngine {
         return AndroidNativeTTSEngineV2(context)
     }

@@ -49,7 +49,7 @@ val ttsV2Module = module {
     // Using single instead of factory to maintain state across the app
     // No ChapterController - TTS has its own independent state, sync happens via onPop
     single {
-        val preferences = get<ireader.domain.preferences.prefs.AppPreferences>()
+        get<ireader.domain.preferences.prefs.AppPreferences>().retireLegacyEdgeVoice()
         val localTTSManager = getOrNull<ireader.domain.services.tts_service.local.LocalTTSManager>()
         TTSController(
             contentLoader = get(),
@@ -62,10 +62,7 @@ val ttsV2Module = module {
                 }
             },
             initialLocalConfig = localTTSManager?.config?.value,
-            cacheUseCase = getOrNull(), // Optional - for offline playback of cached audio
-            edgeEngineFactory = { voice -> TTSEngineFactory.createEdgeEngine(voice) },
-            initialEdgeVoice = if (TTSEngineFactory.supportsEdge() && preferences.useEdgeTTS().get())
-                EdgeVoice.fromId(preferences.edgeTTSVoice().get()) else null
+            cacheUseCase = getOrNull() // Optional offline cache
         )
     }
     

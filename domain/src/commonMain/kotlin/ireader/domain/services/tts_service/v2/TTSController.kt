@@ -41,9 +41,7 @@ class TTSController(
     initialGradioConfig: GradioConfig? = null,
     private val localEngineFactory: ((ireader.domain.services.tts_service.local.LocalTTSConfig) -> TTSEngine?)? = null,
     initialLocalConfig: ireader.domain.services.tts_service.local.LocalTTSConfig? = null,
-    private val cacheUseCase: TTSCacheUseCase? = null,
-    private val edgeEngineFactory: ((EdgeVoice) -> TTSEngine?)? = null,
-    initialEdgeVoice: EdgeVoice? = null
+    private val cacheUseCase: TTSCacheUseCase? = null
 ) {
     // Mutable configs that can be updated at runtime
     private var gradioConfig: GradioConfig? = initialGradioConfig
@@ -106,10 +104,7 @@ class TTSController(
     private var nextChapterFetched: Boolean = false
     
     // State - single source of truth
-    private val _state = MutableStateFlow(TTSState(
-        engineType = if (initialEdgeVoice == null) EngineType.NATIVE else EngineType.EDGE,
-        edgeVoice = initialEdgeVoice ?: EdgeVoice.HoaiMy
-    ))
+    private val _state = MutableStateFlow(TTSState())
     val state: StateFlow<TTSState> = _state.asStateFlow()
     
     // Events - one-time occurrences.
@@ -129,7 +124,6 @@ class TTSController(
     
     // Flag to indicate a play is pending (waiting for engine ready)
     private var pendingPlay: Boolean = false
-    private var engineGeneration = 0
     private var engineEventsJob: kotlinx.coroutines.Job? = null
     
     // Pending chunk mode configuration (applied after content loads)
@@ -200,20 +194,7 @@ class TTSController(
             is TTSCommand.SetSpeed -> setSpeed(command.speed)
             is TTSCommand.SetPitch -> setPitch(command.pitch)
             is TTSCommand.SetAutoNextChapter -> setAutoNextChapter(command.enabled)
-            is TTSCommand.SetEngine -> {
-                _state.update { it.copy(edgeFallback = false) }
-                setEngine(command.type, command.force)
-            }
-            is TTSCommand.SetEdgeVoice -> {
-                val changed = _state.value.edgeVoice != command.voice
-                _state.update { it.copy(edgeVoice = command.voice, edgeFallback = false) }
-                disableChunkMode()
-                setEngine(EngineType.EDGE, changed)
-            }
-            is TTSCommand.FallbackEdge -> if (command.generation == engineGeneration && _state.value.engineType == EngineType.EDGE) {
-                _state.update { it.copy(edgeFallback = true) }
-                setEngine(EngineType.NATIVE)
-            }
+            is TTSCommand.SetEngine -> setEngine(command.type, command.force)
             is TTSCommand.SetGradioConfig -> setGradioConfig(command.config)
             is TTSCommand.SetLocalConfig -> setLocalConfig(command.config)
             
@@ -233,10 +214,6 @@ class TTSController(
         if (engine == null) {
             val currentEngineType = _state.value.engineType
             engine = when (currentEngineType) {
-                EngineType.EDGE -> edgeEngineFactory?.invoke(_state.value.edgeVoice) ?: run {
-                    _state.update { it.copy(engineType = EngineType.NATIVE, edgeFallback = true) }
-                    nativeEngineFactory()
-                }
                 EngineType.NATIVE -> {
                     Log.debug { "$TAG: Creating native engine" }
                     nativeEngineFactory()
@@ -376,10 +353,6 @@ class TTSController(
             is EngineEvent.Error -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
                 currentUtteranceId = null
-                if (_state.value.engineType == EngineType.EDGE) {
-                    dispatch(TTSCommand.FallbackEdge(engineGeneration))
-                    return@withLock
-                }
                 if (speechRetryCount == 0) {
                     speechRetryCount++
                     Log.warn { "$TAG: Retrying failed speech: ${event.message}" }
@@ -589,7 +562,7 @@ class TTSController(
                 speechRetryCount = 0
                 play()
             } else {
-                _state.update { it.copy(playbackState = if (it.engineType == EngineType.EDGE) PlaybackState.LOADING else PlaybackState.PLAYING) }
+                _state.update { it.copy(playbackState = PlaybackState.PLAYING) }
                 engine?.resume()
             }
         } else if (!currentState.isPlaying && !currentState.isLoading) {
@@ -1223,7 +1196,6 @@ class TTSController(
         pendingPlay = false
         currentUtteranceId = null
         speechRetryCount = 0
-        engineGeneration++
         
         Log.debug { "$TAG: setEngine($type) - switching from ${currentState.engineType}" }
         

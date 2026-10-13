@@ -81,7 +81,6 @@ kotlin {
                 api(libs.ktor.contentNegotiation.kotlinx)
                 
                 // Ktor WebSocket for sync data transfer (client-side only in common)
-                implementation("io.ktor:ktor-client-websockets:3.3.2")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:3.3.2")
                 
                 // Ktor compression for network optimization (Phase 10.2.1)

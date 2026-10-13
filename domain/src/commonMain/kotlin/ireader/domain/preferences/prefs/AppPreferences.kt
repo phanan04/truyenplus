@@ -264,8 +264,17 @@ class AppPreferences(
      */
     fun bookMetadataSource(bookId: Long): Preference<String> = preferenceStore.getString("book_metadata_source_$bookId", "")
 
-    fun useEdgeTTS(): Preference<Boolean> = preferenceStore.getBoolean("use_edge_tts", false)
-    fun edgeTTSVoice(): Preference<String> = preferenceStore.getString("edge_tts_voice", "vi-VN-HoaiMyNeural")
+    /** One-way migration; the retired engine must never override another saved engine. */
+    fun retireLegacyEdgeVoice() {
+        val enabled=preferenceStore.getBoolean("use_edge_tts",false)
+        if(enabled.get()) {
+            useGradioTTS().set(false)
+            useLocalTTS().set(false)
+        }
+        if(enabled.isSet())enabled.delete()
+        val voice=preferenceStore.getString("edge_tts_voice","")
+        if(voice.isSet())voice.delete()
+    }
 
     fun useLocalTTS(): Preference<Boolean> {
         return preferenceStore.getBoolean("use_local_tts", false)

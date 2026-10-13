@@ -3,11 +3,9 @@ package ireader.presentation.ui.truyenplus
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import kotlin.math.roundToInt
-import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -23,10 +21,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
-private val PlayerAccent: Color @Composable get() = MaterialTheme.colorScheme.primary
-private val PlayerSurface: Color @Composable get() = MaterialTheme.colorScheme.surface
-private val PlayerMuted: Color @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
-
 internal fun listeningSpeedLabel(speed: Float): String = speed.toString().removeSuffix(".0") + "x"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,61 +29,51 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit,
     onSpeed: (Float) -> Unit, onSettings: () -> Unit, onClose: () -> Unit,
     audio: ListeningAudioState = ListeningAudioState(), onVolume: (Float) -> Unit = {},
-    onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier, onMinimize: (() -> Unit)? = null) {
-    val s = requireNotNull(LocalLocalizeHelper.current)
-    Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).readerPanel(22),
-        shape = RoundedCornerShape(22.dp), color = Color.Transparent, contentColor = PlayerMuted,
-        shadowElevation = 0.dp) {
-        Column {
-            LinearProgressIndicator(progress = { progress.coerceIn(0f,1f) }, color = PlayerAccent,
-                trackColor = Color.Transparent, modifier = Modifier.fillMaxWidth().height(2.dp))
-            BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal=8.dp,vertical=8.dp)) {
-                val compact = maxWidth.value < 340f || maxWidth.value / LocalDensity.current.fontScale < 300f
-                val playback: @Composable () -> Unit = {
-                    Row(Modifier.width(if(compact) 144.dp else 156.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceEvenly) {
-                        IconButton(onClick=onPrevious,Modifier.size(48.dp)) { Icon(Icons.Default.SkipPrevious,s.localize(Res.string.tp_previous_chapter),Modifier.size(22.dp)) }
-                        FilledIconButton(onClick=onPlayPause,colors=IconButtonDefaults.filledIconButtonColors(containerColor=PlayerAccent,contentColor=MaterialTheme.colorScheme.onPrimary),modifier=Modifier.size(if(compact) 48.dp else 56.dp)) {
-                            Icon(if(isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying) Res.string.pause else Res.string.play),Modifier.size(34.dp))
-                        }
-                        IconButton(onClick=onNext,Modifier.size(48.dp)) { Icon(Icons.Default.SkipNext,s.localize(Res.string.tp_next_chapter),Modifier.size(22.dp)) }
-                    }
+    onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier, onMinimize: (() -> Unit)? = null,
+    voiceLabel:String="",chapterLabel:String="",paragraphIndex:Int=0,paragraphCount:Int=0,isLoading:Boolean=false) {
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    val colors=MaterialTheme.colorScheme
+    Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(26),
+        shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=colors.onSurface) {
+        Column(Modifier.padding(horizontal=12.dp,vertical=4.dp)) {
+            Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Outlined.Headphones,null,Modifier.size(20.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(voiceLabel.ifBlank{s.localize(Res.string.tp_system_voice)},style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    if(chapterLabel.isNotBlank())Text(chapterLabel,style=MaterialTheme.typography.labelSmall,color=colors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
                 }
-                val tools: @Composable RowScope.() -> Unit = {
-                    if(!compact) Surface(onClick=onMusicToggle,enabled=audio.supported,modifier=Modifier.weight(1f).wrapContentWidth(Alignment.Start).widthIn(max=104.dp).heightIn(min=48.dp),shape=CircleShape,
-                        color=if(audio.musicEnabled) PlayerAccent.copy(alpha=.18f) else MaterialTheme.colorScheme.onSurface.copy(alpha=.06f)) {
-                        Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.GraphicEq,s.localize(Res.string.tp_background_music),tint=if(audio.musicEnabled) PlayerAccent else PlayerMuted) }
-                    }
-                    IconButton(onClick=onSettings,Modifier.size(48.dp)) { Icon(Icons.Outlined.Settings,s.localize(Res.string.tp_listening_settings)) }
-                    IconButton(onClick=onMinimize ?: onClose,Modifier.size(48.dp).testTag(if(onMinimize!=null) "listen-minimize" else "listen-close")) { Icon(if(onMinimize!=null) Icons.Default.KeyboardArrowDown else Icons.Default.Close,s.localize(if(onMinimize!=null)Res.string.tp_collapse_player else Res.string.tp_close_listening)) }
-                }
-                val volume: @Composable () -> Unit = {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        if(compact) IconButton(onClick=onMusicToggle,enabled=audio.supported) { Icon(Icons.Outlined.GraphicEq,s.localize(Res.string.tp_background_music),tint=if(audio.musicEnabled) PlayerAccent else PlayerMuted) }
-                        Icon(Icons.Outlined.VolumeUp,s.localize(Res.string.tp_speech_volume),Modifier.size(16.dp))
-                        Slider(audio.speechVolume,onVolume,modifier=Modifier.weight(1f).heightIn(min=48.dp),enabled=audio.supported,
-                            thumb={Box(Modifier.size(12.dp).background(PlayerAccent,CircleShape))},
-                            track={SliderDefaults.Track(it,modifier=Modifier.height(3.dp),colors=SliderDefaults.colors(activeTrackColor=PlayerAccent,inactiveTrackColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.2f)))})
-                    }
-                }
-                if(compact) Column {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) { Box(Modifier.weight(1f)) { playback() };tools() }
-                    volume()
-                } else Row(verticalAlignment=Alignment.CenterVertically) {
-                    playback();VerticalDivider(Modifier.height(72.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.12f))
-                    Column(Modifier.weight(1f).padding(start=8.dp)) { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,content=tools);volume() }
+                IconButton(onClick=onSettings,Modifier.size(48.dp).testTag("listen-settings")){Icon(Icons.Outlined.Settings,s.localize(Res.string.tp_listening_settings))}
+                IconButton(onClick=onMinimize ?: onClose,Modifier.size(48.dp).testTag(if(onMinimize!=null)"listen-minimize" else "listen-close")) {
+                    Icon(if(onMinimize!=null)Icons.Default.KeyboardArrowDown else Icons.Default.Close,s.localize(if(onMinimize!=null)Res.string.tp_collapse_player else Res.string.tp_close_listening))
                 }
             }
-            HorizontalDivider(Modifier.padding(horizontal = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .1f))
-            val density = LocalDensity.current
-            val speedScroll = rememberScrollState(initial = with(density) { 100.dp.roundToPx() })
-            Row(Modifier.horizontalScroll(speedScroll).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for (step in 2..12) {
-                    val value = step * .25f
-                    val selected = kotlin.math.abs(speed - value) < .01f
-                    Surface(onClick = { onSpeed(value) }, shape = RoundedCornerShape(10.dp),
-                        color = if (selected) PlayerAccent else Color.Transparent,
-                        modifier = Modifier.width((48f * LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).heightIn(min=48.dp).semantics { this.selected = selected }) {
-                        Box(contentAlignment = Alignment.Center) { Text(listeningSpeedLabel(value), maxLines=1, softWrap=false, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selected) MaterialTheme.colorScheme.onPrimary else PlayerMuted) }
+            LinearProgressIndicator(progress={progress.coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().height(3.dp).semantics {contentDescription=s.localize(Res.string.tp_progress)},
+                color=colors.onSurface,trackColor=colors.onSurface.copy(alpha=.15f),drawStopIndicator={})
+            if(paragraphCount>0)Text(s.localize(Res.string.tp_listening_paragraph,(paragraphIndex+1).coerceIn(1,paragraphCount),paragraphCount),
+                Modifier.padding(top=6.dp),style=MaterialTheme.typography.labelSmall,color=colors.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().height(84.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceEvenly) {
+                Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    IconButton(onClick=onPrevious,modifier=Modifier.size(48.dp).testTag("listen-previous-chapter")){Icon(Icons.Default.SkipPrevious,s.localize(Res.string.tp_previous_chapter))}
+                    Text(s.localize(Res.string.tp_listening_previous),style=MaterialTheme.typography.labelSmall,maxLines=1)
+                }
+                FilledIconButton(onClick=onPlayPause,modifier=Modifier.size(56.dp).testTag("listen-play").semantics { if(isLoading)contentDescription=s.localize(Res.string.tp_listening_preparing) },colors=IconButtonDefaults.filledIconButtonColors(containerColor=colors.onSurface,contentColor=colors.surface)) {
+                    if(isLoading)CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp,color=colors.surface)
+                    else Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play),Modifier.size(30.dp))
+                }
+                Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                    IconButton(onClick=onNext,modifier=Modifier.size(48.dp).testTag("listen-next-chapter")){Icon(Icons.Default.SkipNext,s.localize(Res.string.tp_next_chapter))}
+                    Text(s.localize(Res.string.tp_listening_next),style=MaterialTheme.typography.labelSmall,maxLines=1)
+                }
+            }
+            val density=LocalDensity.current
+            val speedScroll=rememberScrollState(initial=with(density){100.dp.roundToPx()})
+            Row(Modifier.fillMaxWidth().horizontalScroll(speedScroll).padding(vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                for(step in 2..12) {
+                    val value=step*.25f;val selected=kotlin.math.abs(speed-value)<.01f
+                    Surface(onClick={onSpeed(value)},shape=RoundedCornerShape(14.dp),color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
+                        contentColor=if(selected)colors.surface else colors.onSurface,
+                        modifier=Modifier.width((48f*density.fontScale.coerceAtLeast(1f)).dp).height(48.dp).semantics {this.selected=selected}) {
+                        Box(contentAlignment=Alignment.Center){Text(listeningSpeedLabel(value),fontSize=12.sp,maxLines=1,softWrap=false,fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)}
                     }
                 }
             }
@@ -103,43 +87,70 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     timer: Boolean, minutes: Int, audio: ListeningAudioState,
     onVoice: () -> Unit, onMusic: () -> Unit, onMusicEnabled: (Boolean) -> Unit, onMusicVolume: (Float) -> Unit,
     onPitch: (Float) -> Unit, onAutoNext: (Boolean) -> Unit, onHighlight: (Boolean) -> Unit, onAutoScroll: (Boolean) -> Unit,
-    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "") {
+    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "", onDismiss:(()->Unit)?=null,onSpeechVolume:(Float)->Unit={}) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
     Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,shape=RoundedCornerShape(20.dp)) {
         Column {
+            Row(Modifier.fillMaxWidth().height(48.dp).padding(start=18.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                Text(s.localize(Res.string.tp_listening_settings),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                if(onDismiss!=null)IconButton(onClick=onDismiss,modifier=Modifier.size(48.dp).testTag("listen-options-close")){Icon(Icons.Default.Close,s.localize(Res.string.close))}
+            }
             ReaderSettingsTabs(listOf(s.localize(Res.string.tp_settings_voice),s.localize(Res.string.tp_settings_music),s.localize(Res.string.tp_reading_tab),s.localize(Res.string.tp_settings_timer)),listOf("voice","music","reading","timer"),page,{page=it},"listen-page")
-            Box(Modifier.fillMaxWidth().height(160.dp).padding(horizontal=14.dp,vertical=4.dp)) {
+            BoxWithConstraints(Modifier.fillMaxWidth().height(208.dp).padding(horizontal=14.dp,vertical=4.dp)) {
+                val wideShort=maxWidth>=400.dp && maxHeight<184.dp
+                val speechVolume:@Composable ()->Unit={
+                    Column {
+                        if(!wideShort)Text(s.localize(Res.string.tp_speech_volume),style=MaterialTheme.typography.labelSmall,maxLines=1)
+                        Row(Modifier.height(56.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.VolumeDown,null,Modifier.size(18.dp))
+                            Slider(audio.speechVolume.coerceIn(0f,1f),onSpeechVolume,modifier=Modifier.weight(1f).height(52.dp).testTag("listen-speech-volume").semantics {contentDescription=s.localize(Res.string.tp_speech_volume)})
+                            Icon(Icons.Outlined.VolumeUp,null,Modifier.size(18.dp))
+                        }
+                    }
+                }
                 when(page) {
-                    0 -> Column {
-                        OutlinedButton(onClick=onVoice,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("listen-voice-choice"),shape=RoundedCornerShape(12.dp)) {
+                    0 -> {
+                        val voiceControls:@Composable ()->Unit={
+                        OutlinedButton(onClick=onVoice,modifier=Modifier.fillMaxWidth().height(48.dp).testTag("listen-voice-choice"),contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp),shape=RoundedCornerShape(12.dp)) {
                             Icon(Icons.Outlined.Mic,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp))
                             Text(voice.ifBlank{s.localize(Res.string.tp_choose_voice)},Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis)
                             Icon(Icons.Default.ExpandMore,null)
                         }
                         Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Text(s.localize(Res.string.tp_pitch,listeningSpeedLabel(pitch).removeSuffix("x")),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                            Text(if(wideShort)listeningSpeedLabel(pitch) else s.localize(Res.string.tp_pitch,listeningSpeedLabel(pitch).removeSuffix("x")),Modifier.weight(1f).semantics {contentDescription=s.localize(Res.string.tp_pitch,listeningSpeedLabel(pitch).removeSuffix("x"))},style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
                             IconButton(onClick={onPitch(((pitch*4).roundToInt()-1).coerceIn(2,8)/4f)},enabled=pitch>.5f,modifier=Modifier.size(48.dp).testTag("listen-pitch-decrease")){Text("−")}
                             IconButton(onClick={onPitch(((pitch*4).roundToInt()+1).coerceIn(2,8)/4f)},enabled=pitch<2f,modifier=Modifier.size(48.dp).testTag("listen-pitch-increase")){Text("+")}
                         }
-                        if(notice.isNotBlank())Text(notice,style=MaterialTheme.typography.labelSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                        }
+                        if(wideShort)Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Column(Modifier.weight(1f)){voiceControls()};Box(Modifier.weight(1f)){speechVolume()}}
+                        else Column {voiceControls();speechVolume()}
                     }
-                    1 -> Column {
-                        OutlinedButton(onClick=onMusic,enabled=audio.supported,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("listen-music-choice"),shape=RoundedCornerShape(12.dp)) {
+                    1 -> {
+                        val musicChoice:@Composable ()->Unit={
+                        OutlinedButton(onClick=onMusic,enabled=audio.supported,modifier=Modifier.fillMaxWidth().height(48.dp).testTag("listen-music-choice"),contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp),shape=RoundedCornerShape(12.dp)) {
                             Icon(Icons.Outlined.MusicNote,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp))
                             Text(if(audio.musicError)s.localize(Res.string.tp_music_error) else audio.musicTitle.ifBlank{s.localize(Res.string.tp_choose_music)},Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis,color=if(audio.musicError)MaterialTheme.colorScheme.error else LocalContentColor.current)
                             Icon(Icons.Default.ExpandMore,null)
                         }
                         ReaderSettingSwitch(s.localize(Res.string.tp_background_music),audio.musicEnabled,onMusicEnabled,enabled=audio.supported && audio.musicTitle.isNotBlank())
-                        Row(Modifier.height(48.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.VolumeUp,null,Modifier.size(18.dp))
-                            Slider(audio.musicVolume,onMusicVolume,enabled=audio.supported,modifier=Modifier.weight(1f).semantics {contentDescription=s.localize(Res.string.tp_music_volume)})
                         }
+                        val musicVolume:@Composable ()->Unit={
+                        Row(Modifier.height(56.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.VolumeUp,null,Modifier.size(18.dp))
+                            Slider(audio.musicVolume,onMusicVolume,enabled=audio.supported,modifier=Modifier.weight(1f).height(52.dp).semantics {contentDescription=s.localize(Res.string.tp_music_volume)})
+                        }
+                        }
+                        if(wideShort)Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Column(Modifier.weight(1f)){musicChoice()};Box(Modifier.weight(1f)){musicVolume()}}
+                        else Column {musicChoice();musicVolume()}
                     }
-                    2 -> Column {
+                    2 -> {
+                        val followChoices:@Composable ()->Unit={
                         ReaderSettingSwitch(s.localize(Res.string.tp_auto_next),autoNext,onAutoNext)
                         ReaderSettingSwitch(s.localize(Res.string.tp_highlight_paragraph),highlight,onHighlight)
-                        ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)
+                        }
+                        if(wideShort)Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Column(Modifier.weight(1f)){followChoices()};Box(Modifier.weight(1f)){ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)}}
+                        else Column {followChoices();ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)}
                     }
                     else -> Column {
                         ReaderSettingSwitch(s.localize(Res.string.tp_sleep_timer),timer,onTimer)
@@ -156,13 +167,19 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
 }
 
 @Composable
-fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,onSettings:()->Unit,onClose:()->Unit,modifier:Modifier=Modifier) {
+fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,onSettings:()->Unit,onClose:()->Unit,modifier:Modifier=Modifier,voiceLabel:String="",isLoading:Boolean=false) {
  val s=requireNotNull(LocalLocalizeHelper.current)
  Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(22).testTag("listen-collapsed"),shape=RoundedCornerShape(22.dp),color=Color.Transparent) {
   Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
    IconButton(onClick=onExpand,modifier=Modifier.size(48.dp).testTag("listen-expand")){Icon(Icons.Default.KeyboardArrowUp,s.localize(Res.string.tp_expand_player))}
-   Text(s.localize(Res.string.tp_listen_book),Modifier.weight(1f),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
-   IconButton(onClick=onPlay,modifier=Modifier.size(48.dp).testTag("listen-play")){Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play))}
+   Column(Modifier.weight(1f)) {
+    Text(s.localize(if(isLoading)Res.string.tp_listening_preparing else if(isPlaying)Res.string.tp_listening_active else Res.string.tp_listening_paused),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+    if(LocalDensity.current.fontScale<1.5f)Text(voiceLabel.ifBlank{s.localize(Res.string.tp_system_voice)},style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+   }
+   FilledIconButton(onClick=onPlay,modifier=Modifier.size(48.dp).testTag("listen-play").semantics { if(isLoading)contentDescription=s.localize(Res.string.tp_listening_preparing) },colors=IconButtonDefaults.filledIconButtonColors(containerColor=MaterialTheme.colorScheme.onSurface,contentColor=MaterialTheme.colorScheme.surface)){
+    if(isLoading)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp,color=MaterialTheme.colorScheme.surface)
+    else Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play))
+   }
    IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("listen-settings")){Icon(Icons.Outlined.Settings,s.localize(Res.string.settings))}
    IconButton(onClick=onClose,modifier=Modifier.size(48.dp).testTag("listen-close")){Icon(Icons.Default.Close,s.localize(Res.string.close))}
   }

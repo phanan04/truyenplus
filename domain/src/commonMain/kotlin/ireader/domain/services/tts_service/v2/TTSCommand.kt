@@ -47,8 +47,6 @@ sealed class TTSCommand {
     data class SetPitch(val pitch: Float) : TTSCommand()
     data class SetAutoNextChapter(val enabled: Boolean) : TTSCommand()
     data class SetEngine(val type: EngineType, val force: Boolean = false) : TTSCommand()
-    data class SetEdgeVoice(val voice: EdgeVoice) : TTSCommand()
-    internal data class FallbackEdge(val generation: Int) : TTSCommand()
     data class SetGradioConfig(val config: GradioConfig) : TTSCommand()
     data class SetLocalConfig(val config: ireader.domain.services.tts_service.local.LocalTTSConfig) : TTSCommand()
     

@@ -37,8 +37,6 @@ data class TTSState(
     // Engine info
     val engineType: EngineType = EngineType.NATIVE,
     val isEngineReady: Boolean = false,
-    val edgeVoice: EdgeVoice = EdgeVoice.HoaiMy,
-    val edgeFallback: Boolean = false,
     
     // Sentence highlighting
     val paragraphStartTime: Long = 0L,
@@ -107,7 +105,6 @@ enum class EngineType {
     NATIVE,     // Platform native TTS (Android TTS, AVSpeechSynthesizer, etc.)
     GRADIO,     // Remote Gradio-based TTS (Coqui, etc.)
     LOCAL,      // Local / Remote HTTP TTS Server (Chatterbox Persian, OpenAI format, etc.)
-    EDGE        // Online Vietnamese neural voices
 }
 
 /**

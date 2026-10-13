@@ -86,7 +86,6 @@ import ireader.domain.services.tts_service.TTSChapterDownloadManager
 import ireader.domain.services.tts_service.TTSTextMerger
 import ireader.domain.services.tts_service.createTTSDownloadIntentProvider
 import ireader.domain.services.chapter.ChapterNotifier
-import ireader.domain.services.tts_service.v2.EdgeVoice
 import ireader.domain.services.tts_service.v2.TTSEngineFactory
 import ireader.domain.services.tts_service.v2.EngineType
 import ireader.domain.services.tts_service.v2.GradioConfig
@@ -229,7 +228,6 @@ class TTSV2ScreenSpec(
         var fullScreenMode by remember { mutableStateOf(true) }
         var showEngineSettings by remember { mutableStateOf(false) }
         var showVoiceSelection by remember { mutableStateOf(false) }
-        var showVoiceChoices by remember { mutableStateOf(false) }
         var showSleepTimerDialog by remember { mutableStateOf(false) }
         
         // Translation state
@@ -289,12 +287,7 @@ class TTSV2ScreenSpec(
             derivedStateOf { savedGradioConfigId.ifEmpty { "coqui_ireader" } }
         }
 
-        val useEdgeTTS by appPreferences.useEdgeTTS().changes().collectAsState(initial = appPreferences.useEdgeTTS().get())
-        val edgeVoiceId by appPreferences.edgeTTSVoice().changes().collectAsState(initial = appPreferences.edgeTTSVoice().get())
-        LaunchedEffect(useEdgeTTS, edgeVoiceId) {
-            if (useEdgeTTS) viewModel.adapter.useEdgeTTS(EdgeVoice.fromId(edgeVoiceId))
-            else if (viewModel.adapter.state.value.engineType == EngineType.EDGE) viewModel.adapter.useNativeTTS()
-        }
+
 
         // Local Server TTS state
         val useLocalTTS by appPreferences.useLocalTTS().changes().collectAsState(
@@ -511,9 +504,7 @@ class TTSV2ScreenSpec(
             }
             
             // Configure Local Server TTS or Gradio TTS if enabled
-            if (useEdgeTTS && !alreadyLoaded) {
-                viewModel.adapter.useEdgeTTS(EdgeVoice.fromId(edgeVoiceId))
-            } else if (useLocalTTS && !alreadyLoaded) {
+            if (useLocalTTS && !alreadyLoaded) {
                 Log.warn { "TTSV2ScreenSpec: Configuring Local Server TTS" }
                 val localConfig = localTTSManager.config.value
                 viewModel.adapter.useLocalTTS(localConfig)
@@ -544,7 +535,7 @@ class TTSV2ScreenSpec(
                 } else {
                     Log.warn { "TTSV2ScreenSpec: Gradio config not found: $activeGradioConfigId" }
                 }
-            } else if (!useEdgeTTS && !useGradioTTS && !useLocalTTS && !alreadyLoaded) {
+            } else if (!useGradioTTS && !useLocalTTS && !alreadyLoaded) {
                 // Native TTS - enable chunk mode if configured
                 if (mergeWordsNative > 0) {
                     viewModel.adapter.enableChunkMode(mergeWordsNative)
@@ -662,9 +653,7 @@ class TTSV2ScreenSpec(
             
             Log.warn { "TTSV2ScreenSpec: TTS settings changed - config=$activeGradioConfigId, useGradio=$useGradioTTS, useLocal=$useLocalTTS" }
             
-            if (useEdgeTTS) {
-                viewModel.adapter.useEdgeTTS(EdgeVoice.fromId(edgeVoiceId))
-            } else if (useLocalTTS) {
+            if (useLocalTTS) {
                 Log.warn { "TTSV2ScreenSpec: Switched to Local Server TTS" }
                 viewModel.adapter.useLocalTTS(localTTSManager.config.value)
             } else if (useGradioTTS && activeGradioConfigId.isNotEmpty()) {
@@ -714,7 +703,7 @@ class TTSV2ScreenSpec(
             
             Log.warn { "TTSV2ScreenSpec: Merge words remote changed to $mergeWordsRemote" }
             
-            if (!useEdgeTTS && useGradioTTS && state.hasContent) {
+            if (useGradioTTS && state.hasContent) {
                 if (mergeWordsRemote > 0) {
                     // Re-enable chunk mode with new word count
                     viewModel.adapter.enableChunkMode(mergeWordsRemote)
@@ -735,7 +724,7 @@ class TTSV2ScreenSpec(
             
             Log.warn { "TTSV2ScreenSpec: Merge words native changed to $mergeWordsNative" }
             
-            if (!useEdgeTTS && !useGradioTTS && state.hasContent) {
+            if (!useGradioTTS && state.hasContent) {
                 if (mergeWordsNative > 0) {
                     // Re-enable chunk mode with new word count
                     viewModel.adapter.enableChunkMode(mergeWordsNative)
@@ -1031,7 +1020,6 @@ class TTSV2ScreenSpec(
                     sleepModeEnabled = sleepTimerState?.isEnabled == true,
                     selectedVoiceModel = selectedPiperModel.takeIf { it.isNotEmpty() },
                     currentEngine = when (state.engineType) {
-                        EngineType.EDGE -> "Edge TTS"
                         EngineType.NATIVE -> "Native TTS"
                         EngineType.GRADIO -> "Gradio TTS"
                         EngineType.LOCAL -> "Local Server TTS"
@@ -1058,8 +1046,7 @@ class TTSV2ScreenSpec(
                 // Restart service for notification when playing
                 val chId = state.chapter?.id ?: chapterId
                 serviceStarter.startService(bookId, chId, state.currentParagraphIndex)
-                if (state.isPaused && state.engineType == EngineType.EDGE) viewModel.adapter.resume()
-                else viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
+                viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
             }
             override fun onPause() { viewModel.adapter.pause() }
             override fun onNextParagraph() {
@@ -1165,13 +1152,13 @@ class TTSV2ScreenSpec(
             val audio = ireader.presentation.ui.truyenplus.rememberListeningAudio(viewModel.adapter)
             val audioState by audio.state.collectAsState()
             ireader.presentation.ui.truyenplus.ReaderListeningDock(optionsOpen, options = { ireader.presentation.ui.truyenplus.ReaderFloatingOptions(
-                    voice = if (state.engineType == EngineType.EDGE) when (state.edgeVoice) {
-                        EdgeVoice.HoaiMy -> "Edge · Hoài My"
-                        EdgeVoice.NamMinh -> "Edge · Nam Minh"
-                    } else voiceName.ifBlank { localizeHelper.localize(Res.string.tp_system_voice) },
+                    voice = voiceName.ifBlank { localizeHelper.localize(Res.string.tp_system_voice) },
                     pitch = state.pitch, autoNext = state.autoNextChapter, highlight = highlight, autoScroll = follow,
                     timer = sleepModeEnabled, minutes = sleepTimeMinutes, audio = audioState,
-                    onVoice = { showVoiceChoices = true }, onMusic = audio::chooseMusic,
+                    onVoice = {
+                        appPreferences.useGradioTTS().set(false);appPreferences.useLocalTTS().set(false)
+                        viewModel.adapter.useNativeTTS();showVoiceSelection=true
+                    }, onMusic = audio::chooseMusic,
                     onMusicEnabled = audio::musicEnabled, onMusicVolume = audio::musicVolume,
                     onPitch = viewModel.adapter::setPitch, onAutoNext = viewModel.adapter::setAutoNextChapter,
                     onHighlight = { readerPreferences.ttsHighlightText().set(it) },
@@ -1182,40 +1169,28 @@ class TTSV2ScreenSpec(
                     }, onMinutes = {
                         sleepTimeMinutes = it; readerPreferences.sleepTime().set(it.toLong())
                         if (sleepModeEnabled) viewModel.startSleepTimer(it)
-                    }, notice = if (state.edgeFallback) localizeHelper.localize(Res.string.tp_edge_fallback) else "")
+                    }, onDismiss = { panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening) },
+                    onSpeechVolume = audio::speechVolume)
                 }, player = {
                 if(panels.minimized || optionsOpen || panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Appearance) ireader.presentation.ui.truyenplus.ReaderCollapsedPlayer(
-                    isPlaying || state.isLoading,
+                    isPlaying,
                     { if(isPlaying || state.isLoading)actions.onPause() else actions.onPlay() },
                     { panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);panels.expand() },
                     ::toggleOptions,onCloseListening,
-                    Modifier.onSizeChanged { onPlayerHeightChanged(it.height) })
+                    Modifier.onSizeChanged { onPlayerHeightChanged(it.height) },
+                    voiceLabel = voiceName, isLoading = state.isLoading)
                 else ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
-                    isPlaying || state.isLoading, state.speed, screenState.progressFraction,
+                    isPlaying, state.speed, screenState.progressFraction,
                     actions::onPreviousChapter, { if (isPlaying || state.isLoading) actions.onPause() else actions.onPlay() },
                     actions::onNextChapter, actions::onSpeedChange,
                     ::toggleOptions, onCloseListening,
                     audioState, audio::speechVolume,
                     { if (audioState.musicTitle.isBlank()) audio.chooseMusic() else audio.musicEnabled(!audioState.musicEnabled) },
-                    modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) },onMinimize=panels::minimize)
+                    modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) }, onMinimize = panels::minimize,
+                    voiceLabel = voiceName, chapterLabel = state.chapter?.name.orEmpty(),
+                    paragraphIndex = screenState.currentReadingParagraph, paragraphCount = screenState.contentSize,
+                    isLoading = state.isLoading)
             })
-            if (showVoiceChoices) ireader.presentation.ui.truyenplus.ReaderVoiceChoiceDialog(
-                edgeSupported = TTSEngineFactory.supportsEdge(),
-                selected = if (state.engineType == EngineType.EDGE) state.edgeVoice else null,
-                onEdge = { voice ->
-                    appPreferences.edgeTTSVoice().set(voice.id)
-                    appPreferences.useEdgeTTS().set(true)
-                    appPreferences.useGradioTTS().set(false)
-                    appPreferences.useLocalTTS().set(false)
-                    viewModel.adapter.useEdgeTTS(voice)
-                    showVoiceChoices = false
-                }, onSystem = {
-                    appPreferences.useEdgeTTS().set(false)
-                    appPreferences.useGradioTTS().set(false)
-                    appPreferences.useLocalTTS().set(false)
-                    viewModel.adapter.useNativeTTS()
-                    showVoiceChoices = false; showVoiceSelection = true
-                }, onDismiss = { showVoiceChoices = false })
             if (showVoiceSelection) TTSVoiceSelectionScreen(isDesktop = isTabletOrDesktop, onDismiss = {
                 showVoiceSelection = false
                 val selectedName = runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")
@@ -1358,8 +1333,7 @@ class TTSV2ScreenSpec(
                         onPlayPause = {
                             if (isPlaying) viewModel.adapter.pause() else {
                                 serviceStarter.startService(bookId, state.chapter?.id ?: chapterId, state.currentParagraphIndex)
-                                if (state.isPaused && state.engineType == EngineType.EDGE) viewModel.adapter.resume()
-                                else viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
+                                viewModel.adapter.play(autoNextChapter = state.autoNextChapter)
                             }
                         },
                         onNext = { if (state.chunkModeEnabled) viewModel.adapter.nextChunk() else viewModel.adapter.nextParagraph() },

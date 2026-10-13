@@ -50,7 +50,8 @@ fun ReaderListenChapterScreen(state: CommonTTSScreenState, actions: CommonTTSAct
                 isTabletOrDesktop = isTabletOrDesktop, modifier = Modifier.weight(1f))
             ReaderFloatingPlayer(state.isPlaying, state.speechSpeed, state.progressFraction,
                 actions::onPreviousChapter, { if (state.isPlaying) actions.onPause() else actions.onPlay() },
-                actions::onNextChapter, actions::onSpeedChange, onSettings, actions::onPause)
+                actions::onNextChapter, actions::onSpeedChange, onSettings, actions::onPause,
+                chapterLabel = state.chapterName, paragraphIndex = state.currentReadingParagraph, paragraphCount = state.contentSize)
 
         }
     }

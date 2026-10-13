@@ -232,10 +232,6 @@ class TTSViewModelAdapter(
 
     fun resume() { controller.dispatch(TTSCommand.Resume) }
 
-    fun useEdgeTTS(voice: EdgeVoice) {
-        controller.dispatch(TTSCommand.SetEdgeVoice(voice))
-    }
-    
     fun useGradioTTS(config: GradioConfig) {
         setGradioConfig(config)
         setEngine(EngineType.GRADIO)

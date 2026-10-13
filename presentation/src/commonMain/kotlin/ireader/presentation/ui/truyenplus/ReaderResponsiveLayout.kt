@@ -29,7 +29,7 @@ fun ReaderContentPane(maxWidth: Dp = 1120.dp, content: @Composable () -> Unit) {
     }
 }
 
-/** Keep playback reachable while the expanded options scroll in the remaining height. */
+/** Keep playback reachable while fixed settings pages fit the remaining height. */
 @Composable
 fun ReaderListeningDock(optionsOpen: Boolean, options: @Composable () -> Unit, player: @Composable () -> Unit) {
     Column(Modifier.widthIn(max=760.dp).fillMaxWidth().heightIn(max=(LocalReaderViewport.current.height-32.dp).coerceAtLeast(48.dp))) {

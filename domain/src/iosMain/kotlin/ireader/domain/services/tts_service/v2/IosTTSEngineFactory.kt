@@ -12,8 +12,6 @@ import platform.darwin.NSObject
  * iOS implementation of TTS Engine Factory for v2 architecture
  */
 actual object TTSEngineFactory {
-    actual fun supportsEdge() = false
-    actual fun createEdgeEngine(voice: EdgeVoice): TTSEngine? = null
 
     actual fun createNativeEngine(): TTSEngine {
         return IosTTSEngineV2()

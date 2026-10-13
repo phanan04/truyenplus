@@ -275,11 +275,7 @@
     <string name="tp_reader_pages">Pages</string>
     <string name="tp_reader_default_font">Default</string>
     <string name="tp_reader_more_options">More settings</string>
-    <string name="tp_edge_online">Online · requires internet</string>
-    <string name="tp_edge_hoaimy">Hoài My · Female</string>
-    <string name="tp_edge_namminh">Nam Minh · Male</string>
     <string name="tp_system_voice">System voice</string>
-    <string name="tp_edge_fallback">Edge is unavailable. Using the system voice.</string>
     <string name="tp_reader_appearance">Reading appearance</string>
     <string name="tp_book_about">About this story</string>
     <string name="tp_book_metadata">Update book information</string>
@@ -350,4 +346,10 @@
     <string name="tp_settings_timer">Timer</string>
     <string name="tp_system_serif">Serif</string>
     <string name="tp_system_sans">Sans serif</string>
+    <string name="tp_listening_paragraph">Passage %1$d / %2$d</string>
+    <string name="tp_listening_previous">Previous</string>
+    <string name="tp_listening_next">Next</string>
+    <string name="tp_listening_active">Listening</string>
+    <string name="tp_listening_paused">Paused</string>
+    <string name="tp_listening_preparing">Preparing voice…</string>
 </resources>
