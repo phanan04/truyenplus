@@ -11,7 +11,12 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.*
 import okio.BufferedSink
 
+class ShelfPublicCredentials(val key:String,val packageName:String,val certificateSha1:String)
+
+expect fun createShelfPublicCredentials():ShelfPublicCredentials?
+
 interface ShelfDriveApi {
+    val publicAccess:Boolean get()=false
     suspend fun folder(link: DriveFolderLink): DriveItem
     suspend fun page(cursor: ShelfCursor): DrivePage
     suspend fun download(entry: ShelfEntry,sink: BufferedSink,onProgress:(Long,Long?)->Unit)
@@ -19,22 +24,30 @@ interface ShelfDriveApi {
 data class DrivePage(val items:List<DriveItem>,val nextToken:String?)
 
 /** Drive v3 only: bounded page reads and streaming media, no cookies/web scraping. */
-class DriveShelfApi(private val http: HttpClient,private val access:ShelfAccess):ShelfDriveApi {
+class DriveShelfApi(private val http: HttpClient,private val access:ShelfAccess,private val publicCredentials:()->ShelfPublicCredentials?={null}):ShelfDriveApi {
+    override val publicAccess:Boolean get()=publicCredentials()!=null
+    private suspend fun HttpRequestBuilder.authorize() {
+        val credentials=publicCredentials()
+        if(credentials!=null) {
+            parameter("key",credentials.key)
+            header("X-Android-Package",credentials.packageName)
+            header("X-Android-Cert",credentials.certificateSha1)
+        } else header(HttpHeaders.Authorization,"Bearer ${access.token()}")
+    }
     private val json=Json { ignoreUnknownKeys=true }
     private suspend fun request(path:String,keyId:String,key:String?,params:Map<String,String>,block:suspend (HttpResponse)->Unit) {
         repeat(4) { attempt ->
             var retry=false
             withTimeout(60_000) {
-                val token=access.token()
                 http.prepareGet("https://www.googleapis.com/drive/v3/$path") {
-                    header(HttpHeaders.Authorization,"Bearer $token")
+                    authorize()
                     if(!key.isNullOrBlank()) header("X-Goog-Drive-Resource-Keys","$keyId/$key")
                     params.forEach { (k,v)->parameter(k,v) }
                 }.execute { response ->
                     when(response.status.value) {
                         200 -> block(response)
                         400 -> throw ShelfException(if(params.containsKey("pageToken"))ShelfFailure.InvalidCursor else ShelfFailure.Network)
-                        401 -> {access.invalidate();throw ShelfException(ShelfFailure.Authentication)}
+                        401 -> {if(!publicAccess)access.invalidate();throw ShelfException(if(publicAccess)ShelfFailure.Configuration else ShelfFailure.Authentication)}
                         403 -> {
                             val error=response.bodyAsText().take(10000)
                             if("rateLimitExceeded" in error || "userRateLimitExceeded" in error) retry=true
@@ -79,13 +92,12 @@ class DriveShelfApi(private val http: HttpClient,private val access:ShelfAccess)
         if(entry.size>MAX_EPUB_BYTES)throw ShelfException(ShelfFailure.FileTooLarge)
         // Media is not retried into a partially written file. Caller cleans up and retries explicitly.
         withTimeout(30*60_000L) {
-            val token=access.token()
             http.prepareGet("https://www.googleapis.com/drive/v3/files/${entry.fileId}") {
-                header(HttpHeaders.Authorization,"Bearer $token")
+                authorize()
                 entry.resourceKey?.let { header("X-Goog-Drive-Resource-Keys","${entry.fileId}/$it") }
                 parameter("alt","media");parameter("supportsAllDrives","true")
             }.execute { r ->
-                if(r.status.value==401){access.invalidate();throw ShelfException(ShelfFailure.Authentication)}
+                if(r.status.value==401){if(!publicAccess)access.invalidate();throw ShelfException(if(publicAccess)ShelfFailure.Configuration else ShelfFailure.Authentication)}
                 if(r.status.value in listOf(403,404))throw ShelfException(ShelfFailure.AccessDenied)
                 if(r.status.value==429)throw ShelfException(ShelfFailure.RateLimited)
                 if(r.status.value!=200)throw ShelfException(ShelfFailure.Network)

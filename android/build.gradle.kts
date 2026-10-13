@@ -81,6 +81,9 @@ android {
         versionName = ProjectConfig.versionName
         manifestPlaceholders["truyenPlusUpdateUrl"] = providers.gradleProperty("truyenplusUpdateUrl")
             .orElse("https://github.com/phanan04/truyenplus/releases/latest/download/update.json").get()
+        val driveApiKey = getConfigProperty("TRUYENPLUS_DRIVE_API_KEY", "truyenplus.drive.api.key").trim()
+        require(driveApiKey.isEmpty() || Regex("[A-Za-z0-9_-]{20,200}").matches(driveApiKey)) { "Invalid Drive API key format in local configuration" }
+        manifestPlaceholders["truyenPlusDriveApiKey"] = driveApiKey
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Enable multidex for apps with 65K+ methods

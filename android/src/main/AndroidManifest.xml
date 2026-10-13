@@ -196,6 +196,9 @@
         </provider>
 
         <meta-data
+            android:name="truyenplus.DRIVE_API_KEY"
+            android:value="${truyenPlusDriveApiKey}" />
+        <meta-data
             android:name="truyenplus.UPDATE_MANIFEST_URL"
             android:value="${truyenPlusUpdateUrl}" />
         <meta-data

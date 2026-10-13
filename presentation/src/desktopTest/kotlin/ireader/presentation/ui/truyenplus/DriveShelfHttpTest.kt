@@ -38,4 +38,20 @@ class DriveShelfHttpTest {
   val client=HttpClient(MockEngine { respond("""{"error":{"code":400,"message":"Invalid page token"}}""",HttpStatusCode.BadRequest) })
   try {assertEquals("InvalidCursor",assertFailsWith<ShelfException>{DriveShelfApi(client,access).page(ShelfCursor("root",null,"expired"))}.reason.name)}finally{client.close()}
  }
+
+ @Test fun publicRequestsUseRestrictedKeyWithoutGoogleAccount()=runBlocking {
+  val forbidden=object:ShelfAccess {override suspend fun token():String=error("Public sources must not sign in");override fun invalidate(){error("Must not invalidate account")}}
+  val client=HttpClient(MockEngine { req ->
+   assertNull(req.headers[HttpHeaders.Authorization]);assertEquals("test-public-key",req.url.parameters["key"])
+   assertEquals("app.package",req.headers["X-Android-Package"]);assertEquals("ABC123",req.headers["X-Android-Cert"])
+   if(req.url.parameters["alt"]=="media")respond("EPUB",HttpStatusCode.OK,headersOf(HttpHeaders.ContentLength,"4"))
+   else respond("""{"files":[]}""",HttpStatusCode.OK,headersOf(HttpHeaders.ContentType,"application/json"))
+  })
+  try {
+   val api=DriveShelfApi(client,forbidden,{ShelfPublicCredentials("test-public-key","app.package","ABC123")})
+   assertTrue(api.publicAccess)
+   assertTrue(api.page(ShelfCursor("root",null,null)).items.isEmpty())
+   val buffer=Buffer();api.download(ShelfEntry("root","a","A.epub",4),buffer){_,_->};assertEquals("EPUB",buffer.readUtf8())
+  }finally{client.close()}
+ }
 }

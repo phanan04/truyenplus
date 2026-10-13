@@ -21,7 +21,7 @@ val driveShelfModule=module {
     requestTimeoutMillis=io.ktor.client.plugins.HttpTimeoutConfig.INFINITE_TIMEOUT_MS
    }
   }
-  DriveShelfApi(http,get())
+  DriveShelfApi(http,get(),::createShelfPublicCredentials)
  }
  single<DriveShelfRepository> {
   val epub=get<ImportEpub>();val books=get<BookRepository>();val store=get<SqlShelfStore>()

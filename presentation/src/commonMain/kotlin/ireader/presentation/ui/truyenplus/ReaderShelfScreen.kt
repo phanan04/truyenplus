@@ -87,11 +87,11 @@ import org.koin.compose.koinInject
   onQuery={query=it;offset=0;page=ShelfSearchPage(emptyList(),false)},onSource={selectedSource=it;offset=0},onAdd={showAdd=true;error=null},onRefresh=repo::refresh,
   onRemove={removeSource=it},onDownload=repo::download,onBook=onBook,onLibrary=onLibrary,
   onPrevious={offset=(offset-40).coerceAtLeast(0)},onNext={offset+=40},onConnect={retryAdd=false;connect()},onCancel=repo::cancel,
-  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error)
+  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error,showConnect=!repo.publicAccess)
  if(showAdd) AlertDialog(onDismissRequest={if(!adding){showAdd=false;retryAdd=false}},title={Text(strings.localize(Res.string.tp_shelf_add))},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   OutlinedTextField(link,{link=it},label={Text(strings.localize(Res.string.tp_shelf_link))},singleLine=true,enabled=!adding)
   OutlinedTextField(name,{name=it},label={Text(strings.localize(Res.string.tp_shelf_name))},singleLine=true,enabled=!adding)
-  Text(strings.localize(Res.string.tp_shelf_auth_hint),style=MaterialTheme.typography.bodySmall)
+  if(!repo.publicAccess)Text(strings.localize(Res.string.tp_shelf_auth_hint),style=MaterialTheme.typography.bodySmall)
   error?.let { Text(shelfFailureText(it),color=MaterialTheme.colorScheme.error) }
  }},confirmButton={TextButton(onClick={retryAdd=true;add()},enabled=!adding && link.isNotBlank()){Text(strings.localize(if(adding)Res.string.tp_shelf_busy else Res.string.tp_shelf_add))}},dismissButton={
   Row { if(error==ShelfFailure.Authentication)TextButton(onClick={retryAdd=true;connect()}){Text(strings.localize(Res.string.tp_shelf_connect))};TextButton(onClick={showAdd=false;retryAdd=false},enabled=!adding){Text(strings.localize(Res.string.tp_cancel))} }
@@ -101,7 +101,7 @@ import org.koin.compose.koinInject
 
 @Composable fun ReaderShelfScreen(sources:List<ShelfSource>,query:String,page:ShelfSearchPage,loading:Boolean,selectedSource:String?,operations:Map<String,ShelfOperation>,
  onQuery:(String)->Unit,onSource:(String?)->Unit,onAdd:()->Unit,onRefresh:(String)->Unit,onRemove:(ShelfSource)->Unit,onDownload:(ShelfEntry)->Unit,onBook:(Long)->Unit,onLibrary:()->Unit,onPrevious:()->Unit,onNext:()->Unit,onConnect:()->Unit,onCancel:(String)->Unit,
- requestSearch:Boolean=false,onSearchFocused:()->Unit={},offset:Int=0,error:ShelfFailure?=null) {
+ requestSearch:Boolean=false,onSearchFocused:()->Unit={},offset:Int=0,error:ShelfFailure?=null,showConnect:Boolean=true) {
  val strings=requireNotNull(LocalLocalizeHelper.current)
  val focus=remember { FocusRequester() };val keyboard=LocalSoftwareKeyboardController.current;val list=rememberLazyListState()
  LaunchedEffect(requestSearch){if(requestSearch){list.scrollToItem(0);withFrameNanos{};focus.requestFocus();keyboard?.show();onSearchFocused()}}
@@ -116,7 +116,7 @@ import org.koin.compose.koinInject
    Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
    TextButton(onClick=onAdd){Icon(Icons.Outlined.Add,null,Modifier.size(18.dp));Text(strings.localize(Res.string.tp_shelf_add))}
   } }
-  if(sources.isNotEmpty())item { TextButton(onClick=onConnect){Text(strings.localize(Res.string.tp_shelf_connect))} }
+  if(showConnect && sources.isNotEmpty())item { TextButton(onClick=onConnect){Text(strings.localize(Res.string.tp_shelf_connect))} }
   items(sources,key={"source:${it.id}"}) { source ->
    val op=operations[source.id]
    Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceContainerLow) {

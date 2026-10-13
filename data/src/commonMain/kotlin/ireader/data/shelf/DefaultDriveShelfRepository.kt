@@ -21,6 +21,7 @@ class DefaultDriveShelfRepository(
  private val importer:suspend (String)->Long,
  private val now:()->Long,
 ):DriveShelfRepository {
+ override val publicAccess:Boolean get()=api.publicAccess
  override val sources=store.sources
  override val operations=MutableStateFlow<Map<String,ShelfOperation>>(emptyMap())
  private val jobs=mutableMapOf<String,Job>()

@@ -31,6 +31,7 @@ enum class ShelfTask { Syncing, Downloading, Importing, Paused, Failed }
 data class ShelfOperation(val task: ShelfTask, val processed: Long = 0, val bytes: Long = 0, val totalBytes: Long? = null, val failure: ShelfFailure? = null)
 
 interface DriveShelfRepository {
+    val publicAccess:Boolean get()=false
     val sources: Flow<List<ShelfSource>>
     val operations: StateFlow<Map<String, ShelfOperation>>
     suspend fun add(link: String, name: String): ShelfSource

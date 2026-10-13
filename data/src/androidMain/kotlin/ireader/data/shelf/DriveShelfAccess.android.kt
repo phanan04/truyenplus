@@ -13,6 +13,20 @@ import kotlin.coroutines.resumeWithException
 
 object AndroidShelfAccess:ShelfAccess,org.koin.core.component.KoinComponent {
  private val context:android.content.Context by inject()
+ private val publicCredentials by lazy {
+  @Suppress("DEPRECATION")
+  val app=context.packageManager.getApplicationInfo(context.packageName,android.content.pm.PackageManager.GET_META_DATA)
+  val key=app.metaData?.getString("truyenplus.DRIVE_API_KEY")?.trim()?.takeIf { it.isNotBlank() }
+  if(key==null) null else {
+   @Suppress("DEPRECATION")
+   val info=context.packageManager.getPackageInfo(context.packageName,if(android.os.Build.VERSION.SDK_INT>=28)android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES else android.content.pm.PackageManager.GET_SIGNATURES)
+   @Suppress("DEPRECATION")
+   val signature=if(android.os.Build.VERSION.SDK_INT>=28)info.signingInfo?.apkContentsSigners?.firstOrNull() else info.signatures?.firstOrNull()
+   val cert=signature?.let { java.security.MessageDigest.getInstance("SHA-1").digest(it.toByteArray()).joinToString("") { b->"%02X".format(b) } }
+   if(cert==null) null else ShelfPublicCredentials(key,context.packageName,cert)
+  }
+ }
+ fun publicConfig():ShelfPublicCredentials?=publicCredentials
  const val READ_SCOPE="https://www.googleapis.com/auth/drive.readonly"
  @Volatile private var accessToken:String?=null
  @Volatile private var expiresAt=0L
@@ -40,3 +54,5 @@ object AndroidShelfAccess:ShelfAccess,org.koin.core.component.KoinComponent {
  }
 }
 actual fun createShelfAccess():ShelfAccess=AndroidShelfAccess
+
+actual fun createShelfPublicCredentials():ShelfPublicCredentials?=AndroidShelfAccess.publicConfig()

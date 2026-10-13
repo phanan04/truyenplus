@@ -4,11 +4,14 @@ The library keeps downloaded books separate from connected Drive folders. An emp
 search shows sources only; a non-empty query searches a persisted filename index,
 with 40 results per page. It does not open or download EPUBs to build that index.
 
-Only Google Drive folder links are accepted. Android uses Google Play Services
-AuthorizationClient and the read-only Drive scope. The existing backup scope
-(drive.file) cannot list an arbitrary existing 18,000-file collection. Drive API
-must be enabled and an Android OAuth client registered for the app package and
-signing certificate. Tokens stay out of source files and source URLs.
+Only Google Drive folder links are accepted. With a configured restricted Drive
+API key, the app reads public folders without Google account sign-in. REST requests
+send the Android package and actual signing-certificate SHA-1. Tokens and keys are
+never written into shelf source records or source URLs.
+
+Without a public key, the existing optional account authorization path is retained
+for private folders (read-only Drive scope). Backup drive.file permissions are
+unchanged.
 
 Folder listing is paginated and recursive (200 file descriptors per request, at most
 two source scans and one EPUB download concurrently). Each successfully received page is
@@ -26,34 +29,41 @@ files. Downloading an updated EPUB follows the existing import policy and does
 not replace saved chapters or reading progress automatically.
 
 The supplied folder redirected unauthenticated requests to Google sign-in during
-initial inspection. Actual full-shelf sync requires an authorized account with
-access to that folder; no live 18,000-book or physical A9 result is assumed.
+initial inspection. After the user configured a restricted API key and updated sharing, public API
+access to the folder and paginated EPUB records was verified without OAuth.
+Physical A9 results remain unverified.
 
-## Google Cloud setup for the Android build
+## Public-folder configuration
 
-1. Enable Google Drive API in a Google Cloud project.
-2. Configure the OAuth consent screen for the intended accounts and include
-   `https://www.googleapis.com/auth/drive.readonly`. For a private testing app,
-   add the actual user's Google account as a test user.
-3. Register an Android OAuth client with package
-   `ir.kazemcodes.infinityreader.debug` and signing certificate SHA-1
+1. Enable Google Drive API in your Google Cloud project.
+2. Create an API key restricted to **Google Drive API** and **Android apps**.
+3. Add package `ir.kazemcodes.infinityreader.debug` with signing SHA-1
    `A3:76:AB:C8:1E:EB:7A:4A:0D:2D:23:E5:CE:61:7D:CC:9E:98:6B:E2`.
-4. In the app, tap Connect Google Drive, grant read access, and paste the folder
-   link. The Android AuthorizationClient uses the package/certificate identity;
-   no client secret, service-account private key, or token is embedded in the APK.
+4. Save the key in ignored root `local.properties`:
+   ```properties
+   truyenplus.drive.api.key=YOUR_KEY
+   ```
+   CI can instead use `TRUYENPLUS_DRIVE_API_KEY`. Do not commit the key.
+5. Share the Drive folder as **Anyone with the link → Viewer**. Paste its folder
+   link into Story sources; no Google account sign-in is used in public mode.
 
-References: [Google authorization on Android](https://developer.android.com/identity/authorization),
-[Drive list pagination](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list),
-[link resource keys](https://developers.google.com/workspace/drive/api/guides/resource-keys).
+The key is embedded in Android app metadata when building and therefore must be
+restricted; it is not an OAuth token and cannot grant access to private files.
+Production requests derive the package/certificate from the installed app.
 
-A link shared to “anyone with the link” still uses this authenticated API path in
-this first implementation. There is no anonymous Drive HTML scraper or developer
-API key. Desktop can inspect cached shelf data; interactive Drive authorization
-is Android-only for now.
+Private-folder OAuth is optional and requires an Android OAuth client and consent
+for `https://www.googleapis.com/auth/drive.readonly` in Google Cloud. Interactive
+account authorization is Android-only; desktop tests inject test credentials.
+
+References: [API key configuration](https://developers.google.com/workspace/guides/create-credentials),
+[Android key restrictions](https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys),
+[Drive list pagination](https://developers.google.com/workspace/drive/api/reference/rest/v3/files/list).
 
 Verification: Android compilation and 20 selected desktop tests passed, including
 18,000 SQLite fixture entries, accent-insensitive search, literal SQL wildcards,
 recursive interrupted scans, expired cursor handling, streaming download bounds,
 temporary file cleanup, import linkage, migration preserving saved books, and
-existing navigation/EPUB regressions. Live account authorization and A9 performance
-remain unverified until Google Cloud setup and account consent are completed.
+existing navigation/EPUB regressions. Live account authorization and A9 performance remain unverified. Public-key
+verification is recorded separately after configuration.
+
+Public-mode verification after key configuration: the actual shared folder exposed 18316 EPUBs across 92 pages. A streamed sample download matched its size and contained a valid ZIP/container/OPF with real metadata. No Google account/OAuth token was used. This was a workstation verification, not an A9 performance or device-install test.
