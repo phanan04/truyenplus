@@ -1,6 +1,8 @@
 package ireader.presentation.ui.reader
 
 import androidx.compose.ui.layout.onSizeChanged
+import ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop
+import ireader.presentation.ui.truyenplus.readerNavigationSource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -321,6 +323,8 @@ private fun ReadingScreenContent(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .readerNavigationSource(LocalReaderNavigationBackdrop.current)
+                                .background(backgroundColor)
                                 .padding(if (vm.immersiveMode.value) PaddingValues() else paddingValues)
                         ) {
                             ReaderText(
@@ -442,7 +446,7 @@ private fun ReadingScreenContent(
                             Surface(
                                 modifier = Modifier.fillMaxWidth().onSizeChanged { onControlsHeightChanged(it.height) },
                                 shape = RoundedCornerShape(0.dp),
-                                color = vm.backgroundColor.value.toComposeColor(),
+                                color = androidx.compose.ui.graphics.Color.Transparent,
                                 contentColor = vm.textColor.value.toComposeColor(),
                                 shadowElevation = 0.dp,
                             ) {
@@ -450,7 +454,6 @@ private fun ReadingScreenContent(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .navigationBarsPadding()
-                                        .padding(horizontal = 4.dp)
                                 ) {
                                     val currentPage by vm.pagedCurrentPage.collectAsState()
                                     val totalPages by vm.pagedTotalPages.collectAsState()
@@ -475,6 +478,7 @@ private fun ReadingScreenContent(
                                         },
                                         autoScrollEnabled = vm.autoScrollMode,
                                         onBookmark = vm::bookmarkChapter,
+                                        backgroundColor = backgroundColor,
                                         currentPage = currentPage,
                                         totalPages = totalPages
                                     )

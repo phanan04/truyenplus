@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -164,6 +165,11 @@ data class ReaderScreenSpec(
         val ttsState by remember(ttsController) { ttsController.state.readerUpdates() }.collectAsState(initial=ttsController.state.value.readerProjection())
         val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
+        val blurSupported=ireader.presentation.ui.truyenplus.rememberReaderBlurSupported()
+        val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
+        val chapterBackdrop=remember(sourceLayer,blurSupported) {
+            if(blurSupported) ireader.presentation.ui.truyenplus.ReaderNavigationBackdrop(sourceLayer) else null
+        }
         val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial = listeningPreferences.ttsHighlightText().get())
         val followListening by listeningPreferences.ttsFollowParagraph().changes().collectAsState(initial = listeningPreferences.ttsFollowParagraph().get())
         val readerDensity = androidx.compose.ui.platform.LocalDensity.current
@@ -525,12 +531,18 @@ data class ReaderScreenSpec(
                 statusBar = customColor.status,
                 navigationBar = customColor.navigation
             ) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop provides chapterBackdrop
+                ) {
                 // Use Box to overlay top bar without affecting content layout
                 androidx.compose.foundation.layout.Box(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize()
                 ) {
                     // Content first (below the top bar)
-                    val padding = androidx.compose.foundation.layout.PaddingValues(bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else 0.dp)
+                    val headerInset=androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+68.dp
+                    val padding = androidx.compose.foundation.layout.PaddingValues(
+                        top=if(!vm.isReaderModeEnable)headerInset else 0.dp,
+                        bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else 0.dp)
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
@@ -833,6 +845,7 @@ data class ReaderScreenSpec(
                             // Empty content - the actual content is rendered above
                         }
                     }
+                }
                 }
             }
         }

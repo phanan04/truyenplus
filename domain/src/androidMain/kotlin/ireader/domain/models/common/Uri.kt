@@ -10,6 +10,7 @@ actual class Uri(val androidUri: AndroidUri) {
     actual override fun toString(): String = androidUri.toString()
 
     actual companion object {
+        actual fun fromFilePath(path: String): Uri = Uri(AndroidUri.fromFile(java.io.File(path)))
         actual fun parse(uriString: String): Uri =
             Uri(uriString.toUri())
     }

@@ -40,3 +40,23 @@ font scale. Android compilation is checked separately. These checks do not
 measure frame rate or audio quality on a physical Samsung Tab A9.
 
 These changes are included in version 2.0.36 (90).
+
+
+## Floating controls and shelf (after 2.0.37)
+
+The bottom navigation layout, tabs, Search action, animation and original blur
+parameters are unchanged. Mini playback and chapter/audio controls now reuse the
+bounded glass renderer. The reader records only its chapter layer, excluding the
+header, footer, audio dock and appearance overlay, to avoid sampling feedback.
+Top and bottom controls have side margins and no opaque full-width backing strip;
+they follow the selected reading paper/text colors. Header and measured footer
+insets keep content reachable, including large fonts and narrow windows.
+
+Home, Settings and shelf cards use static translucent surfaces with a light sheen
+and border. The appearance panel uses the same treatment within the existing
+window; it does not introduce a modal window or full-screen blur. Unsupported and
+low-RAM Android devices retain the inexpensive tinted fallback. There are no new
+bitmap assets or dependencies. The decorative library/home/progress subtitles and
+pre-download metadata explanation were removed.
+
+These source changes require a newer APK. Device frame rate is not measured.

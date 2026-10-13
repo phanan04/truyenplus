@@ -31,10 +31,10 @@ fun ReaderAppearanceOverlay(onDismiss: () -> Unit, background: Color = MaterialT
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f))
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
-        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth()
-            .height((maxHeight * .86f).coerceAtMost(660.dp))
+        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)
+            .height((maxHeight * .86f).coerceAtMost(660.dp)).readerGlassCard(24,background,ink)
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), color = background, contentColor = ink) {
+            shape = RoundedCornerShape(24.dp), color = Color.Transparent, contentColor = ink) {
             Column(Modifier.navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(strings.localize(Res.string.tp_reader_appearance), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)

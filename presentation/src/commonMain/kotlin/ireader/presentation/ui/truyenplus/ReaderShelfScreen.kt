@@ -8,6 +8,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
@@ -22,14 +23,6 @@ import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-
-@Composable fun ReaderLibrarySourceTabs(inShelf:Boolean,onLibrary:()->Unit,onShelf:()->Unit) {
- val strings=requireNotNull(LocalLocalizeHelper.current)
- Row(Modifier.fillMaxWidth().padding(top=14.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-  FilterChip(!inShelf,onLibrary,label={Text(strings.localize(Res.string.tp_shelf_downloaded))},modifier=Modifier.weight(1f))
-  FilterChip(inShelf,onShelf,label={Text(strings.localize(Res.string.tp_shelf))},modifier=Modifier.weight(1f))
- }
-}
 
 @Composable fun shelfFailureText(reason:ShelfFailure):String {
  val strings=requireNotNull(LocalLocalizeHelper.current)
@@ -94,73 +87,133 @@ import org.koin.compose.koinInject
  removeSource?.let { source->AlertDialog(onDismissRequest={removeSource=null},title={Text(strings.localize(Res.string.tp_shelf_remove))},text={Text(strings.localize(Res.string.tp_shelf_remove_hint))},confirmButton={TextButton(onClick={scope.launch{repo.remove(source.id);if(selectedSource==source.id)selectedSource=null};removeSource=null}){Text(strings.localize(Res.string.tp_shelf_remove))}},dismissButton={TextButton(onClick={removeSource=null}){Text(strings.localize(Res.string.tp_cancel))}}) }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ReaderShelfScreen(sources:List<ShelfSource>,query:String,page:ShelfSearchPage,loading:Boolean,selectedSource:String?,operations:Map<String,ShelfOperation>,
  onQuery:(String)->Unit,onSource:(String?)->Unit,onAdd:()->Unit,onRefresh:(String)->Unit,onRemove:(ShelfSource)->Unit,onDownload:(ShelfEntry)->Unit,onBook:(Long)->Unit,onLibrary:()->Unit,onPrevious:()->Unit,onNext:()->Unit,onConnect:()->Unit,onCancel:(String)->Unit,
  requestSearch:Boolean=false,onSearchFocused:()->Unit={},offset:Int=0,error:ShelfFailure?=null,showConnect:Boolean=true) {
  val strings=requireNotNull(LocalLocalizeHelper.current)
- val focus=remember { FocusRequester() };val keyboard=LocalSoftwareKeyboardController.current;val list=rememberLazyListState()
- LaunchedEffect(requestSearch){if(requestSearch){list.scrollToItem(0);withFrameNanos{};focus.requestFocus();keyboard?.show();onSearchFocused()}}
- LazyColumn(state=list,modifier=Modifier.fillMaxSize(),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=18.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-  item { Column {
-   Text(strings.localize(Res.string.tp_library),style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)
-   Text(strings.localize(Res.string.tp_library_hint),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-   ReaderLibrarySourceTabs(true,onLibrary,{})
-   OutlinedTextField(query,onQuery,modifier=Modifier.fillMaxWidth().padding(top=12.dp).focusRequester(focus).testTag("shelf-query"),singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search))},leadingIcon={Icon(Icons.Outlined.Search,null)},shape=CircleShape)
-  } }
-  item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-   Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
-   TextButton(onClick=onAdd){Icon(Icons.Outlined.Add,null,Modifier.size(18.dp));Text(strings.localize(Res.string.tp_shelf_add))}
-  } }
-  if(showConnect && sources.isNotEmpty())item { TextButton(onClick=onConnect){Text(strings.localize(Res.string.tp_shelf_connect))} }
-  items(sources,key={"source:${it.id}"}) { source ->
-   val op=operations[source.id]
-   Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surfaceContainerLow) {
-    Column(Modifier.fillMaxWidth().padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-     Row(verticalAlignment=Alignment.CenterVertically) {
-      Icon(Icons.Outlined.Folder,null,Modifier.size(28.dp));Spacer(Modifier.width(12.dp))
-      Column(Modifier.weight(1f)) { Text(source.name,style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis);Text("Google Drive",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant) }
-      IconButton(onClick={onRemove(source)}){Icon(Icons.Outlined.Close,strings.localize(Res.string.tp_shelf_remove))}
-     }
-     Text(strings.localize(if(op?.task==ShelfTask.Syncing)Res.string.tp_shelf_indexing else if(source.updatedAt==0L && source.entryCount==0L)Res.string.tp_shelf_unsynced else Res.string.tp_shelf_count,source.entryCount.toString()),style=MaterialTheme.typography.bodySmall)
-     if(op?.task==ShelfTask.Paused)Text(strings.localize(Res.string.tp_shelf_paused),style=MaterialTheme.typography.bodySmall)
-     op?.failure?.let { Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error) }
-     Row {
-      if(op?.task==ShelfTask.Syncing)TextButton(onClick={onCancel(source.id)}){Text(strings.localize(Res.string.tp_cancel))}
-      else TextButton(onClick={onRefresh(source.id)}){Text(strings.localize(if(source.pending)Res.string.tp_shelf_resume else Res.string.tp_shelf_refresh))}
+ val focus=remember { FocusRequester() }
+ val keyboard=LocalSoftwareKeyboardController.current
+ var manage by rememberSaveable { mutableStateOf(false) }
+ val list=rememberLazyListState()
+ LaunchedEffect(requestSearch){if(requestSearch){focus.requestFocus();keyboard?.show();onSearchFocused()}}
+ LaunchedEffect(query,selectedSource,offset){list.scrollToItem(0)}
+ Column(Modifier.fillMaxSize()) {
+  Row(Modifier.fillMaxWidth().padding(start=8.dp,end=12.dp,top=8.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically) {
+   IconButton(onClick=onLibrary,modifier=Modifier.size(48.dp).testTag("shelf-back")){Icon(Icons.Outlined.ChevronLeft,strings.localize(Res.string.tp_back))}
+   Text(strings.localize(Res.string.tp_shelf),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
+   IconButton(onClick={keyboard?.hide();manage=true},modifier=Modifier.size(48.dp).testTag("shelf-manage")){Icon(Icons.Outlined.Tune,strings.localize(Res.string.tp_shelf_sources))}
+   IconButton(onClick=onAdd,modifier=Modifier.size(48.dp)){Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_shelf_add))}
+  }
+  OutlinedTextField(query,onQuery,modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp).readerGlassCard(28).focusRequester(focus).testTag("shelf-query"),
+   singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search))},leadingIcon={Icon(Icons.Outlined.Search,null)},
+   trailingIcon={if(query.isNotEmpty())IconButton(onClick={onQuery("")}){Icon(Icons.Outlined.Close,strings.localize(Res.string.close))}},shape=CircleShape,
+   colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Color.Transparent,focusedBorderColor=MaterialTheme.colorScheme.outline.copy(alpha=.4f)))
+  if(sources.size>1) ReaderChips(listOf(strings.localize(Res.string.tp_shelf_all_sources))+sources.map{it.name},sources.indexOfFirst{it.id==selectedSource}+1,
+   {onSource(if(it==0)null else sources[it-1].id)})
+  LazyColumn(state=list,modifier=Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+   error?.let { item{Text(shelfFailureText(it),color=MaterialTheme.colorScheme.error)} }
+   if(query.isBlank()) {
+    if(sources.isNotEmpty())item{Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    items(sources,key={"source:${it.id}"}) { source ->
+     ShelfSourceCard(source,operations[source.id],onRefresh,onRemove,onCancel,
+      onSelect={onSource(source.id);focus.requestFocus();keyboard?.show()})
+    }
+    if(showConnect && sources.isNotEmpty())item { TextButton(onClick=onConnect){Text(strings.localize(Res.string.tp_shelf_connect))} }
+    item {
+     Column(Modifier.fillMaxWidth().padding(vertical=36.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
+      Icon(Icons.Outlined.ManageSearch,null,Modifier.size(40.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(strings.localize(Res.string.tp_shelf_empty_title),style=MaterialTheme.typography.titleMedium)
+      if(sources.isEmpty())OutlinedButton(onClick=onAdd,shape=CircleShape){Icon(Icons.Outlined.Add,null);Spacer(Modifier.width(8.dp));Text(strings.localize(Res.string.tp_shelf_add))}
      }
     }
+   } else {
+    item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+     Text(strings.localize(Res.string.tp_shelf_results),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.weight(1f))
+     if(loading)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp)
+    } }
+    if(!loading && page.entries.isEmpty())item{Text(strings.localize(Res.string.tp_shelf_no_results),color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    items(page.entries,key={"${it.sourceId}:${it.fileId}"}) { entry ->
+     ShelfBookRow(entry,sources.firstOrNull{it.id==entry.sourceId}?.name?:"Google Drive",operations["${entry.sourceId}:${entry.fileId}"],
+      onDownload={onDownload(entry)},onOpen={entry.bookId?.let(onBook)},onCancel={onCancel("${entry.sourceId}:${entry.fileId}")})
+    }
+    if(offset>0 || page.hasMore)item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+     TextButton(onClick=onPrevious,enabled=offset>0 && !loading){Text(strings.localize(Res.string.tp_shelf_previous))}
+     TextButton(onClick=onNext,enabled=page.hasMore && !loading){Text(strings.localize(Res.string.tp_shelf_next))}
+    } }
    }
   }
-  error?.let { item{Text(shelfFailureText(it),color=MaterialTheme.colorScheme.error)} }
-  if(query.isBlank())item {
-   Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(10.dp)) {
-    Icon(Icons.Outlined.MenuBook,null,Modifier.size(36.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-    Text(strings.localize(Res.string.tp_shelf_empty_title),style=MaterialTheme.typography.titleMedium)
-    Text(strings.localize(if(sources.isEmpty())Res.string.tp_shelf_no_sources else Res.string.tp_shelf_empty_hint),color=MaterialTheme.colorScheme.onSurfaceVariant)
-   }
-  } else {
-   if(sources.size>1)item { ReaderChips(listOf(strings.localize(Res.string.tp_shelf_all_sources))+sources.map{it.name},sources.indexOfFirst{it.id==selectedSource}+1,{onSource(if(it==0)null else sources[it-1].id)}) }
-   item{Text(strings.localize(Res.string.tp_shelf_results),style=MaterialTheme.typography.titleMedium)}
-   if(loading)item{LinearProgressIndicator(Modifier.fillMaxWidth())}
-   if(!loading && page.entries.isEmpty())item{Text(strings.localize(Res.string.tp_shelf_no_results),color=MaterialTheme.colorScheme.onSurfaceVariant)}
-   items(page.entries,key={"${it.sourceId}:${it.fileId}"}) { entry->
-    val key="${entry.sourceId}:${entry.fileId}";val op=operations[key];val bookId=entry.bookId;val total=op?.totalBytes
-    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-     Text(entry.name.removeSuffix(".epub"),style=MaterialTheme.typography.titleMedium,maxLines=3,overflow=TextOverflow.Ellipsis)
-     Text(sources.firstOrNull{it.id==entry.sourceId}?.name?:"Google Drive",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     if(entry.bookId==null)Text(strings.localize(Res.string.tp_shelf_metadata),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     op?.failure?.let{Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
-     Row(verticalAlignment=Alignment.CenterVertically) {
-      if(op?.task==ShelfTask.Downloading || op?.task==ShelfTask.Importing) {
-       Text(strings.localize(if(op.task==ShelfTask.Importing)Res.string.tp_shelf_importing else Res.string.tp_shelf_downloading),modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
-       if(op.task==ShelfTask.Downloading)TextButton(onClick={onCancel(key)}){Text(strings.localize(Res.string.tp_cancel))}
-      } else Button(onClick={if(bookId!=null)onBook(bookId) else onDownload(entry)},modifier=Modifier.testTag("shelf-download")) { Text(strings.localize(if(entry.bookId!=null)Res.string.tp_shelf_open else Res.string.tp_shelf_download)) }
+ }
+ if(manage) ModalBottomSheet(onDismissRequest={manage=false},containerColor=MaterialTheme.colorScheme.surface) {
+  LazyColumn(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.7f),contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+   item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+    Text(strings.localize(Res.string.tp_shelf_sources),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+    TextButton(onClick={manage=false;onAdd()}){Icon(Icons.Outlined.Add,null);Text(strings.localize(Res.string.tp_shelf_add))}
+   } }
+   items(sources,key={it.id}) { source->ShelfSourceCard(source,operations[source.id],onRefresh,onRemove,onCancel,onSelect={onSource(source.id);manage=false}) }
+   if(showConnect && sources.isNotEmpty())item { TextButton(onClick={manage=false;onConnect()}){Text(strings.localize(Res.string.tp_shelf_connect))} }
+  }
+ }
+}
+
+@Composable private fun ShelfSourceCard(source:ShelfSource,op:ShelfOperation?,onRefresh:(String)->Unit,onRemove:(ShelfSource)->Unit,onCancel:(String)->Unit,onSelect:()->Unit) {
+ val strings=requireNotNull(LocalLocalizeHelper.current)
+ var menu by remember { mutableStateOf(false) }
+ Surface(onClick=onSelect,shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerGlassCard(20)) {
+  Column(Modifier.padding(start=16.dp,end=8.dp,top=10.dp,bottom=10.dp)) {
+   Row(verticalAlignment=Alignment.CenterVertically) {
+    Icon(Icons.Outlined.CloudQueue,null,Modifier.size(26.dp));Spacer(Modifier.width(14.dp))
+    Column(Modifier.weight(1f)) {
+     Text(source.name,style=MaterialTheme.typography.titleSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+     Text(strings.localize(if(op?.task==ShelfTask.Syncing)Res.string.tp_shelf_indexing else if(source.entryCount==0L && source.updatedAt==0L)Res.string.tp_shelf_unsynced else Res.string.tp_shelf_count,source.entryCount.toString()),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if(op?.task==ShelfTask.Syncing)IconButton(onClick={onCancel(source.id)}){Icon(Icons.Outlined.Close,strings.localize(Res.string.tp_cancel))}
+    else IconButton(onClick={onRefresh(source.id)}){Icon(Icons.Outlined.Refresh,strings.localize(if(source.pending)Res.string.tp_shelf_resume else Res.string.tp_shelf_refresh))}
+    Box {
+     IconButton(onClick={menu=true}){Icon(Icons.Outlined.MoreVert,strings.localize(Res.string.expand_menu))}
+     DropdownMenu(menu,onDismissRequest={menu=false}) {
+      DropdownMenuItem(text={Text(strings.localize(Res.string.tp_shelf_remove))},onClick={menu=false;onRemove(source)},leadingIcon={Icon(Icons.Outlined.DeleteOutline,null)})
      }
-     if(op?.task==ShelfTask.Downloading && total!=null && total>0)LinearProgressIndicator(progress={(op.bytes.toFloat()/total).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
-     HorizontalDivider(color=MaterialTheme.colorScheme.outlineVariant)
     }
    }
-   if(offset>0 || page.hasMore)item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { TextButton(onClick=onPrevious,enabled=offset>0){Text(strings.localize(Res.string.tp_shelf_previous))};TextButton(onClick=onNext,enabled=page.hasMore){Text(strings.localize(Res.string.tp_shelf_next))} } }
+   if(op?.task==ShelfTask.Paused)Text(strings.localize(Res.string.tp_shelf_paused),style=MaterialTheme.typography.bodySmall)
+   op?.failure?.let{Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
+  }
+ }
+}
+
+@Composable private fun ShelfBookRow(entry:ShelfEntry,sourceName:String,op:ShelfOperation?,onDownload:()->Unit,onOpen:()->Unit,onCancel:()->Unit) {
+ val strings=requireNotNull(LocalLocalizeHelper.current)
+ val filename=entry.name.replace(Regex("(?i)\\.epub$"),"").replace('_',' ').trim()
+ val divider=filename.lastIndexOf(" - ")
+ val title=if(divider>0)filename.substring(0,divider).trim() else filename
+ val author=if(divider>0)filename.substring(divider+3).trim() else ""
+ val busy=op?.task==ShelfTask.Downloading || op?.task==ShelfTask.Importing
+ Surface(shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerGlassCard(20)) {
+  Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+   Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+    // Only real filename metadata is available before import; no invented cover.
+    Surface(shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.05f),modifier=Modifier.size(46.dp,64.dp)) {
+     Box(contentAlignment=Alignment.Center){Icon(Icons.Outlined.MenuBook,null,Modifier.size(24.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)}
+    }
+    Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+     Text(title,style=MaterialTheme.typography.titleSmall,fontWeight=FontWeight.SemiBold,maxLines=3,overflow=TextOverflow.Ellipsis)
+     if(author.isNotBlank())Text(author,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+     Text(sourceName,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+    }
+    if(busy) {
+     if(op?.task==ShelfTask.Downloading)IconButton(onClick=onCancel){Icon(Icons.Outlined.Close,strings.localize(Res.string.tp_cancel))}
+     else CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp)
+    } else IconButton(onClick=if(entry.bookId==null)onDownload else onOpen,modifier=Modifier.size(48.dp).testTag("shelf-download")) {
+     Icon(if(entry.bookId==null)Icons.Outlined.FileDownload else Icons.Outlined.AutoStories,strings.localize(if(entry.bookId==null)Res.string.tp_shelf_download else Res.string.tp_shelf_open))
+    }
+   }
+   op?.failure?.let{Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
+   if(busy) {
+    Text(strings.localize(if(op?.task==ShelfTask.Importing)Res.string.tp_shelf_importing else Res.string.tp_shelf_downloading),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    val total=op?.totalBytes
+    if(op?.task==ShelfTask.Downloading && total!=null && total>0)LinearProgressIndicator(progress={(op.bytes.toFloat()/total).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth().height(2.dp),drawStopIndicator={})
+   }
   }
  }
 }

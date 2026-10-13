@@ -33,9 +33,9 @@ fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifi
 
 /** Only the capsule-sized sampled layer gets a blur pass; icons/text are drawn afterwards. */
 @Composable
-fun Modifier.readerNavigationGlass(tint: Color): Modifier {
+fun Modifier.readerNavigationGlass(tint: Color, fallbackAlpha: Float = .94f, blurTintAlpha: Float = .72f): Modifier {
     val backdrop=LocalReaderNavigationBackdrop.current
-    if(backdrop==null) return this.drawWithContent { drawRect(tint.copy(alpha=.94f));drawContent() }
+    if(backdrop==null) return this.drawWithContent { drawRect(tint.copy(alpha=fallbackAlpha));drawContent() }
     val sampled=rememberGraphicsLayer()
     val density=androidx.compose.ui.platform.LocalDensity.current
     val blur=remember(density) { with(density) { BlurEffect(10.dp.toPx(),10.dp.toPx(),TileMode.Clamp) } }
@@ -48,7 +48,7 @@ fun Modifier.readerNavigationGlass(tint: Color): Modifier {
             translate(padding-offset.x,padding-offset.y) { drawLayer(backdrop.layer) }
         }
         translate(-padding.toFloat(),-padding.toFloat()) { drawLayer(sampled) }
-        drawRect(tint.copy(alpha=.72f))
+        drawRect(tint.copy(alpha=blurTintAlpha))
         drawContent()
     }
 }

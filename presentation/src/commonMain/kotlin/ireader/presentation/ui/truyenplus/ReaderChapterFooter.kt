@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 import ireader.i18n.resources.*
@@ -17,10 +18,12 @@ import ireader.i18n.resources.*
 @Composable
 fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boolean, autoScroll: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onContents: () -> Unit, onListen: () -> Unit,
-    onBookmark: () -> Unit, onAutoScroll: () -> Unit, modifier: Modifier = Modifier) {
+    onBookmark: () -> Unit, onAutoScroll: () -> Unit, modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface) {
     val ink = LocalContentColor.current
     val s = requireNotNull(LocalLocalizeHelper.current)
-    BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal=10.dp,vertical=8.dp)) {
+    Box(modifier.fillMaxWidth(),contentAlignment=Alignment.BottomCenter) {
+    BoxWithConstraints(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)) {
         val compact = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale < 360f
         val listen: @Composable () -> Unit = {
             IconButton(onClick=onListen,modifier=Modifier.size(48.dp).testTag("reader-listen")) { Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book),tint=ink) }
@@ -45,7 +48,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
         val next: @Composable () -> Unit = {
             IconButton(onClick=onNext,enabled=chapterIndex<totalChapters-1,modifier=Modifier.size(48.dp).testTag("reader-next")) { Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter),tint=ink.copy(alpha=if(chapterIndex<totalChapters-1) 1f else .35f)) }
         }
-        Surface(shape=RoundedCornerShape(22.dp),color=ink.copy(alpha=.035f),contentColor=ink,border=BorderStroke(1.dp,ink.copy(alpha=.09f))) {
+        Surface(modifier=Modifier.fillMaxWidth().readerPanel(24,backgroundColor,ink).testTag("reader-footer-capsule"),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink) {
         Column {
             if(compact) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -57,5 +60,6 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
             }
         }
         }
+    }
     }
 }

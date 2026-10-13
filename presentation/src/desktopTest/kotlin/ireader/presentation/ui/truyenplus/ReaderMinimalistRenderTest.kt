@@ -52,8 +52,8 @@ class ReaderMinimalistRenderTest {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                     MaterialTheme(colorScheme=colors) {
                         Row {
-                            Box(Modifier.weight(1f)) { PreviewShell(ReaderDestination.Home) {ReaderHomeScreen(books,false,{},{},{},{})} }
-                            Box(Modifier.weight(1f)) { PreviewShell(ReaderDestination.Library) {ReaderLibraryScreen(books,listOf("Tất cả"),0,"",false,false,emptySet(),{},{},{},{},{},{},{},{})} }
+                            Box(Modifier.weight(1f)) { PreviewShell(ReaderDestination.Home) {ReaderHomeScreen(books,false,{},{},{},{},onShelf={})} }
+                            Box(Modifier.weight(1f)) { PreviewShell(ReaderDestination.Library) {ReaderLibraryScreen(books,listOf("Tất cả"),0,"",false,false,emptySet(),{},{},{},{},{},{},{},{},onShelf={})} }
                             Box(Modifier.weight(1f)) { ReaderBackdrop {ReaderBookScreen(book,"Phi Thiên Ngư",(270..277).map {Chapter(id=it.toLong(),bookId=1,key="$it",name="Chương $it: Luận Kiếm Thiếp")},{},{},{},{},{},activeChapterId=273)} }
                             Box(Modifier.weight(1f)) { PreviewShell(ReaderDestination.Settings) {ReaderSettingsScreen(ReaderUiLanguage.Vietnamese,{},{},{},ReaderAppearanceMode.fromId(name),{})} }
                         }

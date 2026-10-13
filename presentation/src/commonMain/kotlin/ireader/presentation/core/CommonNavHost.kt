@@ -18,6 +18,7 @@ fun CommonNavHost(navController: NavHostController, startDestination: String = "
     AnimatedNavHost(navController = navController, startDestination = startDestination.takeIf(ReaderAppScope::allows) ?: "main",
         backgroundColor = androidx.compose.material3.MaterialTheme.colorScheme.background) {
         composable("main") { MainStarterScreen() }
+        composable("shelf") { ReaderShelfScreenSpec().Content() }
         composable("bookDetail/{bookId}", arguments = listOf(navArgument("bookId") { type = NavType.StringType })) { entry ->
             entry.stringArg("bookId")?.toLongOrNull()?.let { BookDetailScreenSpec(it).Content() }
         }

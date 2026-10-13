@@ -1,6 +1,9 @@
 # Kho truyện Drive
 
-The library keeps downloaded books separate from connected Drive folders. An empty
+Kho truyện is a separate screen, opened from Home or the cloud icon in Library.
+The bottom navigation retains its existing three tabs and independent Search.
+The library shows imported books only. Source management moves into a sheet during
+search, so folder cards do not crowd the results. An empty
 search shows sources only; a non-empty query searches a persisted filename index,
 with 40 results per page. It does not open or download EPUBs to build that index.
 
@@ -36,7 +39,11 @@ feed or download the EPUB payloads. Refresh is manual or on opening
 the shelf when stale; it is not a scheduled background job while the app is closed.
 
 EPUB downloads are streamed to a temporary file, checked, then imported through
-the existing ImportEpub use case. There is no bulk EPUB/cover download. Removing a
+the existing ImportEpub use case. Downloaded file paths are converted using the
+platform file-URI constructor: Android requires a `file://` URI for ContentResolver;
+desktop keeps its raw path. This repairs the import error after successful Drive
+downloads. Paths containing spaces, accents, `#` or `%` remain intact.
+There is no bulk EPUB/cover download. Removing a
 source removes only its index; it never deletes imported library books or Drive
 files. Downloading an updated EPUB follows the existing import policy and does
 not replace saved chapters or reading progress automatically.
@@ -80,3 +87,5 @@ existing navigation/EPUB regressions. Live account authorization and A9 performa
 verification is recorded separately after configuration.
 
 Public-mode verification after key configuration: the actual shared folder exposed 18316 EPUBs across 92 pages. A streamed sample download matched its size and contained a valid ZIP/container/OPF with real metadata. No Google account/OAuth token was used. This was a workstation verification, not an A9 performance or device-install test.
+
+The separate shelf and Android file-URI repair are source changes after 2.0.37, pending a new APK.

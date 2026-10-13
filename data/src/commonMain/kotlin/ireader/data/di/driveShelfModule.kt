@@ -29,7 +29,7 @@ val driveShelfModule=module {
    CoroutineScope(SupervisorJob()+Dispatchers.Default),importer={path ->
     withContext(Dispatchers.IO) {
      val metadata=readShelfEpubMetadata(path)
-     epub.parse(listOf(Uri.parse(path)))
+     epub.parse(listOf(Uri.fromFilePath(path)))
      val id=store.findImportedBook(LocalSource.SOURCE_ID,metadata.title,metadata.author.ifBlank{"Unknown"})?:throw ShelfException(ShelfFailure.ImportFailed)
      val book=books.findBookById(id)?:throw ShelfException(ShelfFailure.ImportFailed)
      if(store.chapterCount(book.id)==0L)throw ShelfException(ShelfFailure.ImportFailed)

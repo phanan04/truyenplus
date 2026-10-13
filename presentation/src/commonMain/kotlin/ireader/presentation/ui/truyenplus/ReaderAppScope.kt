@@ -7,7 +7,7 @@ enum class ReaderDestination { Home, Library, Settings }
 object ReaderAppScope {
     val features = ReaderFeature.entries.toSet()
     val destinations = listOf(ReaderDestination.Home, ReaderDestination.Library, ReaderDestination.Settings)
-    private val screens = setOf("main", "category", "fontSettings", "ttsEngineManager", "textReplacement")
+    private val screens = setOf("main", "shelf", "category", "fontSettings", "ttsEngineManager", "textReplacement")
     fun allows(route: String): Boolean = route in screens ||
         Regex("bookDetail/-?\\d+").matches(route) ||
         Regex("reader/-?\\d+/-?\\d+").matches(route) ||

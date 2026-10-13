@@ -17,7 +17,6 @@
     <string name="tp_first_story">Câu chuyện đầu tiên của bạn</string>
     <string name="tp_first_story_hint">Thêm EPUB hoặc PDF để bắt đầu đọc và nghe.</string>
     <string name="tp_import_book">Nhập sách</string>
-    <string name="tp_reading_space">Không gian đọc của bạn</string>
     <string name="tp_all">Tất cả</string>
     <string name="tp_reading">Đang đọc</string>
     <string name="tp_unread">Chưa đọc</string>
@@ -28,7 +27,6 @@
     <string name="tp_bring_books">Mang sách của bạn vào đây</string>
     <string name="tp_import_formats">Nhập EPUB · PDF</string>
     <string name="tp_your_library">Thư viện của bạn</string>
-    <string name="tp_library_hint">Sách, bộ sưu tập và những thế giới riêng.</string>
     <string name="tp_search_books">Tìm sách trong thư viện</string>
     <string name="tp_manage_collections">Quản lý bộ sưu tập</string>
     <string name="tp_sort_books">Đổi thứ tự sách</string>
@@ -40,7 +38,6 @@
     <string name="tp_pause">Tạm dừng</string>
     <string name="tp_resume">Phát tiếp</string>
     <string name="tp_reading_journey">Hành trình đọc</string>
-    <string name="tp_journey_hint">Những trang sách bạn đã đi qua.</string>
     <string name="tp_overview">Tổng quan</string>
     <string name="tp_history">Lịch sử</string>
     <string name="tp_reading_streak">Chuỗi ngày đọc liên tiếp</string>
@@ -320,7 +317,6 @@
     <string name="tp_shelf_no_results">Chưa tìm thấy truyện. Nếu đang tải danh mục, thử lại sau.</string>
     <string name="tp_shelf_download">Tải về</string>
     <string name="tp_shelf_open">Đọc</string>
-    <string name="tp_shelf_metadata">Bìa và thông tin lấy khi tải EPUB</string>
     <string name="tp_shelf_importing">Đang nhập EPUB…</string>
     <string name="tp_shelf_downloading">Đang tải…</string>
     <string name="tp_shelf_indexing">Đang lấy danh mục · %1$s EPUB</string>

@@ -17,7 +17,6 @@
     <string name="tp_first_story">Your first story</string>
     <string name="tp_first_story_hint">Add an EPUB or PDF to start reading and listening.</string>
     <string name="tp_import_book">Import books</string>
-    <string name="tp_reading_space">Your reading space</string>
     <string name="tp_all">All</string>
     <string name="tp_reading">Reading</string>
     <string name="tp_unread">Unread</string>
@@ -28,7 +27,6 @@
     <string name="tp_bring_books">Bring your books here</string>
     <string name="tp_import_formats">Import EPUB · PDF</string>
     <string name="tp_your_library">Your library</string>
-    <string name="tp_library_hint">Books, collections and worlds of your own.</string>
     <string name="tp_search_books">Search your library</string>
     <string name="tp_manage_collections">Manage collections</string>
     <string name="tp_sort_books">Change book order</string>
@@ -40,7 +38,6 @@
     <string name="tp_pause">Pause</string>
     <string name="tp_resume">Resume</string>
     <string name="tp_reading_journey">Reading journey</string>
-    <string name="tp_journey_hint">The pages you have explored.</string>
     <string name="tp_overview">Overview</string>
     <string name="tp_history">History</string>
     <string name="tp_reading_streak">Consecutive reading days</string>
@@ -320,7 +317,6 @@
     <string name="tp_shelf_no_results">No stories found. If the catalog is still loading, try again later.</string>
     <string name="tp_shelf_download">Download</string>
     <string name="tp_shelf_open">Read</string>
-    <string name="tp_shelf_metadata">Cover and details are read after downloading</string>
     <string name="tp_shelf_importing">Importing EPUB…</string>
     <string name="tp_shelf_downloading">Downloading…</string>
     <string name="tp_shelf_indexing">Loading catalog · %1$s EPUBs</string>

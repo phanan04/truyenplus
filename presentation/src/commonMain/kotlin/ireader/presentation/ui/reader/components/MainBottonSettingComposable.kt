@@ -45,8 +45,9 @@ fun MainBottomSettingComposable(
         totalPages: Int = 0,
         autoScrollEnabled: Boolean = false,
         onBookmark: () -> Unit = {},
+        backgroundColor: androidx.compose.ui.graphics.Color = androidx.compose.material3.MaterialTheme.colorScheme.surface,
 ) {
     ireader.presentation.ui.truyenplus.ReaderChapterFooter(
         currentChapterIndex,chapters.size,chapter?.bookmark==true,autoScrollEnabled,
-        onPrev,onNext,{scope.launch {drawerState.open()}},onPlay,onBookmark,{onAutoScrollToggle?.invoke()},modifier)
+        onPrev,onNext,{scope.launch {drawerState.open()}},onPlay,onBookmark,{onAutoScrollToggle?.invoke()},modifier,backgroundColor)
 }
