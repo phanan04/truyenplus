@@ -21,14 +21,17 @@ import androidx.compose.ui.unit.dp
 /** A display list, not a screenshot. Navigation is outside this source to avoid feedback. */
 @Stable
 class ReaderNavigationBackdrop(val layer: GraphicsLayer) {
+    var samplingEnabled by mutableStateOf(true)
     var position by mutableStateOf(Offset.Zero)
 }
 val LocalReaderNavigationBackdrop = staticCompositionLocalOf<ReaderNavigationBackdrop?> { null }
 
 fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifier =
     if(backdrop==null) this else onGloballyPositioned { backdrop.position=it.positionInRoot() }.drawWithContent {
-        backdrop.layer.record { this@drawWithContent.drawContent() }
-        drawLayer(backdrop.layer)
+        if(backdrop.samplingEnabled) {
+            backdrop.layer.record { this@drawWithContent.drawContent() }
+            drawLayer(backdrop.layer)
+        } else drawContent()
     }
 
 /** Only the capsule-sized sampled layer gets a blur pass; icons/text are drawn afterwards. */
@@ -41,6 +44,10 @@ fun Modifier.readerNavigationGlass(tint: Color, fallbackAlpha: Float = .94f, blu
     val blur=remember(density) { with(density) { BlurEffect(10.dp.toPx(),10.dp.toPx(),TileMode.Clamp) } }
     var position by remember { mutableStateOf(Offset.Zero) }
     return onGloballyPositioned { position=it.positionInRoot() }.drawWithContent {
+        if(!backdrop.samplingEnabled) {
+            drawRect(tint.copy(alpha=fallbackAlpha));drawContent()
+            return@drawWithContent
+        }
         val padding=12.dp.roundToPx()
         val offset=position-backdrop.position
         sampled.renderEffect=blur

@@ -60,3 +60,28 @@ bitmap assets or dependencies. The decorative library/home/progress subtitles an
 pre-download metadata explanation were removed.
 
 These source changes require a newer APK. Device frame rate is not measured.
+
+## Reader interaction fixes (after 2.0.37)
+
+Reader control insets now apply even when immersive mode is enabled. Tap-to-hide
+still removes the header/footer in reading mode; active listening retains its
+measured bottom inset. A down-arrow minimizes the listening dock without stopping
+TTS. The small dock retains expand, play/pause, settings and close controls.
+
+A shared `ReaderPanelState` owns Appearance/Listening settings. Opening one closes
+the other. While Appearance is open, listening uses the small dock and the
+appearance frame reserves its space. Both settings use fixed-height pages rather
+than vertical scrolling. Appearance groups text, layout, colors and auto-scroll;
+listening groups voice/pitch, music, reading and timer controls. Line spacing and
+margins expose levels 1–10. The quick font picker uses the system Default, Serif
+and Sans serif families, retaining the existing font preference/rendering path.
+
+Scroll positions are observed via snapshotFlow outside composition. Tracking no
+longer copies the complete chapter state for each paragraph. Progress stays in
+memory immediately and database writes debounce for 500ms; leaving a chapter
+flushes a captured position so a reset cannot overwrite the old chapter's value.
+During a fling/scroll, chapter display-list recording and control blur use the
+cheap tinted path. They resume when scrolling settles. This removes specific
+sources of extra work; it is not a physical-device FPS measurement.
+
+These changes remain source-only until a new APK is built.

@@ -44,12 +44,8 @@ class ReaderScrollViewModel(
         scrollManager.updatePosition(position)
         scrollPosition.value = position
 
-        updateSuccessState { state ->
-            state.copy(
-                currentChapter = state.currentChapter.copy(lastPageRead = position)
-            )
-        }
-
+        // A paragraph crossing must not invalidate the complete chapter/book state.
+        // Restoration reads the persisted position; navigation flushes the latest memory value.
         scrollManager.saveScrollPosition(chapter.id, position)
     }
 

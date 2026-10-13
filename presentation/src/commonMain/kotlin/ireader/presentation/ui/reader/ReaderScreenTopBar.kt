@@ -85,7 +85,10 @@ fun ReaderScreenTopBar(
     onPlay: (() -> Unit)? = null,
 ) {
     if (!isReaderModeEnable || !isLoaded) {
-        ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, { vm.showSettingsBottomSheet = true }, modifier, onPlay,
+        val panels=ireader.presentation.ui.truyenplus.LocalReaderPanels.current
+        ReaderChapterTopBar(chapter, onBookMark, onPopBackStack, {
+            if(panels!=null)panels.open(ireader.presentation.ui.truyenplus.ReaderPanel.Appearance) else vm.showSettingsBottomSheet=true
+        }, modifier, onPlay,
             backgroundColor = vm.backgroundColor.value.toComposeColor(), textColor = vm.textColor.value.toComposeColor(), bookTitle = vm.book?.title.orEmpty(), onEdit = { chapter?.id?.let { vm.chapterEditorId = it } })
     }
 }

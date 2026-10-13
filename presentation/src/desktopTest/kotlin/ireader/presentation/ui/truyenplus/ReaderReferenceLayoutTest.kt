@@ -57,20 +57,24 @@ class ReaderReferenceLayoutTest {
         try {
             scene.render(0);scene.render(1_000_000_000)
             fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
-            val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            var time=1_000_000_000L
             fun click(tag:String) {
+                val nodes=scene.semanticsOwners.flatMap {descendants(it.rootSemanticsNode)}
                 val n=nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)==tag }
                 requireNotNull(n.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
+                time+=1_000_000_000L;scene.render(time);scene.render(time+500_000_000L)
             }
-            click("reader-font-increase"); assertEquals(21,size)
-            click("reader-line-7");assertEquals(34,height)
-            click("reader-margin-4");assertEquals(32,margin)
+            click("reader-font-increase");assertEquals(21,size)
+            click("reader-align-justify");assertEquals(PreferenceValues.PreferenceTextAlignment.Justify,alignment)
+            click("reader-font-picker");click("reader-font-sans");assertEquals(FontFamilyModel.SansSerif,family)
+            click("appearance-page-spacing")
+            click("reader-line-increase");assertEquals(34,height)
+            click("reader-margin-increase");assertEquals(24,margin)
+            click("reader-mode-page");assertEquals(ReadingMode.Page,mode)
+            click("appearance-page-scroll")
             click("reader-scroll-increase");assertEquals(11,speed)
             click("reader-scroll-toggle");assertTrue(scroll)
-            click("reader-mode-page");assertEquals(ReadingMode.Page,mode)
-            click("reader-font-sans");assertEquals(FontFamilyModel.SansSerif,family)
-            click("reader-theme-7");assertEquals(7L,theme)
-            click("reader-align-justify");assertEquals(PreferenceValues.PreferenceTextAlignment.Justify,alignment)
+            click("appearance-page-colors");click("reader-theme-7");assertEquals(7L,theme)
         } finally { scene.close() }
     }
 
@@ -108,8 +112,11 @@ class ReaderReferenceLayoutTest {
                 fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
                 val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
                 assertTrue(SemanticsProperties.Disabled in nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)==tag }.config)
-                assertTrue(SemanticsProperties.Disabled in nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-mode-page" }.config)
-                assertFalse(nodes.any { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-scroll-increase" })
+                requireNotNull(nodes.first {it.config.getOrNull(SemanticsProperties.TestTag)=="appearance-page-spacing"}.config[SemanticsActions.OnClick].action).invoke()
+                scene.render(2_000_000_000);scene.render(3_000_000_000)
+                val spacing=scene.semanticsOwners.flatMap {descendants(it.rootSemanticsNode)}
+                assertTrue(SemanticsProperties.Disabled in spacing.first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-mode-page"}.config)
+                assertFalse(spacing.any {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-scroll-increase"})
             } finally { scene.close() }
         }
     }

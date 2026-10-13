@@ -34,7 +34,7 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
     MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(surface=background,background=background,onSurface=ink,onBackground=ink,
         onSurfaceVariant=ink.copy(alpha=.7f),outline=ink.copy(alpha=.2f))) {
         ReaderAppearanceOverlay(onDismiss=onDismiss,background=background,ink=ink) {
-            Column(Modifier.fillMaxWidth().weight(1f)) {
+            Column(Modifier.fillMaxWidth()) {
                 ReaderAppearanceContent(
                     ReaderAppearanceUi(fontSize=vm.fontSize.value,lineHeight=vm.lineHeight.value,margin=vm.leftMargin.value,
                         scrollSpeed=vm.autoScrollOffset.value,scrollEnabled=if(listening) follow else vm.autoScrollMode,
@@ -62,7 +62,7 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
                         onFont={ font ->
                             vm.selectedFontId.value=""
                             vm.font.value=FontType(when(font) {
-                                FontFamilyModel.Default -> "Default";FontFamilyModel.SansSerif -> "Sans serif"
+                                FontFamilyModel.Default -> "Default";FontFamilyModel.Serif -> "Serif";FontFamilyModel.SansSerif -> "Sans serif"
                                 FontFamilyModel.Cursive -> "Cursive";FontFamilyModel.Monospace -> "Monospace";else -> "Default"
                             },font)
                         },onBrightness=onChangeBrightness,

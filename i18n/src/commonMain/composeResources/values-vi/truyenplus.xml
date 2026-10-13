@@ -339,4 +339,15 @@
     <string name="tp_shelf_configuration">Chưa cấu hình Google Drive cho ứng dụng. Cần bật Drive API và đăng ký OAuth Android đúng package/chữ ký.</string>
     <string name="tp_shelf_busy">Đang xử lý…</string>
     <string name="tp_shelf_cancelled">Đã hủy kết nối.</string>
+    <string name="tp_collapse_player">Thu gọn thanh nghe</string>
+    <string name="tp_expand_player">Mở rộng thanh nghe</string>
+    <string name="tp_settings_text">Chữ</string>
+    <string name="tp_settings_spacing">Bố cục</string>
+    <string name="tp_settings_colors">Màu</string>
+    <string name="tp_settings_scroll">Cuộn</string>
+    <string name="tp_settings_voice">Giọng</string>
+    <string name="tp_settings_music">Nhạc</string>
+    <string name="tp_settings_timer">Hẹn giờ</string>
+    <string name="tp_system_serif">Có chân (Serif)</string>
+    <string name="tp_system_sans">Không chân (Sans serif)</string>
 </resources>

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import kotlin.math.roundToInt
 import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -33,7 +35,7 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     onPrevious: () -> Unit, onPlayPause: () -> Unit, onNext: () -> Unit,
     onSpeed: (Float) -> Unit, onSettings: () -> Unit, onClose: () -> Unit,
     audio: ListeningAudioState = ListeningAudioState(), onVolume: (Float) -> Unit = {},
-    onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier) {
+    onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier, onMinimize: (() -> Unit)? = null) {
     val s = requireNotNull(LocalLocalizeHelper.current)
     Surface(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).readerPanel(22),
         shape = RoundedCornerShape(22.dp), color = Color.Transparent, contentColor = PlayerMuted,
@@ -58,7 +60,7 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
                         Box(contentAlignment=Alignment.Center) { Icon(Icons.Outlined.GraphicEq,s.localize(Res.string.tp_background_music),tint=if(audio.musicEnabled) PlayerAccent else PlayerMuted) }
                     }
                     IconButton(onClick=onSettings,Modifier.size(48.dp)) { Icon(Icons.Outlined.Settings,s.localize(Res.string.tp_listening_settings)) }
-                    IconButton(onClick=onClose,Modifier.size(48.dp)) { Icon(Icons.Default.Close,s.localize(Res.string.tp_close_listening)) }
+                    IconButton(onClick=onMinimize ?: onClose,Modifier.size(48.dp).testTag(if(onMinimize!=null) "listen-minimize" else "listen-close")) { Icon(if(onMinimize!=null) Icons.Default.KeyboardArrowDown else Icons.Default.Close,s.localize(if(onMinimize!=null)Res.string.tp_collapse_player else Res.string.tp_close_listening)) }
                 }
                 val volume: @Composable () -> Unit = {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -102,54 +104,67 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     onVoice: () -> Unit, onMusic: () -> Unit, onMusicEnabled: (Boolean) -> Unit, onMusicVolume: (Float) -> Unit,
     onPitch: (Float) -> Unit, onAutoNext: (Boolean) -> Unit, onHighlight: (Boolean) -> Unit, onAutoScroll: (Boolean) -> Unit,
     onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "") {
-    val s = requireNotNull(LocalLocalizeHelper.current)
-    Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(max = 380.dp).readerPanel(20), color = Color.Transparent,
-        contentColor = PlayerMuted, shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(14.dp)) {
-            Text(s.localize(Res.string.tp_choose_voice), style = MaterialTheme.typography.labelMedium)
-            OutlinedButton(onClick = onVoice, Modifier.fillMaxWidth().padding(top = 6.dp), shape = RoundedCornerShape(10.dp)) {
-                Icon(Icons.Outlined.Mic, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                Text(voice.ifBlank { s.localize(Res.string.tp_choose_voice) }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                Icon(Icons.Default.ExpandMore, null)
-            }
-            if (notice.isNotBlank()) Text(notice, Modifier.padding(top = 6.dp), style = MaterialTheme.typography.bodySmall)
-            if (audio.supported) {
-                HorizontalDivider(Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .1f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(s.localize(Res.string.tp_background_music), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-                    Switch(audio.musicEnabled, onMusicEnabled, enabled = audio.musicTitle.isNotBlank(), modifier = Modifier.scale(.8f), colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onPrimary, checkedTrackColor = PlayerAccent))
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    var page by remember { mutableIntStateOf(0) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,shape=RoundedCornerShape(20.dp)) {
+        Column {
+            ReaderSettingsTabs(listOf(s.localize(Res.string.tp_settings_voice),s.localize(Res.string.tp_settings_music),s.localize(Res.string.tp_reading_tab),s.localize(Res.string.tp_settings_timer)),listOf("voice","music","reading","timer"),page,{page=it},"listen-page")
+            Box(Modifier.fillMaxWidth().height(160.dp).padding(horizontal=14.dp,vertical=4.dp)) {
+                when(page) {
+                    0 -> Column {
+                        OutlinedButton(onClick=onVoice,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("listen-voice-choice"),shape=RoundedCornerShape(12.dp)) {
+                            Icon(Icons.Outlined.Mic,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp))
+                            Text(voice.ifBlank{s.localize(Res.string.tp_choose_voice)},Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis)
+                            Icon(Icons.Default.ExpandMore,null)
+                        }
+                        Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Text(s.localize(Res.string.tp_pitch,listeningSpeedLabel(pitch).removeSuffix("x")),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                            IconButton(onClick={onPitch(((pitch*4).roundToInt()-1).coerceIn(2,8)/4f)},enabled=pitch>.5f,modifier=Modifier.size(48.dp).testTag("listen-pitch-decrease")){Text("−")}
+                            IconButton(onClick={onPitch(((pitch*4).roundToInt()+1).coerceIn(2,8)/4f)},enabled=pitch<2f,modifier=Modifier.size(48.dp).testTag("listen-pitch-increase")){Text("+")}
+                        }
+                        if(notice.isNotBlank())Text(notice,style=MaterialTheme.typography.labelSmall,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    }
+                    1 -> Column {
+                        OutlinedButton(onClick=onMusic,enabled=audio.supported,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("listen-music-choice"),shape=RoundedCornerShape(12.dp)) {
+                            Icon(Icons.Outlined.MusicNote,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp))
+                            Text(if(audio.musicError)s.localize(Res.string.tp_music_error) else audio.musicTitle.ifBlank{s.localize(Res.string.tp_choose_music)},Modifier.weight(1f),maxLines=1,overflow=TextOverflow.Ellipsis,color=if(audio.musicError)MaterialTheme.colorScheme.error else LocalContentColor.current)
+                            Icon(Icons.Default.ExpandMore,null)
+                        }
+                        ReaderSettingSwitch(s.localize(Res.string.tp_background_music),audio.musicEnabled,onMusicEnabled,enabled=audio.supported && audio.musicTitle.isNotBlank())
+                        Row(Modifier.height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.VolumeUp,null,Modifier.size(18.dp))
+                            Slider(audio.musicVolume,onMusicVolume,enabled=audio.supported,modifier=Modifier.weight(1f).semantics {contentDescription=s.localize(Res.string.tp_music_volume)})
+                        }
+                    }
+                    2 -> Column {
+                        ReaderSettingSwitch(s.localize(Res.string.tp_auto_next),autoNext,onAutoNext)
+                        ReaderSettingSwitch(s.localize(Res.string.tp_highlight_paragraph),highlight,onHighlight)
+                        ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)
+                    }
+                    else -> Column {
+                        ReaderSettingSwitch(s.localize(Res.string.tp_sleep_timer),timer,onTimer)
+                        Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Text(s.localize(Res.string.tp_minutes,minutes),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                            IconButton(onClick={onMinutes((minutes-5).coerceAtLeast(5))},enabled=timer && minutes>5,modifier=Modifier.size(48.dp)){Text("−")}
+                            IconButton(onClick={onMinutes((minutes+5).coerceAtMost(120))},enabled=timer && minutes<120,modifier=Modifier.size(48.dp)){Text("+")}
+                        }
+                    }
                 }
-                OutlinedButton(onClick = onMusic, Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Outlined.MusicNote, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                    Text(audio.musicTitle.ifBlank { s.localize(Res.string.tp_choose_music) }, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-                    Icon(Icons.Default.ExpandMore, null)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.VolumeUp, null, Modifier.size(16.dp))
-                    Slider(audio.musicVolume, onMusicVolume, modifier = Modifier.weight(1f).heightIn(min=48.dp).semantics { contentDescription = s.localize(Res.string.tp_music_volume) },
-                        thumb = { Box(Modifier.size(12.dp).background(PlayerAccent, CircleShape)) },
-                        track = { SliderDefaults.Track(it, modifier = Modifier.height(3.dp), colors = SliderDefaults.colors(activeTrackColor = PlayerAccent, inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .2f))) })
-                }
-                if (audio.musicError) Text(s.localize(Res.string.tp_music_error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-            ToggleOption(s.localize(Res.string.tp_auto_next), autoNext, onAutoNext)
-            ToggleOption(s.localize(Res.string.tp_highlight_paragraph), highlight, onHighlight)
-            ToggleOption(s.localize(Res.string.tp_follow_paragraph), autoScroll, onAutoScroll)
-            Text(s.localize(Res.string.tp_pitch, pitch), Modifier.padding(top = 8.dp))
-            Slider(pitch.coerceIn(.5f,2f), onPitch, valueRange = .5f..2f, steps = 5)
-            ToggleOption(s.localize(Res.string.tp_sleep_timer), timer, onTimer)
-            if (timer) {
-                Text(s.localize(Res.string.tp_minutes, minutes))
-                Slider(minutes.coerceIn(5,120).toFloat(), { onMinutes(it.toInt()) }, valueRange = 5f..120f)
             }
         }
     }
 }
 
-@Composable private fun ToggleOption(label: String, checked: Boolean, change: (Boolean) -> Unit) {
-    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = .1f))
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
-        Switch(checked, change, colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onPrimary, checkedTrackColor = PlayerAccent), modifier = Modifier.scale(.8f).semantics { contentDescription = label })
-    }
+@Composable
+fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,onSettings:()->Unit,onClose:()->Unit,modifier:Modifier=Modifier) {
+ val s=requireNotNull(LocalLocalizeHelper.current)
+ Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(22).testTag("listen-collapsed"),shape=RoundedCornerShape(22.dp),color=Color.Transparent) {
+  Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
+   IconButton(onClick=onExpand,modifier=Modifier.size(48.dp).testTag("listen-expand")){Icon(Icons.Default.KeyboardArrowUp,s.localize(Res.string.tp_expand_player))}
+   Text(s.localize(Res.string.tp_listen_book),Modifier.weight(1f),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+   IconButton(onClick=onPlay,modifier=Modifier.size(48.dp).testTag("listen-play")){Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play))}
+   IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("listen-settings")){Icon(Icons.Outlined.Settings,s.localize(Res.string.settings))}
+   IconButton(onClick=onClose,modifier=Modifier.size(48.dp).testTag("listen-close")){Icon(Icons.Default.Close,s.localize(Res.string.close))}
+  }
+ }
 }

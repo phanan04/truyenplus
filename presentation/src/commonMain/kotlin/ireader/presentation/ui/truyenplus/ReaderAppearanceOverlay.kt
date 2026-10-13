@@ -28,11 +28,12 @@ fun ReaderContentAndAppearance(modifier: Modifier = Modifier, contentAlignment: 
 fun ReaderAppearanceOverlay(onDismiss: () -> Unit, background: Color = MaterialTheme.colorScheme.surface,
     ink: Color = MaterialTheme.colorScheme.onSurface, content: @Composable ColumnScope.() -> Unit) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
+    val playerInset=if(LocalReaderListening.current!=null)72.dp+WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() else 0.dp
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f))
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
-        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)
-            .height((maxHeight * .86f).coerceAtMost(660.dp)).readerGlassCard(24,background,ink)
+        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).padding(bottom=playerInset)
+            .heightIn(max=(maxHeight-16.dp-playerInset).coerceAtLeast(48.dp)).readerGlassCard(24,background,ink).testTag("reader-appearance-panel")
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
             shape = RoundedCornerShape(24.dp), color = Color.Transparent, contentColor = ink) {
             Column(Modifier.navigationBarsPadding()) {

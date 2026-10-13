@@ -1151,8 +1151,14 @@ class TTSV2ScreenSpec(
         }
         
         if (embedded) {
-            var optionsOpen by remember { mutableStateOf(false) }
-            ireader.presentation.core.ui.PlatformBackHandler(enabled = optionsOpen) { optionsOpen = false }
+            val sharedPanels=ireader.presentation.ui.truyenplus.LocalReaderPanels.current
+            val panels=sharedPanels ?: remember { ireader.presentation.ui.truyenplus.ReaderPanelState() }
+            val optionsOpen=panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Listening
+            fun toggleOptions() {
+                if(panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Listening)panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening)
+                else panels.open(ireader.presentation.ui.truyenplus.ReaderPanel.Listening)
+            }
+            ireader.presentation.core.ui.PlatformBackHandler(enabled = optionsOpen) { panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening) }
             var voiceName by remember { mutableStateOf(runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")) }
             val highlight by readerPreferences.ttsHighlightText().changes().collectAsState(initial = readerPreferences.ttsHighlightText().get())
             val follow by readerPreferences.ttsFollowParagraph().changes().collectAsState(initial = readerPreferences.ttsFollowParagraph().get())
@@ -1178,14 +1184,20 @@ class TTSV2ScreenSpec(
                         if (sleepModeEnabled) viewModel.startSleepTimer(it)
                     }, notice = if (state.edgeFallback) localizeHelper.localize(Res.string.tp_edge_fallback) else "")
                 }, player = {
-                ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
+                if(panels.minimized || optionsOpen || panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Appearance) ireader.presentation.ui.truyenplus.ReaderCollapsedPlayer(
+                    isPlaying || state.isLoading,
+                    { if(isPlaying || state.isLoading)actions.onPause() else actions.onPlay() },
+                    { panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);panels.expand() },
+                    ::toggleOptions,onCloseListening,
+                    Modifier.onSizeChanged { onPlayerHeightChanged(it.height) })
+                else ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
                     isPlaying || state.isLoading, state.speed, screenState.progressFraction,
                     actions::onPreviousChapter, { if (isPlaying || state.isLoading) actions.onPause() else actions.onPlay() },
                     actions::onNextChapter, actions::onSpeedChange,
-                    { optionsOpen = !optionsOpen }, onCloseListening,
+                    ::toggleOptions, onCloseListening,
                     audioState, audio::speechVolume,
                     { if (audioState.musicTitle.isBlank()) audio.chooseMusic() else audio.musicEnabled(!audioState.musicEnabled) },
-                    modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) })
+                    modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) },onMinimize=panels::minimize)
             })
             if (showVoiceChoices) ireader.presentation.ui.truyenplus.ReaderVoiceChoiceDialog(
                 edgeSupported = TTSEngineFactory.supportsEdge(),

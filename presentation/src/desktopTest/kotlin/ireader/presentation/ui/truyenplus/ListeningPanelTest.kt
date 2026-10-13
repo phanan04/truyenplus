@@ -64,22 +64,26 @@ class ListeningPanelTest {
         try {
             scene.render(0); scene.render(1_000_000_000)
             fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
-            val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            var time=1_000_000_000L
+            fun nodes()=scene.semanticsOwners.flatMap {descendants(it.rootSemanticsNode)}
+            fun clickTag(tag:String) {
+                requireNotNull(nodes().first {it.config.getOrNull(SemanticsProperties.TestTag)==tag}.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
+                time+=1_000_000_000;scene.render(time);scene.render(time+500_000_000)
+            }
             fun clickText(text:String) {
-                val n=nodes.first { it.config.getOrNull(SemanticsProperties.Text)?.any { it.text==text }==true && it.config.getOrNull(SemanticsActions.OnClick)?.action!=null }
+                val n=nodes().first {it.config.getOrNull(SemanticsProperties.Text)?.any {it.text==text}==true && it.config.getOrNull(SemanticsActions.OnClick)?.action!=null}
                 requireNotNull(n.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
             }
-            clickText("Giọng đã chọn"); clickText("Nhạc trên máy.mp3")
-            assertEquals(1,voice); assertEquals(1,music)
+            clickTag("listen-voice-choice");assertEquals(1,voice)
+            clickTag("listen-pitch-increase");assertEquals(1.25f,pitch)
+            clickTag("listen-page-music");clickTag("listen-music-choice");assertEquals(1,music)
+            clickTag("listen-page-reading")
             for(label in listOf("Tự động chuyển chương","Nổi bật đoạn văn","Tự động cuộn")) {
-                val n=nodes.first { it.config.getOrNull(SemanticsProperties.ContentDescription)?.contains(label)==true }
+                val n=nodes().first {it.config.getOrNull(SemanticsProperties.ContentDescription)?.contains(label)==true}
                 requireNotNull(n.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
             }
-            assertFalse(next); assertFalse(highlight); assertFalse(scroll)
-            val slider=nodes.first { it.config.getOrNull(SemanticsProperties.ProgressBarRangeInfo)?.range==.5f..2f }
-            assertEquals(5, slider.config[SemanticsProperties.ProgressBarRangeInfo].steps)
-            requireNotNull(slider.config.getOrNull(SemanticsActions.SetProgress)?.action).invoke(1.38f)
-            assertEquals(1.5f,pitch)
+            assertFalse(next);assertFalse(highlight);assertFalse(scroll)
+            assertFalse(nodes().any {it.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange)!=null})
         } finally { scene.close() }
     }
 

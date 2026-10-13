@@ -165,6 +165,7 @@ data class ReaderScreenSpec(
         val ttsState by remember(ttsController) { ttsController.state.readerUpdates() }.collectAsState(initial=ttsController.state.value.readerProjection())
         val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
+        val readerPanels=remember { ireader.presentation.ui.truyenplus.ReaderPanelState() }
         val blurSupported=ireader.presentation.ui.truyenplus.rememberReaderBlurSupported()
         val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
         val chapterBackdrop=remember(sourceLayer,blurSupported) {
@@ -278,6 +279,7 @@ data class ReaderScreenSpec(
 
         DisposableEffect(key1 = true) {
             onDispose {
+                vm.saveCurrentScrollPositionToDatabase()
                 platformReader.apply {
                     if (context != null) {
                         vm.restoreSetting(context, scrollState, lazyListState)
@@ -356,7 +358,7 @@ data class ReaderScreenSpec(
         LaunchedEffect(autoScrollMode,showListening) {
             while(autoScrollMode && !showListening) {
                 delay(50)
-                if(!lazyListState.isScrollInProgress && !vm.showSettingsBottomSheet) {
+                if(!lazyListState.isScrollInProgress && !vm.showSettingsBottomSheet && readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None) {
                     // The core speed control is 1..20: four dp/second per step.
                     val delta=with(readerDensity) { (vm.autoScrollOffset.value.coerceIn(1,20)*.2f).dp.toPx() }
                     lazyListState.scrollBy(delta)
@@ -369,7 +371,7 @@ data class ReaderScreenSpec(
         }
         val listeningSourceIndex = ttsState.paragraphSourceIndices.getOrNull(ttsState.currentParagraphIndex)
         LaunchedEffect(showListening, followListening, listeningSourceIndex, ttsState.chapter?.id, chapter?.id, ttsState.isPlaying) {
-            if (showListening && followListening && ttsState.isPlaying && ttsState.book?.id == bookId &&
+            if (showListening && followListening && readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && ttsState.isPlaying && ttsState.book?.id == bookId &&
                 ttsState.chapter?.id == chapter?.id && listeningSourceIndex != null) {
                 delay(100)
                 val item = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listeningSourceIndex }
@@ -532,7 +534,8 @@ data class ReaderScreenSpec(
                 navigationBar = customColor.navigation
             ) {
                 androidx.compose.runtime.CompositionLocalProvider(
-                    ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop provides chapterBackdrop
+                    ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop provides chapterBackdrop,
+                    ireader.presentation.ui.truyenplus.LocalReaderPanels provides readerPanels
                 ) {
                 // Use Box to overlay top bar without affecting content layout
                 androidx.compose.foundation.layout.Box(
@@ -668,7 +671,7 @@ data class ReaderScreenSpec(
                         onSliderChange = {
                             // Slider change is now handled via state
                         },
-                        onReaderPlay = { showListening = true },
+                        onReaderPlay = { readerPanels.expand();showListening = true },
                         onReaderBottomOnSetting = {
                             scope.launch {
                                 sheetState.show()
@@ -783,7 +786,7 @@ data class ReaderScreenSpec(
                         androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).widthIn(max=760.dp).fillMaxWidth()
                             .then(Modifier.navigationBarsPadding())) {
                             TTSV2ScreenSpec(book.id, chapter.id, book.sourceId, listeningParagraph).Content(
-                                embedded = true, onCloseListening = { listeningAdapter.pause(); showListening = false },
+                                embedded = true, onCloseListening = { readerPanels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);listeningAdapter.pause(); showListening = false },
                                 onPlayerHeightChanged = { readerPlayerHeight = with(readerDensity) { it.toDp() } })
                         }
                     }

@@ -38,24 +38,19 @@ class ResponsiveReaderTest {
         val out=File("build/reports/truyenplus-responsive/$name-${w.width}x${w.height}-${w.font}.png")
         out.parentFile.mkdirs();out.writeBytes(requireNotNull(scene.render(20_000_000_000).encodeToData(EncodedImageFormat.PNG)).bytes)
     }
-    @Test fun smallSplitWindowStillHasTouchableSpacingChoicesAtLargeFont() {
-        val w=windows.first();val scene=scene(w) { ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions()) }
+    @Test fun smallSplitWindowHasFixedSpacingControlsAtLargeFont() {
+        val w=windows.first();val scene=scene(w) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
         try {
-            var all=rendered(scene)
-            val scroll=requireNotNull(all.first { it.config.getOrNull(SemanticsActions.ScrollBy)!=null }.config[SemanticsActions.ScrollBy].action)
-            var time=1_000_000_000L
-            for(i in 1..7) {
-                var n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-line-$i" }
-                if(n.boundsInRoot.width<48 || n.boundsInRoot.height<48) {
-                    assertTrue(scroll(0f,n.positionInRoot.y-160f))
-                    repeat(40) { time+=16_666_667;scene.render(time) }
-                    all=scene.semanticsOwners.flatMap { nodes(it.rootSemanticsNode) }
-                    n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-line-$i" }
-                }
-                assertTrue(n.boundsInRoot.width>=48f && n.boundsInRoot.height>=48f,"Every spacing choice must be reachable at 200% font: $i bounds=${n.boundsInRoot}")
+            val initial=rendered(scene)
+            click(initial.first {it.config.getOrNull(SemanticsProperties.TestTag)=="appearance-page-spacing"})
+            scene.render(2_000_000_000)
+            val all=scene.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}
+            for(tag in listOf("reader-line-decrease","reader-line-increase","reader-margin-decrease","reader-margin-increase")) {
+                assertVisible(all.first {it.config.getOrNull(SemanticsProperties.TestTag)==tag},w)
             }
+            assertFalse(all.any {it.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange)!=null})
             save(scene,"appearance",w)
-        } finally { scene.close() }
+        } finally {scene.close()}
     }
     @Test fun navigationRemainsReachableWithLargeFontAndSplitWindows() {
         for(w in windows) {

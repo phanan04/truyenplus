@@ -339,4 +339,15 @@
     <string name="tp_shelf_configuration">Google Drive is not configured for this app. Enable Drive API and register Android OAuth with the app package/signing certificate.</string>
     <string name="tp_shelf_busy">Working…</string>
     <string name="tp_shelf_cancelled">Connection cancelled.</string>
+    <string name="tp_collapse_player">Minimize player</string>
+    <string name="tp_expand_player">Expand player</string>
+    <string name="tp_settings_text">Text</string>
+    <string name="tp_settings_spacing">Layout</string>
+    <string name="tp_settings_colors">Colors</string>
+    <string name="tp_settings_scroll">Scroll</string>
+    <string name="tp_settings_voice">Voice</string>
+    <string name="tp_settings_music">Music</string>
+    <string name="tp_settings_timer">Timer</string>
+    <string name="tp_system_serif">Serif</string>
+    <string name="tp_system_sans">Sans serif</string>
 </resources>

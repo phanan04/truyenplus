@@ -281,6 +281,7 @@ private fun ReadingScreenContent(
         }
     }
 
+    val panels=ireader.presentation.ui.truyenplus.LocalReaderPanels.current
     ireader.presentation.ui.truyenplus.ReaderContentAndAppearance(
         modifier = ReaderScreenModifiers.fillMaxSize
             .background(backgroundColor)
@@ -325,7 +326,7 @@ private fun ReadingScreenContent(
                                 .fillMaxSize()
                                 .readerNavigationSource(LocalReaderNavigationBackdrop.current)
                                 .background(backgroundColor)
-                                .padding(if (vm.immersiveMode.value) PaddingValues() else paddingValues)
+                                .padding(paddingValues)
                         ) {
                             ReaderText(
                                 vm = readerScreenPreferencesState,
@@ -463,7 +464,7 @@ private fun ReadingScreenContent(
                                         chapter = chapter,
                                         chapters = vm.stateChapters,
                                         currentChapterIndex = vm.currentChapterIndex,
-                                        onSetting = { vm.showSettingsBottomSheet = true },
+                                        onSetting = { if(panels!=null)panels.open(ireader.presentation.ui.truyenplus.ReaderPanel.Appearance) else vm.showSettingsBottomSheet=true },
                                         onNext = onNextWithReset,
                                         onPrev = onPrevWithReset,
                                         onSliderChange = onSliderChange,
@@ -497,10 +498,10 @@ private fun ReadingScreenContent(
                                     beforeChange = { vm.stopSpeechForEditing(id) }, onChanged = vm::refreshAfterEditing)
                             }
                             // Settings Bottom Sheet
-                            if (vm.showSettingsBottomSheet) {
+                            if (panels?.active==ireader.presentation.ui.truyenplus.ReaderPanel.Appearance || panels==null && vm.showSettingsBottomSheet) {
                                 ReaderSettingsBottomSheet(
                                     vm = vm,
-                                    onDismiss = { vm.showSettingsBottomSheet = false },
+                                    onDismiss = { panels?.close(ireader.presentation.ui.truyenplus.ReaderPanel.Appearance);vm.showSettingsBottomSheet = false },
                                     onToggleAutoBrightness = onToggleAutoBrightness,
                                     onChangeBrightness = onChangeBrightness,
                                     onBackgroundChange = { themeId ->

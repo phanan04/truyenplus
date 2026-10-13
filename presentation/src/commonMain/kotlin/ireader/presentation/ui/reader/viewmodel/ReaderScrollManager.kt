@@ -3,8 +3,7 @@ package ireader.presentation.ui.reader.viewmodel
 import ireader.core.log.Log
 import ireader.domain.data.repository.ChapterRepository
 import ireader.presentation.ui.reader.ReaderConstants
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 
 /**
  * Manages scroll position tracking and persistence for the Reader.
@@ -19,6 +18,8 @@ class ReaderScrollManager(
     private val scope: CoroutineScope,
     private val chapterRepository: ChapterRepository
 ) {
+    private var pendingSave: Job? = null
+    private var hasTrackedPosition=false
     private var _currentScrollPosition: Long = ReaderConstants.DEFAULT_SCROLL_POSITION
     val currentScrollPosition: Long get() = _currentScrollPosition
 
@@ -31,6 +32,7 @@ class ReaderScrollManager(
      */
     fun updatePosition(position: Long) {
         _currentScrollPosition = position
+        hasTrackedPosition=true
     }
 
     /**
@@ -38,30 +40,31 @@ class ReaderScrollManager(
      * Call this periodically as the user scrolls.
      */
     fun saveScrollPosition(chapterId: Long, position: Long) {
-        _currentScrollPosition = position
-        scope.launch {
-            try {
-                chapterRepository.updateLastPageRead(chapterId, position)
-            } catch (e: Exception) {
-                Log.error("Failed to save scroll position for chapter $chapterId", e)
-            }
+        updatePosition(position)
+        pendingSave?.cancel()
+        pendingSave=scope.launch {
+            delay(500)
+            persist(chapterId,position)
         }
     }
 
-    /**
-     * Force save the current scroll position immediately.
-     * Call this before navigating to a new chapter.
-     */
+    /** Capture the old chapter position before reset; finish this small write on disposal. */
     fun forceSaveScrollPosition(chapterId: Long) {
-        if (_currentScrollPosition > 0) {
-            scope.launch {
-                try {
-                    chapterRepository.updateLastPageRead(chapterId, _currentScrollPosition)
-                } catch (e: Exception) {
-                    Log.error("Failed to force save scroll position", e)
-                }
-            }
+        if(!hasTrackedPosition)return
+        val position=_currentScrollPosition
+        hasTrackedPosition=false
+        pendingSave?.cancel()
+        pendingSave=null
+        scope.launch(start=CoroutineStart.UNDISPATCHED) {
+            withContext(NonCancellable) { persist(chapterId,position) }
         }
+    }
+
+    private suspend fun persist(chapterId:Long,position:Long) {
+        try {
+            chapterRepository.updateLastPageRead(chapterId,position)
+        } catch(e:CancellationException) { throw e }
+        catch(e:Exception) { Log.error("Failed to save scroll position for chapter $chapterId",e) }
     }
 
     /**
@@ -76,6 +79,7 @@ class ReaderScrollManager(
      */
     fun resetForNewChapter(savedPosition: Long = 0L) {
         _currentScrollPosition = savedPosition
+        hasTrackedPosition=false
         _shouldScrollToEnd = false
     }
 

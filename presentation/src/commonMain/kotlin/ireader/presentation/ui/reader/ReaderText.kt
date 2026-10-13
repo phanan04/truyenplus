@@ -222,37 +222,8 @@ fun ReaderText(
     }
 
     // ==================== Periodic Scroll Position Saving ====================
-    // Save scroll position periodically as user scrolls to prevent data loss
-    // This ensures progress is saved even if app crashes or screen is disposed abruptly
-
-    var lastSavedScrollPosition by remember { mutableStateOf(-1) }
-
-    // Immediately update ViewModel's tracked position on every scroll
-    // This ensures the position is available even if the debounced save hasn't completed
-    LaunchedEffect(key1 = lazyListState.firstVisibleItemIndex) {
-        val currentPosition = lazyListState.firstVisibleItemIndex
-        if (hasRestoredInitialPosition && currentPosition >= 0) {
-            // Update ViewModel's in-memory tracking immediately (no DB write yet)
-            vm.saveScrollPosition(currentPosition.toLong())
-        }
-    }
-
-    // Debounced save to database - saves after user stops scrolling
-    LaunchedEffect(key1 = lazyListState.firstVisibleItemIndex, key2 = successState?.currentChapter?.id) {
-        val chapter = successState?.currentChapter ?: return@LaunchedEffect
-        val currentPosition = lazyListState.firstVisibleItemIndex
-
-        // Only save if position has actually changed and we've finished initial restoration
-        if (hasRestoredInitialPosition && currentPosition != lastSavedScrollPosition) {
-            // Debounce: wait a bit before saving to database to avoid too many writes
-            kotlinx.coroutines.delay(500) // 500ms debounce (reduced from 1s for better reliability)
-
-            // Check again if position is still the same (user stopped scrolling)
-            if (lazyListState.firstVisibleItemIndex == currentPosition) {
-
-                lastSavedScrollPosition = currentPosition
-            }
-        }
+    ireader.presentation.ui.truyenplus.ReaderTrackScroll(lazyListState,currentChapterId,hasRestoredInitialPosition) {
+        vm.saveScrollPosition(it.toLong())
     }
 
     // ==================== Toggle Mode Debounce ====================

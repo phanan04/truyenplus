@@ -49,58 +49,87 @@ data class ReaderAppearanceActions(val onFontSize: (Int) -> Unit = {}, val onLin
 
 @Composable
 fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearanceActions, modifier: Modifier = Modifier) {
-    val s = requireNotNull(LocalLocalizeHelper.current)
-    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            for ((align, icon, label) in listOf(
-                Triple(PreferenceValues.PreferenceTextAlignment.Left, Icons.AutoMirrored.Filled.FormatAlignLeft, s.localize(Res.string.text_align_left)),
-                Triple(PreferenceValues.PreferenceTextAlignment.Justify, Icons.Default.FormatAlignJustify, s.localize(Res.string.text_align_justify)))) {
-                val selected = state.alignment == align
-                OutlinedIconButton(onClick = { actions.onAlignment(align) }, border = BorderStroke(1.dp, if (selected) ReaderControlAccent else Color.Transparent),
-                    colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = if (selected) ReaderControlAccent else LocalContentColor.current),
-                    modifier = Modifier.testTag(if(align==PreferenceValues.PreferenceTextAlignment.Left) "reader-align-left" else "reader-align-justify")) { Icon(icon, label) }
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    var page by remember { mutableIntStateOf(0) }
+    Column(modifier.fillMaxWidth()) {
+        ReaderSettingsTabs(listOf(s.localize(Res.string.tp_settings_text),s.localize(Res.string.tp_settings_spacing),s.localize(Res.string.tp_settings_colors),s.localize(Res.string.tp_settings_scroll)),
+            listOf("text","spacing","colors","scroll"),page,{page=it},"appearance-page")
+        BoxWithConstraints(Modifier.fillMaxWidth().height(208.dp).padding(horizontal=16.dp,vertical=4.dp)) {
+            val shortWide=maxWidth>=440.dp && maxHeight<192.dp
+            when(page) {
+                0 -> Column {
+                    var fontsOpen by remember { mutableStateOf(false) }
+                    val fonts=listOf(FontFamilyModel.Default,FontFamilyModel.Serif,FontFamilyModel.SansSerif)
+                    fun label(font:FontFamilyModel)=if(font is FontFamilyModel.Custom) font.name else s.localize(when(font){FontFamilyModel.Serif->Res.string.tp_system_serif;FontFamilyModel.SansSerif->Res.string.tp_system_sans;else->Res.string.tp_reader_default_font})
+                    Box {
+                        OutlinedButton(onClick={fontsOpen=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("reader-font-picker")) {
+                            Text(label(state.fontFamily),Modifier.weight(1f),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Icon(Icons.Default.ExpandMore,null)
+                        }
+                        DropdownMenu(fontsOpen,onDismissRequest={fontsOpen=false}) {
+                            fonts.forEach { font-> DropdownMenuItem(text={Text(label(font),fontFamily=when(font){FontFamilyModel.Serif->FontFamily.Serif;FontFamilyModel.SansSerif->FontFamily.SansSerif;else->FontFamily.Default})},
+                                modifier=Modifier.testTag("reader-font-${when(font){FontFamilyModel.Serif->"serif";FontFamilyModel.SansSerif->"sans";else->"default"}}"),onClick={actions.onFont(font);fontsOpen=false}) }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                        for((align,icon,tag) in listOf(Triple(PreferenceValues.PreferenceTextAlignment.Left,Icons.AutoMirrored.Filled.FormatAlignLeft,"left"),Triple(PreferenceValues.PreferenceTextAlignment.Justify,Icons.Default.FormatAlignJustify,"justify"))) {
+                            OutlinedIconButton(onClick={actions.onAlignment(align)},modifier=Modifier.size(48.dp).testTag("reader-align-$tag"),border=BorderStroke(1.dp,if(state.alignment==align)ReaderControlAccent else Color.Transparent)) {Icon(icon,s.localize(if(tag=="left")Res.string.text_align_left else Res.string.text_align_justify))}
+                        }
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick={actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,modifier=Modifier.size(48.dp).testTag("reader-font-decrease")){Text("A−")}
+                        Text(state.fontSize.toString(),style=MaterialTheme.typography.titleMedium)
+                        IconButton(onClick={actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,modifier=Modifier.size(48.dp).testTag("reader-font-increase")){Text("A+")}
+                    }
+                }
+                1 -> {
+                    val spacing:@Composable ()->Unit={
+                        NumericAdjuster(s.localize(Res.string.tp_reader_line_spacing),((state.lineHeight-state.fontSize)/2f).roundToInt().coerceIn(1,10),1,10,{actions.onLineHeight(state.fontSize+it*2)},"reader-line")
+                        NumericAdjuster(s.localize(Res.string.tp_reader_margins),(state.margin/8f).roundToInt().coerceIn(1,10),1,10,{actions.onMargin(it*8)},"reader-margin")
+                    }
+                    val modes:@Composable ()->Unit={
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            Choice(s.localize(Res.string.tp_reader_scroll),state.mode!=ReadingMode.Page,{actions.onMode(ReadingMode.Continues)},Modifier.weight(1f).testTag("reader-mode-scroll"),enabled=!state.listening)
+                            Choice(s.localize(Res.string.tp_reader_pages),state.mode==ReadingMode.Page,{actions.onMode(ReadingMode.Page)},Modifier.weight(1f).testTag("reader-mode-page"),enabled=!state.listening)
+                        }
+                    }
+                    if(shortWide) Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {Column(Modifier.weight(1f)){spacing()};Box(Modifier.weight(1f)){modes()}}
+                    else Column {spacing();modes()}
+                }
+                2 -> {
+                    val themeControls:@Composable ()->Unit={
+                        LazyRowThemes(state,actions.onTheme)
+                        ReaderSettingSwitch(s.localize(Res.string.tp_follow_appearance),state.followAppearance,actions.onFollowAppearance)
+                    }
+                    val brightnessControls:@Composable ()->Unit={
+                        ReaderSettingSwitch(s.localize(Res.string.tp_reader_auto_brightness),state.autoBrightness,actions.onAutoBrightness)
+                        Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f,enabled=!state.autoBrightness,modifier=Modifier.height(48.dp).semantics {contentDescription=s.localize(Res.string.tp_reader_brightness)})
+                    }
+                    if(shortWide) Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {Column(Modifier.weight(1f)){themeControls()};Column(Modifier.weight(1f)){brightnessControls()}}
+                    else Column {themeControls();brightnessControls()}
+                }
+                else -> Column {
+                    ReaderSettingSwitch(s.localize(Res.string.auto_scroll),state.scrollEnabled,actions.onScrollEnabled,Modifier.testTag("reader-scroll-toggle"))
+                    if(!state.listening) NumericAdjuster(s.localize(Res.string.tp_reader_scroll_speed),state.scrollSpeed,1,20,actions.onScrollSpeed,"reader-scroll")
+                }
             }
-            Spacer(Modifier.weight(1f))
-            IconButton(onClick = { actions.onFontSize((state.fontSize-1).coerceAtLeast(8)) }, enabled = state.fontSize>8, modifier = Modifier.testTag("reader-font-decrease")) { Text("A−") }
-            Text(state.fontSize.toString(), style = MaterialTheme.typography.titleMedium)
-            IconButton(onClick = { actions.onFontSize((state.fontSize+1).coerceAtMost(40)) }, enabled = state.fontSize<40, modifier = Modifier.testTag("reader-font-increase")) { Text("A+") }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val fonts = listOf(
-                Triple(FontFamilyModel.Default,s.localize(Res.string.tp_reader_default_font),"default"),
-                Triple(FontFamilyModel.SansSerif,"Sans serif","sans"), Triple(FontFamilyModel.Cursive,"Cursive","cursive"), Triple(FontFamilyModel.Monospace,"Monospace","mono"))
-            for ((font,label,tag) in fonts) Choice(label, state.fontFamily==font, { actions.onFont(font) }, Modifier.testTag("reader-font-$tag"),
-                fontFamily = when(font) { FontFamilyModel.Cursive -> FontFamily.Cursive; FontFamilyModel.Monospace -> FontFamily.Monospace; else -> FontFamily.Default })
-        }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(s.localize(Res.string.auto_scroll), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Switch(state.scrollEnabled, actions.onScrollEnabled, modifier = Modifier.testTag("reader-scroll-toggle"),
-                colors = SwitchDefaults.colors(checkedTrackColor = ReaderControlAccent, checkedThumbColor = Color.White))
-        }
-        if (!state.listening) NumericAdjuster(s.localize(Res.string.tp_reader_scroll_speed), state.scrollSpeed, 1, 20, actions.onScrollSpeed, "reader-scroll")
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text(s.localize(Res.string.tp_follow_appearance),Modifier.weight(1f))
-            Switch(state.followAppearance,actions.onFollowAppearance)
-        }
-        LazyRowThemes(state, actions.onTheme)
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text(s.localize(Res.string.tp_reader_auto_brightness),Modifier.weight(1f))
-            Switch(state.autoBrightness,actions.onAutoBrightness)
-        }
-        if(!state.autoBrightness) {
-            Text(s.localize(Res.string.tp_reader_brightness))
-            Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f)
-        }
-        Levels(s.localize(Res.string.tp_reader_line_spacing), ((state.lineHeight-state.fontSize)/2f).roundToInt().coerceIn(1,7), 7, "reader-line") { actions.onLineHeight(state.fontSize + it*2) }
-        Levels(s.localize(Res.string.tp_reader_margins), (state.margin/8f).roundToInt().coerceIn(1,4), 4, "reader-margin") { actions.onMargin(it*8) }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((mode, label, tag) in listOf(Triple(ReadingMode.Continues,s.localize(Res.string.tp_reader_scroll),"reader-mode-scroll"), Triple(ReadingMode.Page,s.localize(Res.string.tp_reader_pages),"reader-mode-page"))) {
-                Choice(label, state.mode == mode || mode==ReadingMode.Continues && state.mode==ReadingMode.InfiniteScroll,
-                    { actions.onMode(mode) }, Modifier.weight(1f).testTag(tag), enabled = !state.listening)
+    }
+}
+
+@Composable internal fun ReaderSettingsTabs(labels:List<String>,ids:List<String>,selected:Int,onSelect:(Int)->Unit,tag:String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+        labels.forEachIndexed { i,label->
+            Surface(onClick={onSelect(i)},shape=RoundedCornerShape(12.dp),color=if(selected==i)LocalContentColor.current.copy(alpha=.09f) else Color.Transparent,
+                modifier=Modifier.weight(1f).height(48.dp).testTag("$tag-${ids[i]}").semantics {this.selected=selected==i;contentDescription=label}) {
+                Box(Modifier.padding(horizontal=4.dp),contentAlignment=Alignment.Center){Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)}
             }
         }
-
-
+    }
+}
+@Composable internal fun ReaderSettingSwitch(label:String,checked:Boolean,change:(Boolean)->Unit,modifier:Modifier=Modifier,enabled:Boolean=true) {
+    Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+        Text(label,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Switch(checked,change,enabled=enabled,modifier=modifier.semantics {contentDescription=label})
     }
 }
 
@@ -117,29 +146,20 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
     }
 }
 
-@Composable private fun Levels(title: String, selected: Int, count: Int, tag: String, change: (Int) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (level in 1..count) Choice(level.toString(),selected==level,{change(level)},Modifier.widthIn(min=48.dp).testTag("$tag-$level"), padding = 8)
-        }
-    }
-}
-
 @Composable private fun Choice(text: String, selected: Boolean, click: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, fontFamily: FontFamily? = null, padding: Int = 12) {
     Surface(onClick = click, enabled = enabled, modifier = modifier.heightIn(min=48.dp).semantics { this.selected = selected },
         shape = RoundedCornerShape(12.dp), color = Color.Transparent, contentColor = if (selected) ReaderControlAccent else LocalContentColor.current,
         border = BorderStroke(1.dp, if(selected) ReaderControlAccent else Color.Transparent)) {
-        Box(Modifier.padding(horizontal = padding.dp), contentAlignment = Alignment.Center) { Text(text, fontFamily = fontFamily, style = MaterialTheme.typography.bodyLarge) }
+        Box(Modifier.padding(horizontal = padding.dp), contentAlignment = Alignment.Center) { Text(text, fontFamily = fontFamily, style = MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
     }
 }
 
 @Composable private fun NumericAdjuster(label: String, value: Int, min: Int, max: Int, change: (Int)->Unit, tag: String) {
-    Row(Modifier.fillMaxWidth(),verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        IconButton(onClick={change((value-1).coerceAtLeast(min))},enabled=value>min,modifier=Modifier.testTag("$tag-decrease")) { Text("−") }
+    Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        IconButton(onClick={change((value-1).coerceAtLeast(min))},enabled=value>min,modifier=Modifier.size(48.dp).testTag("$tag-decrease")) { Text("−") }
         Text(value.toString(),style=MaterialTheme.typography.titleMedium)
-        IconButton(onClick={change((value+1).coerceAtMost(max))},enabled=value<max,modifier=Modifier.testTag("$tag-increase")) { Text("+") }
+        IconButton(onClick={change((value+1).coerceAtMost(max))},enabled=value<max,modifier=Modifier.size(48.dp).testTag("$tag-increase")) { Text("+") }
     }
 }
