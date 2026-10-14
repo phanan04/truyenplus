@@ -44,6 +44,8 @@ actual object TTSEngineFactory : KoinComponent {
         return DesktopPiperTTSEngineV2(piperSynthesizer, piperModelManager, appPreferences)
     }
     
+    actual fun createOfflineEngine(config: ireader.domain.services.tts_service.v2.offline.OfflineVoiceConfig): TTSEngine? = null
+
     actual fun createGradioEngine(config: GradioConfig): TTSEngine? {
         return if (config.spaceUrl.isNotEmpty() && config.enabled) {
             DesktopGradioTTSEngineV2(config, audioCache)

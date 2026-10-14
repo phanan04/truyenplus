@@ -1,6 +1,13 @@
 package ireader.domain.services.tts_service.v2
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.BufferOverflow
+
+/** Range metadata must never make tryEmit reject the final completion when the reader is busy. */
+fun ttsEngineEventBuffer(replay: Int = 0) = MutableSharedFlow<EngineEvent>(
+    replay = replay, extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST
+)
 
 /**
  * TTS Engine Interface - Abstraction for text-to-speech engines
@@ -124,6 +131,7 @@ interface TTSEngine {
  */
 sealed class EngineEvent {
     data class Started(val utteranceId: String) : EngineEvent()
+    data class RangeStarted(val utteranceId: String, val start: Int, val end: Int) : EngineEvent()
     data class Completed(val utteranceId: String) : EngineEvent()
     data class Error(val utteranceId: String, val message: String) : EngineEvent()
     object Ready : EngineEvent()
@@ -136,6 +144,7 @@ sealed class EngineEvent {
 expect object TTSEngineFactory {
     fun createNativeEngine(): TTSEngine
     fun createGradioEngine(config: GradioConfig): TTSEngine?
+    fun createOfflineEngine(config: ireader.domain.services.tts_service.v2.offline.OfflineVoiceConfig): TTSEngine?
 }
 
 /**

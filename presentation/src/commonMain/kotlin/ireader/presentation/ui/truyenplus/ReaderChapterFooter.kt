@@ -24,7 +24,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
     val s = requireNotNull(LocalLocalizeHelper.current)
     Box(modifier.fillMaxWidth(),contentAlignment=Alignment.BottomCenter) {
     BoxWithConstraints(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)) {
-        val compact = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale < 360f
+        val compact = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale < 300f
         val listen: @Composable () -> Unit = {
             IconButton(onClick=onListen,modifier=Modifier.size(48.dp).testTag("reader-listen")) { Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book),tint=ink) }
         }
@@ -48,17 +48,21 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
         val next: @Composable () -> Unit = {
             IconButton(onClick=onNext,enabled=chapterIndex<totalChapters-1,modifier=Modifier.size(48.dp).testTag("reader-next")) { Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter),tint=ink.copy(alpha=if(chapterIndex<totalChapters-1) 1f else .35f)) }
         }
-        Surface(modifier=Modifier.fillMaxWidth().readerPanel(24,backgroundColor,ink).testTag("reader-footer-capsule"),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink) {
-        Column {
-            if(compact) {
-                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    listen(); Box(Modifier.weight(1f),contentAlignment=Alignment.Center) { automatic() };mark()
+        val left:@Composable ()->Unit={
+            Surface(Modifier.fillMaxWidth().readerPanel(28,backgroundColor,ink),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
+                Row(Modifier.height(68.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
+                    listen();Box(Modifier.weight(1f),contentAlignment=Alignment.Center) {automatic()};mark()
                 }
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) { previous();contents();next() }
-            } else Row(Modifier.fillMaxWidth().heightIn(min=68.dp).padding(horizontal=8.dp),verticalAlignment=Alignment.CenterVertically) {
-                listen();Box(Modifier.weight(1f),contentAlignment=Alignment.CenterStart) { automatic() };mark();previous();contents();next()
             }
         }
+        val right:@Composable ()->Unit={
+            Surface(Modifier.fillMaxWidth().readerPanel(28,backgroundColor,ink),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
+                Row(Modifier.height(68.dp).padding(horizontal=4.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {previous();contents();next()}
+            }
+        }
+        if(compact)Column(Modifier.testTag("reader-footer-capsule"),verticalArrangement=Arrangement.spacedBy(8.dp)) {left();right()}
+        else Row(Modifier.fillMaxWidth().testTag("reader-footer-capsule"),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.weight(1f)){left()};Box(Modifier.weight(1f)){right()}
         }
     }
     }

@@ -83,7 +83,7 @@ val ttsV2Module = module {
     }
     
     // Sleep timer use case
-    factory { TTSSleepTimerUseCase() }
+    single { TTSSleepTimerUseCase() }
     
     // Preferences use case - bridges v2 with existing preferences
     factory {

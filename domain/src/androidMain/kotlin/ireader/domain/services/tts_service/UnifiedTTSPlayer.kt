@@ -38,6 +38,7 @@ interface TTSCallback {
     fun onError(utteranceId: String, error: String)
     /** Called when TTS engine becomes ready to speak */
     fun onReady() {}
+    fun onRangeStart(utteranceId: String, start: Int, end: Int) {}
 }
 
 /**
@@ -61,6 +62,7 @@ class NativeTTSPlayer(
     private data class ActiveUtterance(
         val utteranceId: String,
         val chunks: List<String>,
+        val ranges: List<ireader.domain.services.tts_service.v2.SpeechSegment?>,
         var nextChunkToQueue: Int = 0,
         val completedChunks: MutableSet<Int> = mutableSetOf(),
         var hasStarted: Boolean = false,
@@ -161,6 +163,9 @@ class NativeTTSPlayer(
                 handleUtteranceStart(utteranceId)
             }
 
+            override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                emitRange(utteranceId,start,end)
+            }
             override fun onDone(utteranceId: String?) {
                 handleUtteranceDone(utteranceId)
             }
@@ -177,7 +182,7 @@ class NativeTTSPlayer(
     }
 
     private fun handleUtteranceStart(subId: String?) {
-        val (parentUtteranceId, _) = parseSubUtteranceId(subId) ?: return
+        val (parentUtteranceId, chunkIndex) = parseSubUtteranceId(subId) ?: return
         var shouldNotifyStart = false
         synchronized(utteranceLock) {
             val current = activeUtterance
@@ -189,10 +194,21 @@ class NativeTTSPlayer(
             }
         }
         if (shouldNotifyStart) {
-            scope.launch {
-                callback?.onStart(parentUtteranceId)
-            }
+            scope.launch { callback?.onStart(parentUtteranceId) }
         }
+        val length = synchronized(utteranceLock) { activeUtterance?.chunks?.getOrNull(chunkIndex)?.length } ?: return
+        emitRange(subId,0,length)
+    }
+    private fun emitRange(subId:String?,start:Int,end:Int) {
+        val (parent,index)=parseSubUtteranceId(subId) ?: return
+        val range=synchronized(utteranceLock) {
+            val active=activeUtterance?.takeIf {it.utteranceId==parent} ?: return@synchronized null
+            val segment=active.ranges.getOrNull(index) ?: return@synchronized null
+            val from=(segment.start+start).coerceIn(segment.start,segment.end)
+            val until=(segment.start+end).coerceIn(from,segment.end)
+            from to until
+        } ?: return
+        if(range.second>range.first)scope.launch {callback?.onRangeStart(parent,range.first,range.second)}
     }
 
     private fun handleUtteranceDone(subId: String?) {
@@ -315,6 +331,7 @@ class NativeTTSPlayer(
         val utterance = ActiveUtterance(
             utteranceId = utteranceId,
             chunks = chunks,
+            ranges = ireader.domain.services.tts_service.v2.speechChunkRanges(text,chunks),
             nextChunkToQueue = 1,
             completedChunks = mutableSetOf(),
             hasStarted = false,

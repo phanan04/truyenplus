@@ -1,0 +1,147 @@
+package org.ireader.app
+
+import android.util.Log
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
+import ireader.domain.models.entities.Book
+import ireader.domain.models.entities.Chapter
+import ireader.domain.services.tts_service.v2.*
+import ireader.domain.services.tts_service.v2.offline.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.FixMethodOrder
+import org.junit.runners.MethodSorters
+import org.junit.runner.RunWith
+import org.koin.core.context.GlobalContext
+
+/** Runs only in the isolated .debug.qa application. No production library or settings are touched. */
+@RunWith(AndroidJUnit4::class)
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+class ReaderTtsDeviceTest {
+    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+    private fun requireQa() = check(context.packageName.endsWith(".debug.qa"))
+    private suspend fun ready(engine: TTSEngine) = withTimeout(30_000) {
+        while (!engine.isReady()) delay(30)
+    }
+    private suspend fun speakAndCheck(engine: TTSEngine, text: String, id: String) = coroutineScope {
+        val seen = mutableListOf<EngineEvent>()
+        val start = System.nanoTime()
+        val done = async(start = CoroutineStart.UNDISPATCHED) {
+            withTimeout(60_000) {
+                engine.events.first {
+                    seen += it
+                    it is EngineEvent.Completed && it.utteranceId == id || it is EngineEvent.Error
+                }
+            }
+        }
+        engine.speak(text, id)
+        assertTrue("Completion: $seen", done.await() is EngineEvent.Completed)
+        assertTrue("No playback start: $seen", seen.any { it is EngineEvent.Started && it.utteranceId == id })
+        assertTrue("No actual range: $seen", seen.any { it is EngineEvent.RangeStarted && it.utteranceId == id && it.end > it.start })
+        Log.i("TruyenPlusQA", "PASS $id engine=${engine.name} elapsedMs=${(System.nanoTime()-start)/1_000_000}")
+    }
+
+    @Test fun aDownloadedPiperInstallsSelectsAndPlays() = runBlocking<Unit> {
+        requireQa()
+        val store = GlobalContext.get().get<OfflineVoiceStore>()
+        val model = OfflineVoiceCatalog.models.first()
+        store.select(null); store.remove(model.id)
+        assertNull(store.config(model.id))
+        store.startDownload(model.id)
+        val result = withTimeout(300_000) { store.state.first { model.id in it.installed || model.id in it.errors } }
+        assertFalse("Official model download/install failed", model.id in result.errors)
+        assertTrue(store.select(model.id))
+        val engine = TTSEngineFactory.createNativeEngine()
+        try {
+            ready(engine)
+            assertEquals(model.title, engine.name)
+            speakAndCheck(engine, "Gió đêm thổi qua. Hoàng Yên Trần khẽ gật đầu.", "qa-piper")
+            assertEquals("Fallback must not pass", model.title, engine.name)
+            engine.setSpeed(2f); engine.setPitch(1.25f)
+            speakAndCheck(engine, "Chào bạn, đây là giọng đọc tiếng Việt.", "qa-piper-speed")
+            engine.speak("Đoạn này được dừng để kiểm tra việc hủy phát âm thanh.", "qa-cancel")
+            delay(150); engine.pause(); delay(250)
+            engine.setSpeed(1f); engine.setPitch(1f)
+            speakAndCheck(engine, "Tiếp tục nghe sau khi tạm dừng.", "qa-piper-resume")
+        } finally { engine.release(); store.select(null) }
+        // Keep the verified model installed for the background lifecycle test.
+    }
+
+    @Test fun supertonicVoicesReallyPlayThroughAudioTrack() = runBlocking<Unit> {
+        requireQa()
+        val model = OfflineVoiceCatalog.models.last()
+        for (speaker in listOf(0, 9)) {
+            val config = model.config(context.noBackupFilesDir.resolve("voices").absolutePath, speaker)
+            val engine = TTSEngineFactory.createOfflineEngine(config)!!
+            try {
+                ready(engine)
+                assertTrue(engine.name.startsWith(model.title))
+                speakAndCheck(engine, "Chào bạn, đây là giọng đọc tiếng Việt.", "qa-supertonic-$speaker")
+                assertTrue("Fallback must not pass", engine.name.startsWith(model.title))
+            } finally { engine.release() }
+        }
+    }
+
+    @Test fun systemEngineReallyStartsCompletesAndReportsRanges() = runBlocking<Unit> {
+        requireQa()
+        val store = GlobalContext.get().get<OfflineVoiceStore>()
+        store.select(null)
+        val engine = TTSEngineFactory.createNativeEngine()
+        try {
+            ready(engine)
+            assertEquals("Native Android TTS", engine.name)
+            speakAndCheck(engine, "Chào bạn. Đây là giọng đọc hệ thống.", "qa-system")
+        } finally { engine.release() }
+    }
+
+    @Test fun realControllerAdvancesChaptersAndTimerSurvivesBackgroundAndPause() = runBlocking<Unit> {
+        requireQa()
+        val store = GlobalContext.get().get<OfflineVoiceStore>()
+        assertTrue("Run download test first", store.select(OfflineVoiceCatalog.models.first().id))
+        val book = Book(id=900001, sourceId=-1, title="QA reading", key="qa-reader")
+        val first = Chapter(id=900002, bookId=book.id, key="qa-1", name="Chương 1")
+        val second = first.copy(id=900003, key="qa-2", name="Chương 2")
+        val loader = object : TTSContentLoader {
+            override suspend fun loadChapter(bookId:Long,chapterId:Long) = TTSContentLoader.ChapterContent(book,
+                if(chapterId==first.id)first else second,
+                if(chapterId==first.id)listOf("Gió đêm thổi qua.") else List(80){"Hoàng Yên Trần rút kiếm. Gió đêm mang hương hoa thoang thoảng."}, listOf(0))
+            override suspend fun getNextChapterId(bookId:Long,currentChapterId:Long) = if(currentChapterId==first.id)second.id else null
+            override suspend fun getPreviousChapterId(bookId:Long,currentChapterId:Long) = if(currentChapterId==second.id)first.id else null
+            override fun subscribeChapters(bookId:Long) = flowOf(listOf(first,second))
+        }
+        val controller = TTSController(loader, { TTSEngineFactory.createNativeEngine() })
+        val timer = TTSSleepTimerUseCase()
+        val screenScope = CoroutineScope(SupervisorJob()+Dispatchers.Main)
+        try {
+            controller.dispatch(TTSCommand.Initialize)
+            controller.dispatch(TTSCommand.SetAutoNextChapter(true))
+            controller.dispatch(TTSCommand.LoadChapter(book.id,first.id))
+            withTimeout(30_000){controller.state.first {it.hasContent && it.isEngineReady}}
+            controller.dispatch(TTSCommand.Play)
+            withTimeout(60_000){controller.state.first {it.chapter?.id==second.id && it.isPlaying}}
+            assertEquals("Piper",controller.state.value.engineName)
+            withContext(Dispatchers.Main){timer.initialize(controller,screenScope);timer.start(1)}
+            screenScope.cancel()
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressHome()
+            delay(7_000)
+            assertTrue("Background time did not count",timer.getRemainingTimeMs()<57_000)
+            controller.dispatch(TTSCommand.Pause)
+            withTimeout(5_000){controller.state.first {!it.isPlaying && !it.isLoading}}
+            delay(150)
+            val paused = timer.getRemainingTimeMs()
+            delay(3_000)
+            assertTrue(timer.state.value.isPaused)
+            assertEquals(paused,timer.getRemainingTimeMs())
+            controller.dispatch(TTSCommand.Play)
+            withTimeout(90_000){timer.state.first {!it.isEnabled}}
+            withTimeout(5_000){controller.state.first {!it.isPlaying}}
+            Log.i("TruyenPlusQA","PASS background timer expiration, pause/resume, automatic chapter continuation")
+        } finally {
+            withContext(Dispatchers.Main){timer.cleanup();controller.dispatch(TTSCommand.Cleanup)}
+            screenScope.cancel();store.select(null)
+        }
+    }
+}

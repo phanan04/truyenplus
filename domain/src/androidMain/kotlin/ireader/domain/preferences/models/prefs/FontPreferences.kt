@@ -45,22 +45,12 @@ class FontPreferences @OptIn(ExperimentalTextApi::class) constructor(
             return font
         }
         
-        // Otherwise, it's a Google Font
-        return kotlin.runCatching {
-            // Return domain model with custom font (Google Font)
-            // The actual FontFamily will be created by toComposeFontFamily() in the presentation layer
-            FontType(
-                fontName,
-                ireader.domain.models.common.FontFamilyModel.Custom(fontName)
-            )
-        }.getOrElse {
-            FontType("Lora", ireader.domain.models.common.FontFamilyModel.Custom("Lora"))
-        }
+        return ireader.domain.preferences.models.decodeReaderFont(fontName)
     }
 
     override fun set(value: FontType) {
         if (value != getDefaultFont()) {
-            preference.set(value.name)
+            preference.set(ireader.domain.preferences.models.encodeReaderFont(value))
         } else {
             preference.delete()
         }

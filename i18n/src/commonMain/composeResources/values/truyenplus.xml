@@ -61,7 +61,7 @@
     <string name="tp_listen_select">Select a paragraph, then press play</string>
     <string name="tp_listen_full">Open full chapter · Select a paragraph</string>
     <string name="tp_content">Content</string>
-    <string name="tp_sleep_timer">Sleep timer</string>
+    <string name="tp_sleep_timer">Timer</string>
     <string name="tp_listening_settings">Listening settings</string>
     <string name="tp_choose_voice">Choose a voice</string>
     <string name="tp_done">Done</string>
@@ -352,4 +352,18 @@
     <string name="tp_listening_active">Listening</string>
     <string name="tp_listening_paused">Paused</string>
     <string name="tp_listening_preparing">Preparing voice…</string>
+    <string name="tp_return_to_speech">Back to spoken sentence</string>
+    <string name="tp_timer_remaining">Remaining: %1$s</string>
+    <string name="tp_voice_manager">Reading voices</string>
+    <string name="tp_voice_settings_hint">Choose, download and preview voices</string>
+    <string name="tp_voice_preview">Preview</string>
+    <string name="tp_voice_use">Use voice</string>
+    <string name="tp_voice_number">Voice %1$d</string>
+    <string name="tp_voice_model_size">Offline · %1$d MB download</string>
+    <string name="tp_voice_downloaded">Downloaded · Offline</string>
+    <string name="tp_voice_downloading">Downloading voice…</string>
+    <string name="tp_voice_installing">Installing voice…</string>
+    <string name="tp_voice_preview_active">Previewing voice…</string>
+    <string name="tp_voice_preview_error">Could not preview this voice. Try again.</string>
+    <string name="tp_voice_download_error">Could not download the voice. Try again.</string>
 </resources>

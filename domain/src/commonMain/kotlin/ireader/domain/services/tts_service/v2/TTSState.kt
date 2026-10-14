@@ -37,9 +37,11 @@ data class TTSState(
     // Engine info
     val engineType: EngineType = EngineType.NATIVE,
     val isEngineReady: Boolean = false,
+    val engineName: String = "",
     
     // Sentence highlighting
     val paragraphStartTime: Long = 0L,
+    val spokenSentence: SpokenSentencePosition? = null,
     val sentenceHighlightEnabled: Boolean = false,
     val calibratedWPM: Float? = null,
     val isCalibrated: Boolean = false,

@@ -130,6 +130,7 @@ class TTSController(
     private var pendingChunkWordCount: Int? = null
     
     // Active utterance ID to filter out stale completion events from cancelled or superseded utterances
+    private var spokenTextIndex: SpokenTextIndex? = null
     private var currentUtteranceId: String? = null
     private var utteranceSequence = 0L
     private var speechRetryCount = 0
@@ -252,7 +253,7 @@ class TTSController(
             observeEngineEvents()
         }
         
-        _state.update { it.copy(isEngineReady = engine?.isReady() == true) }
+        _state.update { it.copy(isEngineReady = engine?.isReady() == true, engineName=engine?.name.orEmpty()) }
     }
     
     /**
@@ -340,10 +341,15 @@ class TTSController(
             is EngineEvent.Started -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
                 _state.update {
-                    it.copy(playbackState = PlaybackState.PLAYING,
+                    it.copy(playbackState = PlaybackState.PLAYING, engineName=engine?.name.orEmpty(),
                         paragraphStartTime = ireader.domain.utils.extensions.currentTimeToLong())
                 }
                 _events.emit(TTSEvent.PlaybackStarted)
+            }
+            is EngineEvent.RangeStarted -> commandMutex.withLock {
+                if (!isActiveUtterance(event.utteranceId)) return@withLock
+                val position = spokenTextIndex?.at(event.start)
+                if (position != _state.value.spokenSentence) _state.update { it.copy(spokenSentence=position) }
             }
             is EngineEvent.Completed -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
@@ -450,6 +456,8 @@ class TTSController(
             // Pre-fetch next chapter when approaching end of current chapter
             prefetchNextChapter()
             
+            spokenTextIndex = SpokenTextIndex(currentState.displayContent,listOf(paragraphIndex),text)
+            _state.update { it.copy(spokenSentence=null) }
             engine?.speak(text, utteranceId)
             precacheUpcomingParagraphs(paragraphIndex)
         } else {
@@ -1488,6 +1496,8 @@ class TTSController(
         Log.debug { "$TAG: playChunk() - chunk $chunkIndex, text length=${textToSpeak.length}, useTranslation=${currentState.showTranslation}" }
         
         currentUtteranceId = utteranceId
+        spokenTextIndex = SpokenTextIndex(currentState.displayContent,chunk.paragraphIndices,textToSpeak)
+        _state.update { it.copy(spokenSentence=null) }
         engine?.speak(textToSpeak, utteranceId)
         
         // Pre-cache next chunk(s) for smoother playback

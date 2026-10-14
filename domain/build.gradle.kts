@@ -139,6 +139,7 @@ kotlin {
 
         androidMain {
             dependencies {
+                implementation("com.k2fsa:sherpa-onnx:1.13.8@aar")
                 // Platform-specific Ktor engines
                 implementation(libs.ktor.okhttp)
                 implementation(libs.ktor.core.android)

@@ -1065,3 +1065,6 @@
 # Keep compression plugin
 -keep class io.ktor.server.plugins.compression.** { *; }
 ##---------------End: proguard configuration for Ktor Server (Local Sync)  ----------
+# Sherpa JNI calls the typed Kotlin callback and model APIs by name.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-keep class ireader.domain.services.tts_service.v2.offline.NativeSpeechProgress { *; }

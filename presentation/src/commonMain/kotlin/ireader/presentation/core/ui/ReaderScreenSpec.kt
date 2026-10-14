@@ -1,4 +1,12 @@
 package ireader.presentation.core.ui
+
+import ireader.i18n.resources.tp_return_to_speech
+import ireader.presentation.ui.truyenplus.readerWakeOnTouch
+import ireader.presentation.ui.truyenplus.readerPanel
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.interaction.DragInteraction
+import kotlin.time.TimeSource
 import androidx.compose.foundation.layout.widthIn
 
 import androidx.compose.animation.AnimatedVisibility
@@ -165,6 +173,12 @@ data class ReaderScreenSpec(
         val ttsState by remember(ttsController) { ttsController.state.readerUpdates() }.collectAsState(initial=ttsController.state.value.readerProjection())
         val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
+        val followState=remember { ireader.presentation.ui.truyenplus.ReaderFollowState() }
+        val immersive=remember { ireader.presentation.ui.truyenplus.ReaderImmersiveState() }
+        val immersiveEpoch=remember { TimeSource.Monotonic.markNow() }
+        val sentenceTarget=remember { kotlinx.coroutines.flow.MutableStateFlow<ireader.presentation.ui.truyenplus.ReaderSentenceTarget?>(null) }
+        val reportSentenceBounds=remember { { page:Int,bounds:androidx.compose.ui.geometry.Rect -> sentenceTarget.value=ireader.presentation.ui.truyenplus.ReaderSentenceTarget(page,bounds) } }
+        val target by sentenceTarget.collectAsState()
         val readerPanels=remember { ireader.presentation.ui.truyenplus.ReaderPanelState() }
         val blurSupported=ireader.presentation.ui.truyenplus.rememberReaderBlurSupported()
         val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
@@ -369,14 +383,38 @@ data class ReaderScreenSpec(
         LaunchedEffect(showListening, ttsState.chapter?.id) {
             if (showListening && ttsState.book?.id == bookId) vm.syncWithTTSChapter()
         }
-        val listeningSourceIndex = ttsState.paragraphSourceIndices.getOrNull(ttsState.currentParagraphIndex)
-        LaunchedEffect(showListening, followListening, listeningSourceIndex, ttsState.chapter?.id, chapter?.id, ttsState.isPlaying) {
-            if (showListening && followListening && readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && ttsState.isPlaying && ttsState.book?.id == bookId &&
-                ttsState.chapter?.id == chapter?.id && listeningSourceIndex != null) {
-                delay(100)
-                val item = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listeningSourceIndex }
-                if (!lazyListState.isScrollInProgress && (item == null || item.offset < 0 || item.offset + item.size / 2 > lazyListState.layoutInfo.viewportEndOffset)) {
-                    lazyListState.scrollToItem(listeningSourceIndex)
+        val spokenParagraph=ttsState.spokenSentence?.paragraphIndex ?: ttsState.currentParagraphIndex
+        val listeningSourceIndex=ttsState.paragraphSourceIndices.getOrNull(spokenParagraph)
+        LaunchedEffect(lazyListState) {
+            lazyListState.interactionSource.interactions.collect { interaction ->
+                if(interaction is DragInteraction.Start && showListening)followState.onUserDrag()
+            }
+        }
+        val playbackActive=ttsState.isPlaying || ttsState.isLoading
+        LaunchedEffect(showListening,playbackActive,readerPanels.active,vm.showSettingsBottomSheet) {
+            while(true) {
+                delay(500)
+                immersive.update(immersiveEpoch.elapsedNow().inWholeMilliseconds,
+                    !showListening || playbackActive,readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet)
+                if(!immersive.visible && !vm.isReaderModeEnable)vm.toggleReaderMode(true)
+            }
+        }
+        LaunchedEffect(showListening,followListening,listeningSourceIndex,ttsState.spokenSentence,target,
+            followState.following,followState.returnRequest,ttsState.isPlaying,readerPanels.active,readerPlayerHeight,vm.isReaderModeEnable) {
+            if(showListening && followListening && followState.following && (ttsState.isPlaying || followState.returnRequest>0) &&
+                readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None &&
+                ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id && listeningSourceIndex!=null) {
+                delay(80)
+                val info=lazyListState.layoutInfo
+                val item=info.visibleItemsInfo.firstOrNull {it.index==listeningSourceIndex}
+                if(item==null)lazyListState.animateScrollToItem(listeningSourceIndex)
+                else {
+                    val bounds=target?.takeIf {it.page==listeningSourceIndex}?.bounds
+                    val top=item.offset+(bounds?.top ?: 0f)
+                    val bottom=item.offset+(bounds?.bottom ?: minOf(item.size.toFloat(),80f))
+                    val readEnd=(info.viewportEndOffset-info.afterContentPadding).coerceAtLeast(80).toFloat()
+                    val comfortableTop=readEnd*.2f;val comfortableBottom=readEnd*.78f
+                    if(top<comfortableTop || bottom>comfortableBottom)lazyListState.animateScrollBy(top-readEnd*.28f)
                 }
             }
         }
@@ -535,11 +573,16 @@ data class ReaderScreenSpec(
             ) {
                 androidx.compose.runtime.CompositionLocalProvider(
                     ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop provides chapterBackdrop,
-                    ireader.presentation.ui.truyenplus.LocalReaderPanels provides readerPanels
+                    ireader.presentation.ui.truyenplus.LocalReaderPanels provides readerPanels,
+                    ireader.presentation.ui.truyenplus.LocalReaderPaper provides ireader.presentation.ui.truyenplus.ReaderPaperColors(vm.backgroundColor.value.toComposeColor(),vm.textColor.value.toComposeColor()),
+                    ireader.presentation.ui.truyenplus.LocalReaderListeningDockHeight provides readerPlayerHeight
                 ) {
                 // Use Box to overlay top bar without affecting content layout
                 androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.ui.Modifier.fillMaxSize()
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize().readerWakeOnTouch {
+                        immersive.touch(immersiveEpoch.elapsedNow().inWholeMilliseconds)
+                        if(showListening)vm.toggleReaderMode(false)
+                    }
                 ) {
                     // Content first (below the top bar)
                     val headerInset=androidx.compose.foundation.layout.WindowInsets.statusBars.asPaddingValues().calculateTopPadding()+68.dp
@@ -549,11 +592,12 @@ data class ReaderScreenSpec(
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
-                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,ttsState.currentParagraphIndex,highlightListening) {
+                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence) {
                                 val matching=ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id
                                 ireader.presentation.ui.truyenplus.ReaderListeningContext(
-                                    if(matching) ttsState.paragraphSourceIndices else emptyList(),ttsState.currentParagraphIndex,
-                                    highlightListening,if(matching) speechIndex else ireader.presentation.ui.truyenplus.ReaderSpeechIndex(emptyList()),selectSpeech)
+                                    if(matching) ttsState.paragraphSourceIndices else emptyList(),spokenParagraph,
+                                    highlightListening,if(matching) speechIndex else ireader.presentation.ui.truyenplus.ReaderSpeechIndex(emptyList()),selectSpeech,
+                                    if(matching)ttsState.spokenSentence else null,reportSentenceBounds)
                             } else null
                     ) {
                     ReadingScreen(
@@ -717,6 +761,15 @@ data class ReaderScreenSpec(
                         onNavigate = { navController.navigate(it) },
                         onControlsHeightChanged = { readerFooterHeight = with(readerDensity) { it.toDp() } }
                     )
+                    }
+
+                    if(showListening && followListening && !followState.following && listeningSourceIndex!=null && readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && !vm.showSettingsBottomSheet) {
+                        androidx.compose.material3.FilledTonalButton(onClick={followState.resume()},
+                            modifier=androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
+                                .padding(end=16.dp,bottom=readerPlayerHeight+navigationInset+12.dp)
+                                .readerPanel(24,vm.backgroundColor.value.toComposeColor(),vm.textColor.value.toComposeColor())) {
+                            androidx.compose.material3.Text(requireNotNull(ireader.presentation.ui.core.theme.LocalLocalizeHelper.current).localize(Res.string.tp_return_to_speech))
+                        }
                     }
 
                     // Top bar overlay (rendered on top of content)

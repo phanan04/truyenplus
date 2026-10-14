@@ -276,6 +276,8 @@ class AppPreferences(
         if(voice.isSet())voice.delete()
     }
 
+    fun offlineVoiceChoice(): Preference<String> = preferenceStore.getString("truyenplus_offline_voice", "")
+
     fun useLocalTTS(): Preference<Boolean> {
         return preferenceStore.getBoolean("use_local_tts", false)
     }

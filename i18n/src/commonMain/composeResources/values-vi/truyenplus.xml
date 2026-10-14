@@ -61,7 +61,7 @@
     <string name="tp_listen_select">Chọn một đoạn, rồi nhấn phát</string>
     <string name="tp_listen_full">Mở toàn bộ chương · Chọn đoạn nghe</string>
     <string name="tp_content">Nội dung</string>
-    <string name="tp_sleep_timer">Hẹn giờ tắt</string>
+    <string name="tp_sleep_timer">Hẹn giờ</string>
     <string name="tp_listening_settings">Tùy chỉnh nghe</string>
     <string name="tp_choose_voice">Chọn giọng đọc</string>
     <string name="tp_done">Xong</string>
@@ -352,4 +352,18 @@
     <string name="tp_listening_active">Đang nghe</string>
     <string name="tp_listening_paused">Tạm dừng</string>
     <string name="tp_listening_preparing">Đang chuẩn bị…</string>
+    <string name="tp_return_to_speech">Về câu đang nghe</string>
+    <string name="tp_timer_remaining">Còn %1$s</string>
+    <string name="tp_voice_manager">Giọng đọc</string>
+    <string name="tp_voice_settings_hint">Chọn, tải và nghe thử giọng</string>
+    <string name="tp_voice_preview">Nghe thử</string>
+    <string name="tp_voice_use">Dùng giọng</string>
+    <string name="tp_voice_number">Giọng %1$d</string>
+    <string name="tp_voice_model_size">Offline · Tải %1$d MB</string>
+    <string name="tp_voice_downloaded">Đã tải · Offline</string>
+    <string name="tp_voice_downloading">Đang tải giọng…</string>
+    <string name="tp_voice_installing">Đang chuẩn bị giọng…</string>
+    <string name="tp_voice_preview_active">Đang nghe thử…</string>
+    <string name="tp_voice_preview_error">Chưa nghe thử được giọng này. Hãy thử lại.</string>
+    <string name="tp_voice_download_error">Chưa tải được giọng. Hãy thử lại.</string>
 </resources>

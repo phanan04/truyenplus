@@ -39,7 +39,7 @@ fun ReaderAppearanceMode.localizedLabel(strings:LocalizeHelper):String = strings
 @Composable
 fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)->Unit,
     onProgress:()->Unit,onUpdate:()->Unit,appearance:ReaderAppearanceMode=ReaderAppearanceMode.System,
-    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={}) {
+    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={},onVoices:(()->Unit)?=null) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     var languageOpen by remember { mutableStateOf(false) }
     var appearanceOpen by remember { mutableStateOf(false) }
@@ -64,6 +64,9 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
                 }
             }
         }
+        if(onVoices!=null)item {Surface(Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+            SettingsRow(strings.localize(Res.string.tp_voice_manager),strings.localize(Res.string.tp_voice_settings_hint),Icons.Outlined.Mic,onVoices)
+        }}
         item { Surface(modifier=Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
             SettingsRow(strings.localize(Res.string.tp_edit_settings),strings.localize(Res.string.tp_edit_settings_hint),Icons.Outlined.AutoFixHigh,onEditing)
         } }

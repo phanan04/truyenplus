@@ -68,6 +68,9 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val updateManager = remember(updatePlatform) { ReaderUpdateManager(updatePlatform) }
     val updateState by updateManager.state.collectAsState()
     var showUpdate by rememberSaveable { mutableStateOf(false) }
+    val voiceStore=org.koin.mp.KoinPlatform.getKoin().getOrNull<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>()
+    var showVoices by remember {mutableStateOf(false)}
+    var showSystemVoices by remember {mutableStateOf(false)}
     var showEditingSettings by rememberSaveable { mutableStateOf(false) }
     var updateJob by remember { mutableStateOf<Job?>(null) }
     val books = state.books.map { it.toReaderBookUi() }
@@ -132,7 +135,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                         localeHelper.updateLocal()
                     }, onProgress = { showProgress = true }, onUpdate = { showUpdate = true },
                         appearance=ReaderAppearanceMode.fromId(appearanceId),
-                        onAppearance = { appearancePref.set(it.id) }, onImport={showImport=true},onEditing={showEditingSettings=true})
+                        onAppearance = { appearancePref.set(it.id) }, onImport={showImport=true},onEditing={showEditingSettings=true},onVoices=if(voiceStore!=null){{showVoices=true}} else null)
                     else {
                     val getStats: GetReadingStatisticsUseCase = koinInject()
                     val statisticsFlow = remember(getStats) { getStats() }
@@ -201,6 +204,11 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         }
         }
     }
+    if(showVoices && voiceStore!=null)ReaderVoiceManager(voiceStore,
+        onSystem={showVoices=false;showSystemVoices=true},onDismiss={showVoices=false})
+    if(showSystemVoices)ireader.presentation.ui.home.tts.TTSVoiceSelectionScreen(isDesktop=false,onDismiss={
+        showSystemVoices=false;tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.SetEngine(ireader.domain.services.tts_service.v2.EngineType.NATIVE,true))
+    })
     if (showEditingSettings) EditingSettingsSheet { showEditingSettings=false }
     if (showUpdate) ReaderUpdateSheet(updatePlatform.installedApp.versionName, updatePlatform.endpoint,
         updatePlatform.supported, updateState,

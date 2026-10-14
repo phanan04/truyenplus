@@ -147,7 +147,6 @@ class TTSV2ViewModel(
      */
     override fun onDestroy() {
         preferencesUseCase?.cleanup()
-        sleepTimerUseCase?.cleanup()
         notificationUseCase?.cleanup()
     }
 
@@ -157,6 +156,7 @@ class TTSV2ViewModel(
      * Only call this when you want to completely stop TTS playback.
      */
     fun destroyController() {
+        sleepTimerUseCase?.cleanup()
         adapter.cleanup()
     }
 }

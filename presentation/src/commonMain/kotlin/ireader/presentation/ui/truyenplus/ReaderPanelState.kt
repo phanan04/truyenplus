@@ -4,7 +4,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.*
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-enum class ReaderPanel { None, Appearance, Listening }
+enum class ReaderPanel { None, Appearance, Listening, Voices }
 
 /** One owner for reader overlays; minimizing playback does not change the TTS session. */
 @Stable
@@ -16,7 +16,7 @@ class ReaderPanelState {
     fun open(panel: ReaderPanel) { active=panel }
     fun close(panel: ReaderPanel) { if(active==panel)active=ReaderPanel.None }
     fun minimize() { active=ReaderPanel.None;minimized=true }
-    fun expand() { minimized=false }
+    fun expand() { active=ReaderPanel.None;minimized=false }
 }
 val LocalReaderPanels=staticCompositionLocalOf<ReaderPanelState?> { null }
 

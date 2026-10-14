@@ -29,6 +29,9 @@ import ireader.domain.monitoring.MemoryTracker
 import org.koin.dsl.module
 
 actual val dataPlatformModule = module {
+    single<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore> {
+        ireader.data.tts.offline.AndroidOfflineVoiceStore(get(),get())
+    }
     // SqlDriver - LAZY: Database driver creation is expensive
     single<SqlDriver>(createdAtStart = false) { 
         DatabaseDriverFactory(get()).create() 

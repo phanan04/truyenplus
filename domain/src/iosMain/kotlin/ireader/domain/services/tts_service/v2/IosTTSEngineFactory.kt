@@ -17,6 +17,8 @@ actual object TTSEngineFactory {
         return IosTTSEngineV2()
     }
     
+    actual fun createOfflineEngine(config: ireader.domain.services.tts_service.v2.offline.OfflineVoiceConfig): TTSEngine? = null
+
     actual fun createGradioEngine(config: GradioConfig): TTSEngine? {
         // Gradio TTS can work on iOS via HTTP - not implemented yet
         return null

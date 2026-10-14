@@ -1,5 +1,8 @@
 package ireader.presentation.ui.reader
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.MoreVert
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -99,30 +102,31 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
     backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "", onEdit: (() -> Unit)? = null) {
     var moreOpen by remember { mutableStateOf(false) }
     Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp,vertical=6.dp),contentAlignment=Alignment.TopCenter) {
-      Surface(modifier=Modifier.widthIn(max=760.dp).fillMaxWidth().readerPanel(28,backgroundColor,textColor).testTag("reader-top-capsule"),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
-        Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilledTonalIconButton(onClick=onBack,modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
-                Icon(Icons.Default.ChevronLeft,localize(Res.string.tp_back))
+        Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(56.dp).testTag("reader-top-capsule"),
+            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Surface(Modifier.size(52.dp).readerPanel(26,backgroundColor,textColor),shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=textColor) {
+                IconButton(onClick=onBack,modifier=Modifier.fillMaxSize()) {Icon(Icons.Default.ChevronLeft,localize(Res.string.tp_back))}
             }
-            Column(Modifier.weight(1f).padding(horizontal=10.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f) Text(bookTitle,style=MaterialTheme.typography.labelSmall,
-                    color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.titleSmall,
-                    fontWeight=FontWeight.SemiBold,textAlign=TextAlign.Center,maxLines=1,overflow=TextOverflow.Ellipsis)
-            }
-            if (onEdit != null) Box {
-                FilledTonalIconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
-                    Icon(Icons.Default.MoreHoriz,localize(Res.string.expand_menu))
-                }
-                DropdownMenu(expanded=moreOpen,onDismissRequest={moreOpen=false}) {
-                    DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
-                    DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
+            Surface(Modifier.weight(1f).height(56.dp).readerPanel(28,backgroundColor,textColor),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
+                Column(Modifier.padding(horizontal=14.dp),verticalArrangement=Arrangement.Center) {
+                    Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.titleSmall,
+                        fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
+                    if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f)Text(bookTitle,style=MaterialTheme.typography.labelSmall,
+                        color=textColor.copy(alpha=.65f),maxLines=1,overflow=TextOverflow.Ellipsis)
                 }
             }
-            FilledTonalIconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings"),colors=IconButtonDefaults.filledTonalIconButtonColors(containerColor=textColor.copy(alpha=.06f),contentColor=textColor)) {
-                Icon(Icons.Default.Tune,localize(Res.string.settings))
+            Surface(Modifier.readerPanel(28,backgroundColor,textColor),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
+                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
+                    IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings")) {Icon(Icons.Default.Tune,localize(Res.string.settings))}
+                    if(onEdit!=null)Box {
+                        IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp)) {Icon(Icons.Default.MoreVert,localize(Res.string.expand_menu))}
+                        DropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {
+                            DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
+                            DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
+                        }
+                    }
+                }
             }
         }
-    }
     }
 }

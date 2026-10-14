@@ -278,7 +278,6 @@ internal fun StyleTextOptimized(
     val listening = ireader.presentation.ui.truyenplus.LocalReaderListening.current
     val speechIndex = listening?.paragraphForReaderPage(index)
     val listenModifier = if (listening != null && speechIndex != null) modifier
-        .background(if (listening.isHighlighted(index)) preferences.textColor.copy(alpha = .1f) else Color.Transparent)
         .clickable { listening.onSelect(speechIndex) } else modifier
     val originalText = remember(
         page.text,
@@ -320,6 +319,11 @@ internal fun StyleTextOptimized(
             textColor = preferences.textColor,
             fontFamily = preferences.fontFamily
         )
+    }
+
+    if (listening != null) {
+        ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,listening,preferences,listenModifier.fillMaxWidth())
+        return
     }
 
     if (preferences.bilingualModeEnabled && translatedText != null) {

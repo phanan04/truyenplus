@@ -111,6 +111,7 @@ kotlin {
         
         androidMain {
             dependencies {
+                implementation("org.apache.commons:commons-compress:1.28.0")
                 implementation(libs.googleTranslator)
                 // Platform-specific Ktor engines
                 implementation(libs.ktor.okhttp)

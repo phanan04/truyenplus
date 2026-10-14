@@ -36,9 +36,13 @@ actual object TTSEngineFactory : KoinComponent {
     }
     
     actual fun createNativeEngine(): TTSEngine {
-        return AndroidNativeTTSEngineV2(context)
+        val voices=getKoin().getOrNull<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>()
+        return voices?.selectedConfig()?.let {createOfflineEngine(it)} ?: AndroidNativeTTSEngineV2(context)
     }
     
+    actual fun createOfflineEngine(config: ireader.domain.services.tts_service.v2.offline.OfflineVoiceConfig): TTSEngine? =
+        ireader.domain.services.tts_service.v2.offline.AndroidOfflineTtsEngine(context,config)
+
     actual fun createGradioEngine(config: GradioConfig): TTSEngine? {
         return if (config.spaceUrl.isNotEmpty() && config.enabled) {
             AndroidGradioTTSEngineV2(context, httpClient, config, audioCache)
@@ -73,7 +77,7 @@ class AndroidNativeTTSEngineV2(private val context: Context) : TTSEngine, KoinCo
     
     private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate)
     private val player = NativeTTSPlayer(context)
-    private val _events = MutableSharedFlow<EngineEvent>(extraBufferCapacity = 10)
+    private val _events = ttsEngineEventBuffer()
     private val textReaderPrefUseCase: ireader.domain.usecases.preferences.TextReaderPrefUseCase by inject()
     
     override val events: Flow<EngineEvent> = _events
@@ -81,6 +85,9 @@ class AndroidNativeTTSEngineV2(private val context: Context) : TTSEngine, KoinCo
     
     init {
         player.setCallback(object : TTSCallback {
+            override fun onRangeStart(utteranceId: String, start: Int, end: Int) {
+                _events.tryEmit(EngineEvent.RangeStarted(utteranceId,start,end))
+            }
             override fun onStart(utteranceId: String) {
                 Log.warn { "$TAG: onStart($utteranceId)" }
                 _events.tryEmit(EngineEvent.Started(utteranceId))

@@ -15,6 +15,7 @@ plugins {
 // Remove x86 and x86_64 if you don't need emulator/tablet support
 // This significantly reduces APK size as QuickJS includes native libraries for each ABI
 val SUPPORTED_ABIS = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+val truyenPlusQa = providers.gradleProperty("truyenplusQa").map { it.toBoolean() }.orElse(false).get()
 // For production, consider only: setOf("arm64-v8a") for modern devices
 // Or: setOf("armeabi-v7a", "arm64-v8a") to support older devices
 
@@ -75,6 +76,7 @@ android {
     compileSdk = ProjectConfig.compileSdk
     defaultConfig {
         applicationId = ProjectConfig.applicationId
+        manifestPlaceholders["truyenPlusLabel"] = if (truyenPlusQa) "Truyện+ QA" else "Truyện+"
         minSdk = ProjectConfig.minSdk
         targetSdk = ProjectConfig.targetSdk
         versionCode = ProjectConfig.versionCode
@@ -226,7 +228,7 @@ android {
     buildTypes {
         named("debug") {
             versionNameSuffix = ""
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = if (truyenPlusQa) ".debug.qa" else ".debug"
             extra["enableCrashlytics"] = false
             extra["alwaysUpdateBuildId"] = false
             isCrunchPngs = false
@@ -289,6 +291,10 @@ android {
     }
     sourceSets {
         getByName("preview").res.srcDirs("src/debug/res")
+        if (truyenPlusQa) getByName("androidTest").apply {
+            java.setSrcDirs(listOf("src/qaTest/kotlin"))
+            kotlin.setSrcDirs(listOf("src/qaTest/kotlin"))
+        }
     }
 
     compileOptions {
