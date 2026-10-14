@@ -162,6 +162,7 @@ val DomainServices = module {
     factory  { ireader.domain.usecases.local.FindBooksByKey(get()) }
     factory  { ireader.domain.usecases.local.SubscribeBooksByKey(get()) }
     factory  { ireader.domain.usecases.local.FindBookByKey(get()) }
+    factory {ireader.domain.usecases.local.book_usecases.ToggleBookPinUseCase(get())}
     factory  { ireader.domain.usecases.local.book_usecases.BookMarkChapterUseCase(get()) }
     factory  { ireader.domain.usecases.local.book_usecases.FindAllInLibraryBooks(get()) }
     factory  { ireader.domain.usecases.local.book_usecases.GetLibraryCategory(get(), get(), get(), get()) }

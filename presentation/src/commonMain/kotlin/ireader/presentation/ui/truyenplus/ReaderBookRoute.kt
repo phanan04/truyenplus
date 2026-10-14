@@ -122,7 +122,7 @@ fun ReaderBookRoute(bookId: Long) {
                         book = ReaderBookUi(current.book.id, current.book.title, BookCover.from(current.book), chapters.count { it.read }, chapters.size),
                         author = current.book.author.orEmpty(), chapters = chapters, onBack = { nav.safePopBackStack() },
                         onRead = { resume?.let { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) } },
-                        onListen = { resume?.let { nav.navigateTo(TTSV2ScreenSpec(bookId, it.id, current.book.sourceId, 0)) } },
+                        onListen = { resume?.let { nav.navigateTo(readerListeningDestination(bookId, it.id)) } },
                         onChapter = { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) },
                         onExport = { vm.showEpubExportDialog = true },
                         description = current.book.description, activeChapterId = current.lastReadChapterId,
@@ -152,13 +152,9 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
     description: String = "", activeChapterId: Long? = null, onMetadata: () -> Unit = {},
     metadataUpdating: Boolean = false, onMetadataSource: (() -> Unit)? = null) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
-    var filter by rememberSaveable { mutableIntStateOf(0) }
-    var query by rememberSaveable { mutableStateOf("") }
     var expandedSummary by rememberSaveable { mutableStateOf(false) }
-    val visible = remember(chapters, filter, query) { chapters.filter { (filter != 1 || it.bookmark) && (filter != 2 || !it.read) && it.name.contains(query, true) } }
-    val positions = remember(chapters) { chapters.mapIndexed { index, chapter -> chapter.id to index + 1 }.toMap() }
-    ReaderContentPane(maxWidth=960.dp) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+    var contentsOpen by rememberSaveable {mutableStateOf(false)}
+    val summary:LazyListScope.()->Unit={
         item {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp).readerAppGlassCard(28), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, strings.localize(Res.string.tp_back)) }
@@ -194,7 +190,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
         item {
             Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp).readerAppGlassCard(20),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
                 color=androidx.compose.ui.graphics.Color.Transparent) {
-                Column(Modifier.padding(vertical=16.dp)) {
+                Column(Modifier.padding(horizontal=16.dp,vertical=16.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically) {
                         Text(strings.localize(Res.string.tp_book_about),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
                         IconButton(onClick=onMetadata,enabled=!metadataUpdating,modifier=Modifier.testTag("book-metadata-refresh")) {
@@ -210,31 +206,24 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
                 }
             }
         }
-        item { ReaderChips(listOf(strings.localize(Res.string.tp_chapters), strings.localize(Res.string.tp_bookmarks), strings.localize(Res.string.tp_unread)), filter) { filter = it } }
-        item { OutlinedTextField(query, { query = it }, placeholder = { Text(strings.localize(Res.string.tp_search_chapters)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = CircleShape, modifier = Modifier.fillMaxWidth().padding(20.dp).readerAppGlassCard(28)) }
-        if (visible.isEmpty()) item { Text(if (chapters.isEmpty()) strings.localize(Res.string.tp_no_content) else strings.localize(Res.string.tp_no_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
-        items(visible, key = { it.id }) { chapter ->
-            val current = chapter.id == activeChapterId
-            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=4.dp).clickable { onChapter(chapter) },
-                shape=androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                color=if(current) MaterialTheme.colorScheme.primaryContainer.copy(alpha=.5f) else androidx.compose.ui.graphics.Color.Transparent) {
-                Row(Modifier.padding(horizontal=12.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                    Surface(shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.surfaceContainerHigh) {
-                        Box(Modifier.size(44.dp),contentAlignment=Alignment.Center) {
-                            if(chapter.bookmark) Icon(Icons.Default.Bookmark,null,Modifier.size(18.dp))
-                            else Text((positions[chapter.id] ?: 0).toString(),style=MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(readerChapterDisplayTitle(chapter.name),maxLines=2,overflow=TextOverflow.Ellipsis,
-                            style=MaterialTheme.typography.bodyMedium,fontWeight=if(current) FontWeight.SemiBold else FontWeight.Normal)
-                        Text(if(current) strings.localize(Res.string.tp_continue_reading) else if(chapter.read) strings.localize(Res.string.tp_read) else strings.localize(Res.string.tp_unread),
-                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(top=4.dp))
-                    }
-                    Icon(if(chapter.read) Icons.Default.CheckCircleOutline else Icons.Default.ChevronRight,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        item {
+            OutlinedButton(onClick={contentsOpen=true},enabled=chapters.isNotEmpty(),modifier=Modifier.fillMaxWidth().padding(20.dp).heightIn(min=52.dp).testTag("book-contents")) {
+                Icon(Icons.Default.FormatListBulleted,null);Spacer(Modifier.width(12.dp));Text("${strings.localize(Res.string.tp_chapters)} · ${chapters.size}")
             }
         }
     }
+    ReaderContentPane(maxWidth=1120.dp) {
+        BoxWithConstraints {
+            val supporting=maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale>=840f
+            if(supporting)Row(horizontalArrangement=Arrangement.spacedBy(24.dp)) {
+                LazyColumn(Modifier.weight(.46f).fillMaxHeight(),contentPadding=PaddingValues(bottom=24.dp),content=summary)
+                Box(Modifier.weight(.54f).fillMaxHeight().readerAppGlassCard(24)) {ReaderChapterContents(chapters,activeChapterId,onChapter)}
+            } else LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=32.dp),content=summary)
+        }
+    }
+    if(contentsOpen)ReaderGlassSheet(onDismissRequest={contentsOpen=false}) {
+        Box(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.82f)) {
+            ReaderChapterContents(chapters,activeChapterId,{contentsOpen=false;onChapter(it)},onDismiss={contentsOpen=false})
+        }
     }
 }

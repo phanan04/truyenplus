@@ -9,6 +9,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import ireader.presentation.ui.truyenplus.readerPanel
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Row
@@ -101,6 +103,7 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
     onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null,
     backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "", onEdit: (() -> Unit)? = null) {
     var moreOpen by remember { mutableStateOf(false) }
+    val appearanceLabel = localize(Res.string.tp_reader_appearance)
     ireader.presentation.ui.truyenplus.ReaderPaperTheme(backgroundColor,textColor) {
     Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp,vertical=6.dp),contentAlignment=Alignment.TopCenter) {
         Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(56.dp).testTag("reader-top-capsule"),
@@ -118,7 +121,10 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
             }
             Surface(Modifier.readerPanel(28,backgroundColor,textColor),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
                 Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings")) {Icon(Icons.Default.Tune,localize(Res.string.settings))}
+                    IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings")
+                        .semantics {contentDescription=appearanceLabel}) {
+                        Text("Aa",color=textColor,style=MaterialTheme.typography.titleMedium)
+                    }
                     if(onEdit!=null)Box {
                         IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp)) {Icon(Icons.Default.MoreVert,localize(Res.string.expand_menu))}
                         DropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {

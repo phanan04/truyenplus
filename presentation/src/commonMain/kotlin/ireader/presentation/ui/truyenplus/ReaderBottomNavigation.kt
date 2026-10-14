@@ -64,7 +64,7 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
         IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(8.dp,CircleShape).clip(CircleShape)
             .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape)
             .semantics { testTag="nav-search" }) {
-            Icon(Icons.Outlined.Search,strings.localize(Res.string.tp_search_library),Modifier.size(26.dp),tint=colors.onSurface)
+            Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(26.dp),tint=colors.onSurface)
         }
     }
 }

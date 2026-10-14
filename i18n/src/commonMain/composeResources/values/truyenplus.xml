@@ -73,7 +73,6 @@
     <string name="tp_listen_book">Listen</string>
     <string name="tp_chapters">Chapters</string>
     <string name="tp_bookmarks">Bookmarks</string>
-    <string name="tp_search_chapters">Search chapters</string>
     <string name="tp_no_content">This book has no content. Import an ebook with chapters.</string>
     <string name="tp_no_chapters">No chapters in this section.</string>
     <string name="tp_read">Read</string>

@@ -225,7 +225,7 @@ internal fun PagedReaderContent(
                 textStyle = styleParams.textStyle,
                 fontSize = preferences.fontSize,
                 paragraphIndent = preferences.paragraphIndent,
-                distanceBetweenParagraphsDp = preferences.distanceBetweenParagraphs,
+                distanceBetweenParagraphsDp = preferences.distanceBetweenParagraphs.coerceIn(0,10)*3,
                 topMarginDp = topMarginVal,
                 bottomMarginDp = bottomMarginVal,
                 leftMarginDp = leftMarginVal,
@@ -454,7 +454,7 @@ private fun ContentPageView(
         ) {
             paragraphs.forEachIndexed { idx, item ->
                 if (idx > 0 && preferences.distanceBetweenParagraphs > 0) {
-                    Spacer(modifier = Modifier.height(preferences.distanceBetweenParagraphs.dp))
+                    Spacer(modifier = Modifier.height((preferences.distanceBetweenParagraphs.coerceIn(0,10)*3).dp))
                 }
                 PagedParagraphView(
                     item = item,

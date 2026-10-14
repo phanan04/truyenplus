@@ -1260,3 +1260,6 @@ VALUES (:source,:url,
 :customCover,:favorite,:lastUpdate,:nextUpdate,:initialized,
 :viewerFlags,:chapterFlags,:coverLastModified,
 :dateAdded,:isPinned,:pinnedOrder,:isArchived);
+
+getMaxPinnedOrder:
+SELECT coalesce(MAX(pinned_order),0) FROM book WHERE favorite=1 AND is_pinned=1;

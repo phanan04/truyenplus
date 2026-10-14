@@ -15,6 +15,25 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class VoiceModelsPanelTest {
+ @Test fun customVoiceNamesStaySeparateFromModelAndSpeakerIdentity() {
+  val model=OfflineVoiceCatalog.models.first()
+  var renamed:Triple<String,Int,String>?=null
+  ImageComposeScene(412,800,Density(1f)) {
+   CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+    MaterialTheme {VoiceModelsPanel(OfflineVoiceState(),false,false,{},{},{},{_,_->},{_,_->},{},{},
+      preferredNames=mapOf("${model.id}:0" to "Giọng của tôi"),onRename={id,speaker,name->renamed=Triple(id,speaker,name)})}
+   }
+  }.use {scene->
+   scene.render();scene.render()
+   assertTrue(nodes(scene).any {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text=="Giọng của tôi"}==true})
+   nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="voice-rename-${model.id}"}.config[SemanticsActions.OnClick].action!!.invoke()
+   scene.render();scene.render()
+   nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="voice-name-input"}.config[SemanticsActions.SetText].action!!.invoke(androidx.compose.ui.text.AnnotatedString("Tên riêng"))
+   scene.render();scene.render()
+   nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="voice-name-save"}.config[SemanticsActions.OnClick].action!!.invoke()
+   assertEquals(Triple(model.id,0,"Tên riêng"),renamed)
+  }
+ }
  @Test fun voiceSelectionDoesNotAddADarkScreenBehindTheFloatingPanel() {
   ImageComposeScene(412,800,Density(1f)) {
    CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {

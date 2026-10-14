@@ -1,0 +1,36 @@
+package ireader.presentation.ui.truyenplus
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.*
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Density
+import ireader.domain.models.entities.*
+import ireader.i18n.LocalizeHelper
+import ireader.presentation.ui.core.theme.LocalLocalizeHelper
+import ireader.presentation.ui.settings.category.EnhancedCategoryItem
+import kotlin.test.*
+
+@OptIn(ExperimentalComposeUiApi::class)
+class ReaderCategoryRowTest {
+    @Test fun collectionNameKeepsSpaceAtLargeFontAndHasAccessibleReordering() {
+        val name="Bộ sưu tập truyện yêu thích có tên dài"
+        val scene=ImageComposeScene(320,800,Density(1f,2f)) {
+            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                MaterialTheme {EnhancedCategoryItem(category=CategoryWithCount(Category(4,name,0,0),7),rules=emptyList(),
+                    onDelete={},onRename={},onConfigureAutoRules={},onToggleRule={_,_->},onDeleteRule={},onMoveUp={},onMoveDown={})}
+            }
+        }
+        try {
+            scene.render();scene.render()
+            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
+            val all=scene.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}
+            val title=all.first {it.config.getOrNull(SemanticsProperties.TestTag)=="category-name"}
+            assertTrue(title.boundsInRoot.width>=160,"Actions consume most of the name space")
+            assertTrue(title.boundsInRoot.left>=0 && title.boundsInRoot.right<=320)
+            val menu=all.first {it.config.getOrNull(SemanticsProperties.TestTag)=="category-actions"}
+            assertTrue(menu.boundsInRoot.width>=48 && menu.boundsInRoot.height>=48)
+            assertTrue(all.any {it.config.getOrNull(SemanticsActions.CustomActions)?.size==2})
+        }finally {scene.close()}
+    }
+}

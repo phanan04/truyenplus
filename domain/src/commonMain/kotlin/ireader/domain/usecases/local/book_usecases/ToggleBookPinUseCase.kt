@@ -1,6 +1,7 @@
 package ireader.domain.usecases.local.book_usecases
 
 import ireader.domain.data.repository.BookRepository
+import kotlinx.coroutines.CancellationException
 
 /**
  * Use case to toggle pin status of a book
@@ -25,7 +26,7 @@ class ToggleBookPinUseCase(
             
             bookRepository.updatePinStatus(bookId, isPinned, pinnedOrder)
             Result.success(Unit)
-        } catch (e: Exception) {
+        } catch(e:CancellationException) {throw e} catch (e: Exception) {
             Result.failure(e)
         }
     }
@@ -39,7 +40,7 @@ class ToggleBookPinUseCase(
         return try {
             bookRepository.updatePinnedOrder(bookId, pinnedOrder)
             Result.success(Unit)
-        } catch (e: Exception) {
+        } catch(e:CancellationException) {throw e} catch (e: Exception) {
             Result.failure(e)
         }
     }

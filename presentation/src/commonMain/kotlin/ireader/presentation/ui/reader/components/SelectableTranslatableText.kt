@@ -37,12 +37,13 @@ fun SelectableTranslatableText(
     selectable: Boolean = true,
     paragraphTranslationEnabled: Boolean = false,
     onTextSelected: (String) -> Unit = {},
-    onTranslateRequest: (String) -> Unit = {}
+    onTranslateRequest: (String) -> Unit = {},
+    paragraphIndent: TextUnit = 0.sp
 ) {
     // Native selection needs no custom long-press parser when translation is disabled.
     if (!paragraphTranslationEnabled) {
         val content: @Composable () -> Unit = {
-            Text(text=text,modifier=modifier,fontSize=fontSize,fontFamily=fontFamily,textAlign=textAlign,
+            Text(text=text,modifier=modifier,style=androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=paragraphIndent)),fontSize=fontSize,fontFamily=fontFamily,textAlign=textAlign,
                 color=color,lineHeight=lineHeight,letterSpacing=letterSpacing,fontWeight=fontWeight)
         }
         if (selectable) SelectionContainer { content() } else content()
@@ -59,6 +60,7 @@ fun SelectableTranslatableText(
             SelectionContainer {
                 Text(
                     text = text,
+                    style = androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=paragraphIndent)),
                     fontSize = fontSize,
                     fontFamily = fontFamily,
                     textAlign = textAlign,
@@ -96,6 +98,7 @@ fun SelectableTranslatableText(
         } else {
             Text(
                 text = text,
+                style = androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=paragraphIndent)),
                 fontSize = fontSize,
                 fontFamily = fontFamily,
                 textAlign = textAlign,

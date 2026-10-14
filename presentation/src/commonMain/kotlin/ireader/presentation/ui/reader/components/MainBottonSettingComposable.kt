@@ -49,5 +49,5 @@ fun MainBottomSettingComposable(
 ) {
     ireader.presentation.ui.truyenplus.ReaderChapterFooter(
         currentChapterIndex,chapters.size,chapter?.bookmark==true,autoScrollEnabled,
-        onPrev,onNext,{scope.launch {drawerState.open()}},onPlay,onBookmark,{onAutoScrollToggle?.invoke()},modifier,backgroundColor)
+        onPrev,onNext,{scope.launch {drawerState.open()}},onPlay,onBookmark,{onAutoScrollToggle?.invoke()},modifier,backgroundColor,onAppearance=onSetting)
 }

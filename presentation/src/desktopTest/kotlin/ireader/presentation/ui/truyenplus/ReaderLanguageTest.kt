@@ -190,9 +190,9 @@ class ReaderLanguageTest {
         }
         try {
             scene.render(0)
-            assertTrue("Không gian đọc của bạn" in texts(scene))
+            assertTrue("Câu chuyện đầu tiên của bạn" in texts(scene))
             preferences.language().set("en"); helper.updateLocal(); scene.render(1_000_000_000)
-            assertTrue("Your reading space" in texts(scene))
+            assertTrue("Your first story" in texts(scene))
             assertEquals("en", ireader.presentation.core.theme.LocaleHelper(preferences).getCurrentLanguageCode())
             assertEquals(1, compositionsCreated, "Changing language must preserve the current screen and its state")
         } finally { scene.close(); kotlinx.coroutines.runBlocking { requireNotNull(dataScope.coroutineContext[kotlinx.coroutines.Job]).cancelAndJoin() }; directory.deleteRecursively(); Locale.setDefault(previous) }

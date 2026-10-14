@@ -71,7 +71,7 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
         drawContent()
     }
     val content:@Composable ()->Unit={
-        Text(text,decorated,fontSize=preferences.fontSize.sp,fontFamily=preferences.fontFamily,
+        Text(text,decorated,style=androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=preferences.paragraphIndent.sp)),fontSize=preferences.fontSize.sp,fontFamily=preferences.fontFamily,
             color=preferences.textColor,lineHeight=preferences.lineHeight.sp,
             letterSpacing=preferences.letterSpacing.sp,fontWeight=FontWeight(preferences.fontWeight),
             textAlign=mapTextAlign(preferences.textAlignment).toComposeTextAlign(),onTextLayout={layout=it})

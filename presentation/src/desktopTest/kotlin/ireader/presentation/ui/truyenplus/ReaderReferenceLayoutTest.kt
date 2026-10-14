@@ -136,9 +136,10 @@ class ReaderReferenceLayoutTest {
         } finally { scene.close() }
     }
 
-    @Test fun paragraphSpacingAlsoAppliesAfterTheFirstParagraph() {
-        for(index in 0..1) assertEquals("Đoạn văn\n",setText("Đoạn văn",index,false,0,0,1))
-        assertEquals("Đoạn cuối\n\n",setText("Đoạn cuối",2,true,0,2,1))
+    @Test fun paragraphLayoutDoesNotInsertCharactersIntoTheChapter() {
+        val original = "  Hoàng Yên Trần nói: ‘Đi thôi!’\nDòng gốc."
+        for(index in 0..2) assertEquals(original,setText(original,index,index==2,4,8,10,12))
+        assertEquals("Đoạn cuối",setText("Đoạn cuối",2,true,0,2,1))
         assertEquals("",setText("",0,false,2,2,1))
     }
 

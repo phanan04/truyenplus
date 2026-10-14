@@ -178,6 +178,7 @@ data class LibraryBook(
     val cover: String,
     val customCover: String = "",
     val lastUpdate: Long = 0,
+    val author: String = "",
 ) : BookBase {
     var dateFetched: Long = 0
     var dateUpload: Long = 0

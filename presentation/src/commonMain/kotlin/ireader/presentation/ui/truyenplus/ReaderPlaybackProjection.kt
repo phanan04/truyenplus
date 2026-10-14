@@ -19,15 +19,28 @@ fun readerVoiceLabel(selection:ireader.domain.services.tts_service.v2.offline.Of
 data class ReaderPlaybackProjection(val book: Book?, val chapter: Chapter?, val currentParagraphIndex: Int,
     val paragraphSourceIndices: List<Int>, val isPlaying: Boolean, val chunkModeEnabled: Boolean,
     val spokenSentence: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null, val isLoading:Boolean=false,
-    val spokenWord:ireader.domain.services.tts_service.v2.SpokenSentencePosition?=null)
+    val spokenWord:ireader.domain.services.tts_service.v2.SpokenSentencePosition?=null, val hasListeningSession:Boolean=false)
 fun TTSState.readerProjection(includeWordRanges:Boolean=false):ReaderPlaybackProjection {
     val sentence=spokenSentence?.takeIf { it.paragraphIndex==currentParagraphIndex || (chunkModeEnabled && it.paragraphIndex in currentChunkParagraphs) }
     return ReaderPlaybackProjection(book,chapter,currentParagraphIndex,paragraphSourceIndices,isPlaying,chunkModeEnabled,sentence,isLoading,
-        spokenWord?.takeIf {includeWordRanges && sentence?.paragraphIndex==it.paragraphIndex})
+        spokenWord?.takeIf {includeWordRanges && sentence?.paragraphIndex==it.paragraphIndex},
+        isPlaying || isPaused || isLoading)
 }
 fun Flow<TTSState>.readerUpdates(includeWordRanges:Boolean=false): Flow<ReaderPlaybackProjection> = map { it.readerProjection(includeWordRanges) }.distinctUntilChanged()
 
 class ReaderSpeechIndex(sourceIndices: List<Int>) {
     private val firstParagraph=buildMap<Int,Int> { sourceIndices.forEachIndexed { speech, page -> if(page !in this) put(page,speech) } }
     fun paragraphForReaderPage(index: Int): Int? = firstParagraph[index]
+}
+
+/** Listening controls do not consume word positions, cache transfer ticks or the timer mirror. */
+fun Flow<TTSState>.readerControlUpdates():Flow<TTSState> = map {it.copy(
+    spokenSentence=null,spokenWord=null,sleepTimeRemaining=0,
+    cachedParagraphs=emptySet(),loadingParagraphs=emptySet(),cachedChunks=emptySet())}.distinctUntilChanged()
+
+enum class ReaderWordTiming { SentenceOnly, Conditional, Reported }
+fun readerWordTiming(engine:String,reported:Boolean):ReaderWordTiming = when {
+    engine.startsWith("Piper") || engine.startsWith("Supertonic 3")->ReaderWordTiming.SentenceOnly
+    reported->ReaderWordTiming.Reported
+    else->ReaderWordTiming.Conditional
 }

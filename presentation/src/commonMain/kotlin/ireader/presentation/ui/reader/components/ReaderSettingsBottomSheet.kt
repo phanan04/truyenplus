@@ -39,7 +39,7 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
                         scrollSpeed=vm.autoScrollOffset.value,scrollEnabled=if(listening) follow else vm.autoScrollMode,
                         themes=vm.readerColors,themeId=if(followAppearance) Long.MIN_VALUE else vm.readerTheme.value.id,alignment=vm.textAlignment.value,
                         mode=if(listening) ReadingMode.Continues else vm.readingMode.value,fontFamily=vm.font.value.fontFamily,listening=listening,
-                        brightness=vm.brightness.value,autoBrightness=vm.autoBrightnessMode.value,followAppearance=followAppearance),
+                        brightness=vm.brightness.value,autoBrightness=vm.autoBrightnessMode.value,followAppearance=followAppearance,paragraphSpacing=vm.distanceBetweenParagraphs.value),
                     ReaderAppearanceActions(
                         onFontSize={ size ->
                             val gap=(vm.lineHeight.value-vm.fontSize.value).coerceAtLeast(2)
@@ -66,7 +66,7 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
                             },font)
                         },onBrightness=onChangeBrightness,
                         onAutoBrightness={ if(it!=vm.autoBrightnessMode.value) onToggleAutoBrightness() },
-                        onFollowAppearance=followPreference::set))
+                        onFollowAppearance=followPreference::set,onParagraphSpacing={vm.distanceBetweenParagraphs.value=it}))
             }
         }
     }

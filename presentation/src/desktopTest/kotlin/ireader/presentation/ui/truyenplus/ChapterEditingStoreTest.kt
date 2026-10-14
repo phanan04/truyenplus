@@ -43,6 +43,31 @@ class ChapterEditingStoreTest {
             assertFails { store.load(8) }; Unit
         } finally { driver.close() }
     }
+    @Test fun draftsSurviveReopenAndTheMigrationKeepsExistingTextAndCharacters()=runBlocking {
+        val driver=JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY);Database.Schema.create(driver)
+        try {
+            val db=createDatabase(driver)
+            driver.execute(null,"INSERT INTO book(_id,source,url,title,status,favorite,initialized,viewer,chapter_flags,cover_last_modified,date_added) VALUES(7,-1,'book','Book',0,1,1,0,0,0,0)",0)
+            val original=listOf(Text("Bản gốc giữ nguyên."))
+            db.chapterQueries.upsert(8,7,"chapter","Chương",null,false,true,9,1f,0,0,0,original,0)
+            val store=SqlChapterEditingStore(db)
+            val people=listOf(EditingCharacter("Hoàng Yên Trần"))
+            store.saveCharacters(7,people)
+            driver.execute(null,"DROP TABLE chapter_edit_draft",0)
+            driver.execute(null,"DROP TABLE book_edit_form_draft",0)
+            data.DatabaseMigrations.migrate(driver,41)
+            val draft=ChapterEditingDraft(editingFingerprint(original),EditingMode.Grammar,listOf(EditParagraph(0,"Đề xuất chưa áp dụng.")),setOf(0),EditParagraph(0,"Đang gõ dở"))
+            store.saveDraft(8,draft)
+            store.saveFormDraft(7,EditingFormKind.Characters,"{\"name\":\"Đang nhập\"}")
+            val reopened=SqlChapterEditingStore(createDatabase(driver))
+            assertEquals(draft,reopened.loadDraft(8))
+            assertEquals("{\"name\":\"Đang nhập\"}",reopened.loadFormDraft(7,EditingFormKind.Characters))
+            assertEquals(original,reopened.load(8).pages)
+            assertEquals(people,reopened.characters(7))
+            assertTrue(db.chapterQueries.getChapterById(8).executeAsOne().bookmark)
+            reopened.clearDraft(8);assertNull(reopened.loadDraft(8))
+        } finally {driver.close()}
+    }
     @Test fun version39MigrationKeepsChapters() = runBlocking {
         val driver=JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY);Database.Schema.create(driver)
         try {

@@ -39,13 +39,13 @@ data class ReaderAppearanceUi(val fontSize: Int = 20, val lineHeight: Int = 30, 
     val alignment: PreferenceValues.PreferenceTextAlignment = PreferenceValues.PreferenceTextAlignment.Left,
     val mode: ReadingMode = ReadingMode.Continues, val fontFamily: FontFamilyModel = FontFamilyModel.Default,
     val listening: Boolean = false, val brightness: Float = .5f, val autoBrightness: Boolean = true,
-    val followAppearance: Boolean = true)
+    val followAppearance: Boolean = true, val paragraphSpacing: Int = 4)
 
 data class ReaderAppearanceActions(val onFontSize: (Int) -> Unit = {}, val onLineHeight: (Int) -> Unit = {},
     val onMargin: (Int) -> Unit = {}, val onScrollSpeed: (Int) -> Unit = {}, val onScrollEnabled: (Boolean) -> Unit = {},
     val onTheme: (Long) -> Unit = {}, val onAlignment: (PreferenceValues.PreferenceTextAlignment) -> Unit = {},
     val onMode: (ReadingMode) -> Unit = {}, val onFont: (FontFamilyModel) -> Unit = {}, val onBrightness: (Float) -> Unit = {},
-    val onAutoBrightness: (Boolean) -> Unit = {}, val onFollowAppearance: (Boolean) -> Unit = {})
+    val onAutoBrightness: (Boolean) -> Unit = {}, val onFollowAppearance: (Boolean) -> Unit = {}, val onParagraphSpacing: (Int) -> Unit = {})
 
 @Composable
 fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearanceActions, modifier: Modifier = Modifier) {
@@ -76,14 +76,19 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
                             OutlinedIconButton(onClick={actions.onAlignment(align)},modifier=Modifier.size(48.dp).testTag("reader-align-$tag"),border=BorderStroke(1.dp,if(state.alignment==align)ReaderControlAccent else Color.Transparent)) {Icon(icon,s.localize(if(tag=="left")Res.string.text_align_left else Res.string.text_align_justify))}
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick={actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,modifier=Modifier.size(48.dp).testTag("reader-font-decrease")){Text("A−")}
+                        IconButton(onClick={actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,modifier=Modifier.size(48.dp).testTag("reader-font-decrease").semantics {contentDescription=s.localize(Res.string.decrease_font_size)}){Text("A−")}
                         Text(state.fontSize.toString(),style=MaterialTheme.typography.titleMedium)
-                        IconButton(onClick={actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,modifier=Modifier.size(48.dp).testTag("reader-font-increase")){Text("A+")}
+                        IconButton(onClick={actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,modifier=Modifier.size(48.dp).testTag("reader-font-increase").semantics {contentDescription=s.localize(Res.string.increase_font_size)}){Text("A+")}
                     }
                 }
                 1 -> {
-                    val spacing:@Composable ()->Unit={
+                    val lines:@Composable ()->Unit={
                         NumericAdjuster(s.localize(Res.string.tp_reader_line_spacing),((state.lineHeight-state.fontSize)/2f).roundToInt().coerceIn(1,10),1,10,{actions.onLineHeight(state.fontSize+it*2)},"reader-line")
+                    }
+                    val paragraphs:@Composable ()->Unit={
+                        NumericAdjuster(s.localize(Res.string.tp_reader_paragraph_spacing),state.paragraphSpacing.coerceIn(0,10),0,10,actions.onParagraphSpacing,"reader-paragraph")
+                    }
+                    val margins:@Composable ()->Unit={
                         NumericAdjuster(s.localize(Res.string.tp_reader_margins),(state.margin/8f).roundToInt().coerceIn(1,10),1,10,{actions.onMargin(it*8)},"reader-margin")
                     }
                     val modes:@Composable ()->Unit={
@@ -92,8 +97,10 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
                             Choice(s.localize(Res.string.tp_reader_pages),state.mode==ReadingMode.Page,{actions.onMode(ReadingMode.Page)},Modifier.weight(1f).testTag("reader-mode-page"),enabled=!state.listening)
                         }
                     }
-                    if(shortWide) Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {Column(Modifier.weight(1f)){spacing()};Box(Modifier.weight(1f)){modes()}}
-                    else Column {spacing();modes()}
+                    if(shortWide) Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+                        Column(Modifier.weight(1f)){lines();paragraphs()}
+                        Column(Modifier.weight(1f)){margins();modes()}
+                    } else Column {lines();paragraphs();margins();modes()}
                 }
                 2 -> {
                     val themeControls:@Composable ()->Unit={
@@ -116,10 +123,10 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
     }
 }
 
-@Composable internal fun ReaderSettingsTabs(labels:List<String>,ids:List<String>,selected:Int,onSelect:(Int)->Unit,tag:String) {
+@Composable internal fun ReaderSettingsTabs(labels:List<String>,ids:List<String>,selected:Int,onSelect:(Int)->Unit,tag:String,enabled:List<Boolean> = List(labels.size){true}) {
     Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
         labels.forEachIndexed { i,label->
-            Surface(onClick={onSelect(i)},shape=RoundedCornerShape(12.dp),color=if(selected==i)LocalContentColor.current.copy(alpha=.09f) else Color.Transparent,
+            Surface(onClick={onSelect(i)},enabled=enabled[i],shape=RoundedCornerShape(12.dp),color=if(selected==i)LocalContentColor.current.copy(alpha=.09f) else Color.Transparent,
                 modifier=Modifier.weight(1f).height(48.dp).testTag("$tag-${ids[i]}").semantics {this.selected=selected==i;contentDescription=label}) {
                 Box(Modifier.padding(horizontal=4.dp),contentAlignment=Alignment.Center){Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)}
             }
@@ -156,10 +163,11 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
 }
 
 @Composable private fun NumericAdjuster(label: String, value: Int, min: Int, max: Int, change: (Int)->Unit, tag: String) {
+    val s=requireNotNull(LocalLocalizeHelper.current)
     Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        IconButton(onClick={change((value-1).coerceAtLeast(min))},enabled=value>min,modifier=Modifier.size(48.dp).testTag("$tag-decrease")) { Text("−") }
+        IconButton(onClick={change((value-1).coerceAtLeast(min))},enabled=value>min,modifier=Modifier.size(48.dp).testTag("$tag-decrease").semantics {contentDescription=s.localize(Res.string.tp_decrease_value,label)}) { Text("−") }
         Text(value.toString(),style=MaterialTheme.typography.titleMedium)
-        IconButton(onClick={change((value+1).coerceAtMost(max))},enabled=value<max,modifier=Modifier.size(48.dp).testTag("$tag-increase")) { Text("+") }
+        IconButton(onClick={change((value+1).coerceAtMost(max))},enabled=value<max,modifier=Modifier.size(48.dp).testTag("$tag-increase").semantics {contentDescription=s.localize(Res.string.tp_increase_value,label)}) { Text("+") }
     }
 }

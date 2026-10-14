@@ -42,6 +42,8 @@ import org.koin.compose.koinInject
 
 @Composable fun ReaderShelfRoute(onLibrary:()->Unit,onBook:(Long)->Unit,requestSearch:Boolean=false,onSearchFocused:()->Unit={}) {
  val repo:DriveShelfRepository=koinInject()
+ val preferences:ireader.domain.preferences.prefs.UiPreferences=koinInject()
+ val history=rememberReaderSearchHistory(preferences,true)
  val strings=requireNotNull(LocalLocalizeHelper.current)
  val sources by repo.sources.collectAsState(emptyList())
  val operations by repo.operations.collectAsState()
@@ -73,9 +75,10 @@ import org.koin.compose.koinInject
  }
  ReaderShelfScreen(sources,query,searchState.page,searchState.loading,selectedSource,operations,
   onQuery={query=it;offset=0;searches.invalidate(it.isNotBlank())},onSource={selectedSource=it;offset=0;searches.invalidate(query.isNotBlank())},onAdd={showAdd=true;error=null},onRefresh=repo::refresh,
-  onRemove={removeSource=it},onDownload=repo::download,onBook=onBook,onLibrary=onLibrary,
+  onRemove={removeSource=it},onDownload={history.record(query);repo.download(it)},onBook=onBook,onLibrary=onLibrary,
   onPrevious={offset=(offset-40).coerceAtLeast(0);searches.invalidate(query.isNotBlank())},onNext={offset+=40;searches.invalidate(query.isNotBlank())},onConnect={retryAdd=false;connect()},onCancel=repo::cancel,
-  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error?:searchState.failure,showConnect=!repo.publicAccess)
+  requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error?:searchState.failure,showConnect=!repo.publicAccess,onRetrySearch={error=null;searches.submit(query,selectedSource,offset)},
+  recentSearches=history.queries,onSearchSubmitted=history.record,onClearSearchHistory=history.clear)
  if(showAdd) ReaderGlassDialog(onDismissRequest={if(!adding){showAdd=false;retryAdd=false}},title={Text(strings.localize(Res.string.tp_shelf_add))},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   OutlinedTextField(link,{link=it},label={Text(strings.localize(Res.string.tp_shelf_link))},singleLine=true,enabled=!adding)
   OutlinedTextField(name,{name=it},label={Text(strings.localize(Res.string.tp_shelf_name))},singleLine=true,enabled=!adding)
@@ -90,11 +93,13 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun ReaderShelfScreen(sources:List<ShelfSource>,query:String,page:ShelfSearchPage,loading:Boolean,selectedSource:String?,operations:Map<String,ShelfOperation>,
  onQuery:(String)->Unit,onSource:(String?)->Unit,onAdd:()->Unit,onRefresh:(String)->Unit,onRemove:(ShelfSource)->Unit,onDownload:(ShelfEntry)->Unit,onBook:(Long)->Unit,onLibrary:()->Unit,onPrevious:()->Unit,onNext:()->Unit,onConnect:()->Unit,onCancel:(String)->Unit,
- requestSearch:Boolean=false,onSearchFocused:()->Unit={},offset:Int=0,error:ShelfFailure?=null,showConnect:Boolean=true) {
+ requestSearch:Boolean=false,onSearchFocused:()->Unit={},offset:Int=0,error:ShelfFailure?=null,showConnect:Boolean=true,onRetrySearch:()->Unit={},recentSearches:List<String> = emptyList(),onSearchSubmitted:(String)->Unit={},onClearSearchHistory:()->Unit={}) {
  val strings=requireNotNull(LocalLocalizeHelper.current)
  val focus=remember { FocusRequester() }
  val keyboard=LocalSoftwareKeyboardController.current
  var manage by rememberSaveable { mutableStateOf(false) }
+ val relevantSources=sources.filter {selectedSource==null || it.id==selectedSource}
+ val incompleteSources=relevantSources.filter {it.pending || it.updatedAt==0L || operations[it.id]?.task==ShelfTask.Syncing}
  val list=rememberLazyListState()
  LaunchedEffect(requestSearch){if(requestSearch){focus.requestFocus();keyboard?.show();onSearchFocused()}}
  LaunchedEffect(query,selectedSource,offset){list.scrollToItem(0)}
@@ -105,16 +110,26 @@ import org.koin.compose.koinInject
    IconButton(onClick={keyboard?.hide();manage=true},modifier=Modifier.size(48.dp).testTag("shelf-manage")){Icon(Icons.Outlined.Tune,strings.localize(Res.string.tp_shelf_sources))}
    IconButton(onClick=onAdd,modifier=Modifier.size(48.dp)){Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_shelf_add))}
   }
-  OutlinedTextField(query,onQuery,modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp).readerAppGlassCard(28).focusRequester(focus).testTag("shelf-query"),
-   singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search))},leadingIcon={Icon(Icons.Outlined.Search,null)},
+  OutlinedTextField(query,onQuery,
+   keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),
+   keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={onSearchSubmitted(query);keyboard?.hide()}),modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp).readerAppGlassCard(28).focusRequester(focus).testTag("shelf-query"),
+   singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search),maxLines=1,overflow=TextOverflow.Ellipsis)},leadingIcon={Icon(Icons.Outlined.Search,null)},
    trailingIcon={if(query.isNotEmpty())IconButton(onClick={onQuery("")}){Icon(Icons.Outlined.Close,strings.localize(Res.string.close))}},shape=CircleShape,
    colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Color.Transparent,focusedBorderColor=MaterialTheme.colorScheme.outline.copy(alpha=.4f)))
   if(sources.size>1) ReaderChips(listOf(strings.localize(Res.string.tp_shelf_all_sources))+sources.map{it.name},sources.indexOfFirst{it.id==selectedSource}+1,
    {onSource(if(it==0)null else sources[it-1].id)})
   LazyColumn(state=list,modifier=Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-   error?.let { item{Text(shelfFailureText(it),color=MaterialTheme.colorScheme.error)} }
+   error?.let { failure ->item {
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+     Text(shelfFailureText(failure),color=MaterialTheme.colorScheme.error)
+     TextButton(onClick=if(failure==ShelfFailure.Authentication && showConnect)onConnect else onRetrySearch,enabled=!loading) {
+      Text(strings.localize(if(failure==ShelfFailure.Authentication && showConnect)Res.string.tp_shelf_connect else Res.string.retry))
+     }
+    }
+   } }
    if(query.isBlank()) {
-    if(sources.isNotEmpty())item{Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    if(query.isBlank() && recentSearches.isNotEmpty())item {ReaderRecentSearches(recentSearches,{onQuery(it);onSearchSubmitted(it);keyboard?.hide()},onClearSearchHistory)}
+  if(sources.isNotEmpty())item{Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)}
     items(sources,key={"source:${it.id}"}) { source ->
      ShelfSourceCard(source,operations[source.id],onRefresh,onRemove,onCancel,
       onSelect={onSource(source.id);focus.requestFocus();keyboard?.show()})
@@ -132,13 +147,25 @@ import org.koin.compose.koinInject
      Text(strings.localize(Res.string.tp_shelf_results),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.weight(1f))
      if(loading)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp)
     } }
-    if(!loading && page.entries.isEmpty())item{Text(strings.localize(Res.string.tp_shelf_no_results),color=MaterialTheme.colorScheme.onSurfaceVariant)}
+    if(incompleteSources.isNotEmpty())item {
+     Column(Modifier.testTag("shelf-index-status")) {
+      Text(strings.localize(Res.string.tp_shelf_partial_results),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+      incompleteSources.filter {operations[it.id]?.task!=ShelfTask.Syncing}.forEach {source ->
+       TextButton(onClick={onRefresh(source.id)},modifier=Modifier.heightIn(min=48.dp).testTag("shelf-resume-index-${source.id}")) {
+        Text(strings.localize(if(source.pending)Res.string.tp_shelf_resume else Res.string.tp_shelf_refresh)+" · "+source.name)
+       }
+      }
+     }
+    }
+    if(!loading && error==null && incompleteSources.isEmpty() && page.entries.isEmpty())item{Text(strings.localize(Res.string.tp_shelf_no_results),color=MaterialTheme.colorScheme.onSurfaceVariant)}
     items(page.entries,key={"${it.sourceId}:${it.fileId}"}) { entry ->
      ShelfBookRow(entry,sources.firstOrNull{it.id==entry.sourceId}?.name?:"Google Drive",operations["${entry.sourceId}:${entry.fileId}"],
       onDownload={onDownload(entry)},onOpen={entry.bookId?.let(onBook)},onCancel={onCancel("${entry.sourceId}:${entry.fileId}")})
     }
     if(offset>0 || page.hasMore)item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
      TextButton(onClick=onPrevious,enabled=offset>0 && !loading){Text(strings.localize(Res.string.tp_shelf_previous))}
+     if(page.entries.isNotEmpty())Text(strings.localize(Res.string.tp_shelf_result_range,offset+1,offset+page.entries.size),
+      Modifier.weight(1f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelSmall,maxLines=2)
      TextButton(onClick=onNext,enabled=page.hasMore && !loading){Text(strings.localize(Res.string.tp_shelf_next))}
     } }
    }
@@ -208,7 +235,10 @@ import org.koin.compose.koinInject
      Icon(if(entry.bookId==null)Icons.Outlined.FileDownload else Icons.Outlined.AutoStories,strings.localize(if(entry.bookId==null)Res.string.tp_shelf_download else Res.string.tp_shelf_open))
     }
    }
-   op?.failure?.let{Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)}
+   op?.failure?.let{
+    Text(shelfFailureText(it),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.error)
+    TextButton(onClick=onDownload,enabled=!busy){Text(strings.localize(Res.string.retry))}
+   }
    if(busy) {
     Text(strings.localize(if(op?.task==ShelfTask.Importing)Res.string.tp_shelf_importing else Res.string.tp_shelf_downloading),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     val total=op?.totalBytes

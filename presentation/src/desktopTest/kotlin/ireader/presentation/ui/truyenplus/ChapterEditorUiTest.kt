@@ -13,6 +13,23 @@ import java.util.Locale
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ChapterEditorUiTest {
+    @Test fun manualDraftUsesTheSameTaskInsteadOfStackingASecondDialog() {
+        Locale.setDefault(Locale.forLanguageTag("vi"))
+        val snapshot=EditingSnapshot(8,7,listOf(PageText("Câu gốc.")),false)
+        val scene=ImageComposeScene(360,800,Density(1f)) {
+            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                MaterialTheme {ChapterEditorContent(ChapterEditorState(snapshot=snapshot,manual=EditParagraph(0,"Đang sửa")),
+                    onGenerate={},onCancel={},onApply={},onRestore={},onMemory={},onSettings={},onRules={},onMode={})}
+            }
+        }
+        try {
+            scene.render();scene.render()
+            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
+            val all=scene.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}
+            assertTrue(all.any {it.config.getOrNull(SemanticsProperties.TestTag)=="editor-manual"})
+            assertFalse(all.any {it.config.getOrNull(SemanticsProperties.TestTag)=="editor-memory"})
+        }finally {scene.close()}
+    }
     @Test fun reviewRequiresExplicitApplyAndMemoryAndSettingsHaveSeparateActions() {
         Locale.setDefault(Locale.forLanguageTag("vi"))
         var applied=0;var memory=0;var config=0

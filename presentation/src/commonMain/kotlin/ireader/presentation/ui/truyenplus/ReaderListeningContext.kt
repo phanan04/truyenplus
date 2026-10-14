@@ -1,12 +1,19 @@
 package ireader.presentation.ui.truyenplus
 import androidx.compose.runtime.compositionLocalOf
 
+/** Navigation belongs to the reader's chapter list, independent of speech highlighting. */
+data class ReaderChapterNavigation(val position: Int, val total: Int) {
+    val canPrevious get() = position > 0 && position < total
+    val canNext get() = position >= 0 && position < total - 1
+}
+
 data class ReaderListeningContext(val sourceIndices: List<Int>, val currentParagraph: Int,
     val highlight: Boolean, val index: ReaderSpeechIndex, val onSelect: (Int) -> Unit,
     val sentence: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null,
     val onSentenceBounds: (Int,androidx.compose.ui.geometry.Rect)->Unit = {_,_->},
     val word: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null,
-    val wordHighlight:Boolean=false) {
+    val wordHighlight:Boolean=false, val chapterIndex:Int=-1, val chapterCount:Int=0,
+    val allowInspection:()->Boolean={true}) {
     constructor(sourceIndices: List<Int>, currentParagraph: Int, highlight: Boolean, onSelect: (Int)->Unit)
         : this(sourceIndices,currentParagraph,highlight,ReaderSpeechIndex(sourceIndices),onSelect)
     fun paragraphForReaderPage(index: Int): Int? = this.index.paragraphForReaderPage(index)

@@ -72,12 +72,18 @@ class ResponsiveReaderTest {
             val calls=mutableListOf<String>()
             val scene=scene(w) { Box(Modifier.fillMaxSize()) { ReaderChapterFooter(2,20,false,true,{calls+="previous"},{calls+="next"},{calls+="contents"},{calls+="listen"},{calls+="bookmark"},{calls+="auto"},Modifier.align(Alignment.BottomCenter)) } }
             try {
-                val all=rendered(scene)
-                for(tag in listOf("previous","next","contents","listen","bookmark","auto-scroll")) {
-                    val n=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-$tag" }
-                    assertVisible(n,w);click(n)
+                rendered(scene)
+                for(tag in listOf("listen","contents","previous","next","bookmark")) {
+                    fun current()=scene.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}
+                    var n=current().firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-$tag"}
+                    if(n==null) {
+                        click(current().first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-footer-more"})
+                        scene.render();scene.render()
+                        n=current().first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-$tag"}
+                    }
+                    assertVisible(n,w);click(n);scene.render();scene.render()
                 }
-                assertEquals(listOf("previous","next","contents","listen","bookmark","auto"),calls)
+                assertEquals(listOf("listen","contents","previous","next","bookmark"),calls)
                 save(scene,"footer",w)
             } finally { scene.close() }
         }
@@ -109,15 +115,12 @@ class ResponsiveReaderTest {
 
     @Test fun mainScreensRenderAtPhoneTabletLandscapeAndLargeFontSizes() {
         val books=listOf(ReaderBookUi(1,"Cuốn sách có tên dài trong thư viện",read=10,total=50))
-        val raw=requireNotNull(javaClass.getResourceAsStream("/discovery/qidian.json")).bufferedReader().use { it.readText() }
-        val feed=ireader.data.discovery.NovelTrackerParser.parse(ireader.domain.models.discovery.DiscoverySource.Qidian,raw)
         val chapters=(1..10).map { ireader.domain.models.entities.Chapter(id=it.toLong(),bookId=1,key="$it",name="Chương $it: Một tiêu đề dài") }
         val pages:Map<String,@Composable ()->Unit> = linkedMapOf(
             "home" to { ReaderHomeScreen(books,false,{},{},{},{},onUpdate={}) },
             "library" to { ReaderLibraryScreen(books,listOf("Tất cả","Yêu thích"),0,"",false,false,emptySet(),{},{},{},{},{},{},{},{}) },
             "settings" to { ReaderSettingsScreen(ReaderUiLanguage.Vietnamese,{},{},{}) },
             "book" to { ReaderBookScreen(books.first(),"Tác giả",chapters,{},{},{},{},{}) },
-            "discovery" to { DiscoveryScreen(ireader.domain.models.discovery.DiscoveryState(feeds=mapOf(feed.source to feed)),{}) },
             "update" to { ReaderUpdateContent("2.0.32","https://example.org/update.json",true,ReaderUpdateState(),{},{},{},{}) }
         )
         for(w in windows) for((name,page) in pages) {

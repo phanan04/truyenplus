@@ -44,7 +44,6 @@ import ireader.i18n.resources.*
  * Unified onboarding screen with:
  * 1. Welcome + Language selection
  * 2. Storage setup (required)
- * 3. Dev server toggle (optional)
  */
 @Composable
 fun OnboardingScreen(
@@ -175,15 +174,16 @@ private fun WelcomeLanguagePage(
     onLanguageSelected: (String) -> Unit,
     onContinue: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    val localizeHelper = requireNotNull(LocalLocalizeHelper.current)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Icon(Icons.Outlined.AutoStories, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(90.dp))
         Text("Truyện+", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))
-        Text("Thư viện riêng. Đọc theo cách của bạn. Nghe truyện bất cứ lúc nào.", textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(localizeHelper.localize(Res.string.your_personal_reading_companionnlets_set), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { onLanguageSelected("vi") }) { Text(if (selectedLanguage == "vi") "✓ Tiếng Việt" else "Tiếng Việt") }
             OutlinedButton(onClick = { onLanguageSelected("en") }) { Text(if (selectedLanguage == "en") "✓ English" else "English") }
         }
-        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().padding(top = 32.dp).height(52.dp), shape = RoundedCornerShape(26.dp)) { Text("Bắt đầu") }
+        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().padding(top = 32.dp).heightIn(min=52.dp), shape = RoundedCornerShape(26.dp)) { Text(localizeHelper.localize(Res.string.tp_start_reading)) }
     }
 
 }
@@ -336,77 +336,6 @@ private fun StorageSetupPage(
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        // Description
-        AnimatedVisibility(
-            visible = showContent,
-            enter = fadeIn(tween(500, 200)) + slideInVertically(tween(500, 200)) { 30 }
-        ) {
-            Text(
-                text = localizeHelper.localize(Res.string.select_a_folder_where_ireader),
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        // Feature cards (reduced to 2)
-        AnimatedVisibility(
-            visible = showContent,
-            enter = fadeIn(tween(500, 300)) + slideInVertically(tween(500, 300)) { 30 }
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                StorageFeatureCard(
-                    icon = Icons.AutoMirrored.Outlined.MenuBook,
-                    title = localizeHelper.localize(Res.string.downloaded_chapters_1),
-                    description = "Save chapters, extensions, and backups",
-                    accentColor = MaterialTheme.colorScheme.primary
-                )
-                
-                StorageFeatureCard(
-                    icon = Icons.Outlined.Storage,
-                    title = localizeHelper.localize(Res.string.persistent_storage),
-                    description = "Data persists even if app is uninstalled",
-                    accentColor = MaterialTheme.colorScheme.tertiary
-                )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Important note
-        AnimatedVisibility(
-            visible = showContent,
-            enter = fadeIn(tween(500, 400))
-        ) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = localizeHelper.localize(Res.string.this_folder_will_be_used),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-        }
-        
         // Selected path display
         if (selectedPath != null) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -465,7 +394,7 @@ private fun StorageSetupPage(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .heightIn(min=56.dp),
                     shape = RoundedCornerShape(16.dp),
                     enabled = !isSelectingFolder
                 ) {
@@ -483,7 +412,7 @@ private fun StorageSetupPage(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (selectedPath != null) "Change Folder" else "Select Folder",
+                            text = localizeHelper.localize(Res.string.select_storage_folder),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -821,7 +750,7 @@ private fun DevServerPage(
                     onClick = onComplete,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .heightIn(min=56.dp),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(

@@ -11,6 +11,10 @@ import ireader.domain.utils.extensions.formatDate
 
 
 class UiPreferences(private val preferenceStore: PreferenceStore) {
+    fun readerVoiceNames() = preferenceStore.getString("reader_voice_names", "{}")
+    fun readerSearchShelf() = preferenceStore.getBoolean("reader_search_shelf", false)
+    fun readerRecentSearches(shelf:Boolean) = preferenceStore.getString(if(shelf)"reader_recent_shelf" else "reader_recent_library", "[]")
+
 
     fun themeMode(): Preference<PreferenceValues.ThemeMode> {
         return preferenceStore.getEnum("theme_mode", PreferenceValues.ThemeMode.System)

@@ -10,6 +10,23 @@ import kotlinx.serialization.json.Json
 
 class SqlChapterEditingStore(private val db: Database, private val notifier: ChapterNotifier? = null): ChapterEditingStore {
     private val q get() = db.chapterEditingQueries
+    override suspend fun loadDraft(chapterId:Long):ChapterEditingDraft?=withContext(Dispatchers.IO) {
+        q.getDraft(chapterId).executeAsOneOrNull()?.let {runCatching {Json.decodeFromString<ChapterEditingDraft>(it)}.getOrNull()}
+    }
+    override suspend fun saveDraft(chapterId:Long,draft:ChapterEditingDraft)=withContext(Dispatchers.IO) {
+        require(draft.paragraphs.size<=5000 && draft.paragraphs.all {it.text.isNotBlank() && it.text.length<=18_000})
+        require((draft.manual?.text?.length ?: 0)<=18_000)
+        val payload=Json.encodeToString(draft)
+        require(payload.length<=1_200_000)
+        q.saveDraft(chapterId,payload)
+        Unit
+    }
+    override suspend fun clearDraft(chapterId:Long)=withContext(Dispatchers.IO) {q.clearDraft(chapterId);Unit}
+    override suspend fun loadFormDraft(bookId:Long,kind:EditingFormKind):String?=withContext(Dispatchers.IO) {q.getFormDraft(bookId,kind.name).executeAsOneOrNull()}
+    override suspend fun saveFormDraft(bookId:Long,kind:EditingFormKind,payload:String)=withContext(Dispatchers.IO) {
+        require(payload.length<=12_000);q.saveFormDraft(bookId,kind.name,payload);Unit
+    }
+    override suspend fun clearFormDraft(bookId:Long,kind:EditingFormKind)=withContext(Dispatchers.IO) {q.clearFormDraft(bookId,kind.name);Unit}
     override suspend fun load(chapterId: Long): EditingSnapshot = withContext(Dispatchers.IO) { snapshot(chapterId) }
     private fun snapshot(id: Long): EditingSnapshot {
         val chapter = db.chapterQueries.getChapterById(id).executeAsOneOrNull() ?: error("Chương không còn tồn tại.")
@@ -25,6 +42,7 @@ class SqlChapterEditingStore(private val db: Database, private val notifier: Cha
             q.backupOriginal(saved.chapterId)
             // Update only content: never write stale progress/read/bookmark metadata.
             q.setEditedContent(proposal.pages,saved.chapterId)
+            q.clearDraft(saved.chapterId)
             db.translatedChapterQueries.deleteTranslatedChaptersByChapterId(saved.chapterId)
         }
         notifier?.tryNotifyChange(ChapterNotifier.ChangeType.ContentFetched(saved.chapterId,saved.bookId))
@@ -33,7 +51,7 @@ class SqlChapterEditingStore(private val db: Database, private val notifier: Cha
     override suspend fun restore(chapterId: Long) = withContext(Dispatchers.IO) {
         val current = snapshot(chapterId)
         require(current.hasOriginal) { "Chương chưa có bản gốc đã lưu." }
-        db.transaction { q.restoreOriginal(chapterId); q.deleteOriginal(chapterId); db.translatedChapterQueries.deleteTranslatedChaptersByChapterId(chapterId) }
+        db.transaction { q.restoreOriginal(chapterId); q.deleteOriginal(chapterId);q.clearDraft(chapterId); db.translatedChapterQueries.deleteTranslatedChaptersByChapterId(chapterId) }
         notifier?.tryNotifyChange(ChapterNotifier.ChangeType.ContentFetched(chapterId,current.bookId))
         Unit
     }

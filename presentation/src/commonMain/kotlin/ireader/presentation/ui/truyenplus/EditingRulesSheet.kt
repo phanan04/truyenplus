@@ -10,12 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ireader.domain.data.repository.TextReplacementRepository
 import ireader.domain.models.entities.TextReplacement
-import ireader.domain.models.editing.EditingRule
+import ireader.domain.models.editing.*
 import ireader.domain.utils.extensions.currentTimeToLong
 import ireader.i18n.localize
 import ireader.i18n.resources.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.serialization.json.*
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,11 +34,36 @@ import org.koin.compose.koinInject
     var formOpen by remember{mutableStateOf(false)}
     var error by remember{mutableStateOf<String?>(null)}
     var busy by remember{mutableStateOf(false)}
+    val store:ChapterEditingStore=koinInject()
+    val draft=remember(bookId,store){EditingFormDraftController(store,bookId,EditingFormKind.Rules)}
+    var draftLoaded by remember(bookId){mutableStateOf(false)}
+    var discard by remember {mutableStateOf(false)}
+    var deleted by remember {mutableStateOf<TextReplacement?>(null)}
+    fun currentPayload():String?=if(formOpen)buildJsonObject {
+        put("id",editing?.id ?: 0L);put("find",find);put("replace",replace);put("regex",regex);put("whole",wholeWord);put("sensitive",sensitive);put("global",global)
+    }.toString() else null
+    val close:()->Unit={if(!busy){draft.update(currentPayload());scope.launch {try {withContext(NonCancellable){draft.persist()};onDismiss()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message}}}}
+    LaunchedEffect(bookId) {
+        try {draft.load()?.let {payload->runCatching {
+            val obj=Json.parseToJsonElement(payload).jsonObject
+            val id=obj["id"]!!.jsonPrimitive.long
+            editing=if(id>0)repo.getReplacementById(id) else null
+            find=obj["find"]!!.jsonPrimitive.content;replace=obj["replace"]!!.jsonPrimitive.content
+            regex=obj["regex"]!!.jsonPrimitive.boolean;wholeWord=obj["whole"]!!.jsonPrimitive.boolean
+            sensitive=obj["sensitive"]!!.jsonPrimitive.boolean;global=obj["global"]!!.jsonPrimitive.boolean;formOpen=true
+        }};draftLoaded=true}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message}
+    }
+    LaunchedEffect(find,replace,regex,wholeWord,sensitive,global,formOpen,busy,draftLoaded) {
+        if(draftLoaded && !busy){
+            draft.update(currentPayload())
+            delay(400);try {draft.persist()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message}
+        }
+    }
     val invalid=localize(Res.string.tp_edit_invalid_rule)
-    fun launchAction(block:suspend ()->Unit) {busy=true;error=null;scope.launch {
-        try{beforeChange();block();onChanged()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message}finally{busy=false}
+    fun launchAction(block:suspend ()->Unit) {busy=true;error=null;deleted=null;scope.launch {
+        try{beforeChange();withContext(NonCancellable){block()};onChanged()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message}finally{busy=false}
     }}
-    ModalBottomSheet(onDismissRequest=onDismiss,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+    ReaderGlassSheet(onDismissRequest=close) {
         LazyColumn(Modifier.fillMaxWidth().imePadding().navigationBarsPadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             item{Text(localize(Res.string.tp_edit_rules),style=MaterialTheme.typography.headlineSmall)}
             item{Text(localize(Res.string.tp_edit_rules_hint),style=MaterialTheme.typography.bodySmall)}
@@ -58,10 +84,10 @@ import org.koin.compose.koinInject
                             val now=currentTimeToLong()
                             val value=TextReplacement(id=editing?.id?:0,bookId=if(global)null else bookId,name=find.take(100),findText="/$pattern/",replaceText=rule.replacement(),description=rule.metadata(),caseSensitive=sensitive,enabled=editing?.enabled?:true,createdAt=editing?.createdAt?:now,updatedAt=now)
                             if(editing==null)repo.insert(value) else repo.update(value)
-                            formOpen=false
+                            formOpen=false;draft.update(null);draft.persist()
                         }
                     },enabled=!busy){Text(localize(Res.string.tp_edit_save))}
-                    TextButton(onClick={formOpen=false},enabled=!busy){Text(localize(Res.string.tp_edit_cancel))}
+                    TextButton(onClick={discard=true},enabled=!busy){Text(localize(Res.string.tp_edit_cancel))}
                 }}
             } else {
                 item{Button(onClick={editing=null;find="";replace="";regex=false;wholeWord=false;sensitive=false;global=false;formOpen=true},enabled=!busy){Text(localize(Res.string.tp_edit_add_rule))}}
@@ -79,13 +105,16 @@ import org.koin.compose.koinInject
                                 wholeWord=false
                                 EditingRule.fromMetadata(rule.description)?.let{draft->find=draft.find;replace=draft.replace;regex=draft.regex;wholeWord=draft.wholeWord}
                             },enabled=!busy){Text(localize(Res.string.tp_edit_edit))}
-                            TextButton(onClick={launchAction{repo.delete(rule.id)}},enabled=!busy){Text(localize(Res.string.tp_edit_delete))}
+                            TextButton(onClick={launchAction{repo.delete(rule.id);deleted=rule}},enabled=!busy){Text(localize(Res.string.tp_edit_delete))}
                         }
                         HorizontalDivider()
                     }
                 }
             }
-            item{TextButton(onDismiss,enabled=!busy){Text(localize(Res.string.tp_edit_close))}}
+            if(deleted!=null)item{TextButton(onClick={val previous=deleted!!;launchAction {repo.insertWithId(previous);deleted=null}},enabled=!busy,modifier=Modifier.heightIn(min=48.dp)){Text(localize(Res.string.undo))}}
+            item{TextButton(close,enabled=!busy){Text(localize(Res.string.tp_edit_close))}}
         }
     }
+    if(discard)ReaderGlassDialog(onDismissRequest={discard=false},title={Text(localize(Res.string.tp_discard_draft))},text={Text(localize(Res.string.tp_discard_draft_hint))},
+        confirmButton={TextButton(onClick={discard=false;formOpen=false}){Text(localize(Res.string.tp_discard))}},dismissButton={TextButton(onClick={discard=false}){Text(localize(Res.string.tp_keep_editing))}})
 }

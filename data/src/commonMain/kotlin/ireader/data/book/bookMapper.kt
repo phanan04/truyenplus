@@ -88,6 +88,7 @@ val libraryManga:
             cover = thumbnail_url?:"",
             customCover = custom_cover,
             lastUpdate = last_update?:0L,
+        author = author.orEmpty(),
         ).apply {
             this.unreadCount = cached_unread_count.toInt()
             this.readCount = cached_read_count.toInt()
@@ -195,6 +196,7 @@ val getLibraryMapper = { _id: Long,
         cover = thumbnail_url?:"",
         customCover = custom_cover,
         lastUpdate = last_update?:0L,
+        author = author.orEmpty(),
     ).apply {
         this.unreadCount = unread_count.toInt()
         this.readCount = read_count.toInt()
@@ -254,6 +256,7 @@ val getLibraryFastMapper = { _id: Long,
         cover = thumbnail_url ?: "",
         customCover = custom_cover,
         lastUpdate = last_update ?: 0L,
+        author = author.orEmpty(),
     ).apply {
         // Use cached counts from book table (maintained by triggers)
         this.unreadCount = unread_count.toInt()

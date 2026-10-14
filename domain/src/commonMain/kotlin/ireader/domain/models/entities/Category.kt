@@ -55,3 +55,5 @@ data class CategoryUpdate(
     val order: Long? = null,
     val flags: Long? = null,
 )
+
+data class CategoryDeletionSnapshot(val category:Category,val bookIds:List<Long>,val rules:List<CategoryAutoRule>)

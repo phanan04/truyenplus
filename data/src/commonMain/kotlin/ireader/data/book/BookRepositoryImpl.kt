@@ -610,6 +610,7 @@ class BookRepositoryImpl(
                 pinnedOrder = pinnedOrder.toLong()
             )
         }
+        changeNotifier?.notifyChange(LibraryChangeNotifier.ChangeType.BookUpdated(bookId))
     }
     
     override suspend fun updatePinnedOrder(bookId: Long, pinnedOrder: Int) {
@@ -622,9 +623,7 @@ class BookRepositoryImpl(
     }
     
     override suspend fun getMaxPinnedOrder(): Int {
-        return handler.awaitList {
-            bookQueries.findInLibraryBooks(booksMapper)
-        }.maxOfOrNull { it.pinnedOrder } ?: 0
+        return handler.awaitOne {bookQueries.getMaxPinnedOrder()}.toInt()
     }
     
     override suspend fun updateArchiveStatus(bookId: Long, isArchived: Boolean) {

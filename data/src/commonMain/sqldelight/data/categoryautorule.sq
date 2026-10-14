@@ -66,3 +66,6 @@ DELETE FROM category_auto_rules;
 
 selectLastInsertedRowId:
 SELECT LAST_INSERT_ROWID();
+
+restoreRule:
+INSERT INTO category_auto_rules(_id,category_id,rule_type,value,is_enabled) VALUES(:id,:categoryId,:ruleType,:value,:isEnabled);

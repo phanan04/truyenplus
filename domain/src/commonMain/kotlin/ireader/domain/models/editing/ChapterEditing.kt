@@ -3,6 +3,9 @@ package ireader.domain.models.editing
 import ireader.core.source.model.Page
 import ireader.core.source.model.Text
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import okio.ByteString.Companion.encodeUtf8
 
 @Serializable data class EditParagraph(val id: Int, val text: String)
 @Serializable data class EditingCharacter(val name: String, val aliases: String = "", val notes: String = "")
@@ -10,13 +13,25 @@ import kotlinx.serialization.Serializable
     Gemini("gemini-3.8-flash"), DeepSeek("deepseek-flash")
 }
 @Serializable data class EditingConfig(val provider: EditingProvider = EditingProvider.Gemini, val model: String = provider.defaultModel)
-enum class EditingMode { Grammar, Translate }
+@Serializable enum class EditingMode { Grammar, Translate }
 // Keys are deliberately not serializable and never included in saved configuration.
 class EditingCredentials(val config: EditingConfig, val apiKey: String)
 data class EditingSnapshot(val chapterId: Long, val bookId: Long, val pages: List<Page>, val hasOriginal: Boolean)
 data class EditingProposal(val snapshot: EditingSnapshot, val pages: List<Page>)
 
+@Serializable data class ChapterEditingDraft(val fingerprint:String,val mode:EditingMode,
+    val paragraphs:List<EditParagraph>,val selected:Set<Int>,val manual:EditParagraph?=null)
+enum class EditingFormKind { Characters, Rules }
+fun editingFingerprint(pages:List<Page>):String=Json.encodeToString(pages).encodeUtf8().sha256().hex()
+
 interface ChapterEditingStore {
+    suspend fun loadDraft(chapterId:Long):ChapterEditingDraft? = null
+    suspend fun saveDraft(chapterId:Long,draft:ChapterEditingDraft) {}
+    suspend fun clearDraft(chapterId:Long) {}
+    suspend fun loadFormDraft(bookId:Long,kind:EditingFormKind):String? = null
+    suspend fun saveFormDraft(bookId:Long,kind:EditingFormKind,payload:String) {}
+    suspend fun clearFormDraft(bookId:Long,kind:EditingFormKind) {}
+
     suspend fun load(chapterId: Long): EditingSnapshot
     suspend fun apply(proposal: EditingProposal)
     suspend fun restore(chapterId: Long)
@@ -24,6 +39,8 @@ interface ChapterEditingStore {
     suspend fun saveCharacters(bookId: Long, characters: List<EditingCharacter>)
 }
 interface ChapterEditingApi {
+    suspend fun checkConnection(credentials:EditingCredentials) {throw UnsupportedOperationException("Connection check is unavailable")}
+
     suspend fun edit(credentials: EditingCredentials, mode: EditingMode, paragraphs: List<EditParagraph>, characters: List<EditingCharacter>): List<EditParagraph>
 }
 interface EditingSettings {

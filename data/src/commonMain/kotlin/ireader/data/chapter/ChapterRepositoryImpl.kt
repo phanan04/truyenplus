@@ -282,6 +282,27 @@ class ChapterRepositoryImpl(
         }
     }
 
+    override suspend fun updateReadState(states: Map<Long, Boolean>) {
+        if (states.isEmpty()) return
+        val affected = handler.await(inTransaction = true) {
+            val books = mutableMapOf<Long, MutableList<Long>>()
+            states.forEach { (id, read) ->
+                chapterQueries.getChapterOwner(id).executeAsOneOrNull()?.let { book ->
+                    books.getOrPut(book) { mutableListOf() }.add(id)
+                    chapterQueries.update(mangaId=null,url=null,name=null,scanlator=null,read=read,
+                        bookmark=null,lastPageRead=null,chapterNumber=null,sourceOrder=null,
+                        dateFetch=null,dateUpload=null,chapterId=id)
+                }
+            }
+            books.keys.forEach { chapterQueries.refreshBookChapterCounts(it) }
+            books
+        }
+        affected.forEach { (book, ids) ->
+            dbOptimizations?.invalidateCache("book_${book}_chapters")
+            chapterNotifier?.tryNotifyChange(ChapterNotifier.ChangeType.ChaptersUpdated(ids,book))
+        }
+    }
+
     override suspend fun findChaptersByBookIdWithContent(bookId: Long): List<Chapter> {
         // Use full query with content for EPUB export
         // WARNING: This can cause OOM for books with many large chapters

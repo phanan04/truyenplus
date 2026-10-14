@@ -23,6 +23,7 @@ import ireader.domain.services.platform.PlatformServices
 import ireader.domain.usecases.library.LibraryUseCases
 import ireader.domain.usecases.preferences.reader_preferences.screens.LibraryScreenPrefUseCases
 import ireader.domain.usecases.services.ServiceUseCases
+import ireader.i18n.resources.tp_operation_failed
 import ireader.i18n.LocalizeHelper
 import ireader.presentation.ui.core.viewmodel.BaseViewModel
 import kotlinx.collections.immutable.toImmutableList
@@ -791,86 +792,57 @@ class LibraryViewModel(
         _uiState.update { it.copy(showImportEpubDialog = show) }
     }
     
-    fun importEpubFiles(uris: List<String>) {
-        scope.launch {
-            _uiState.update { 
-                it.copy(
-                    epubImportState = it.epubImportState.copy(
-                        showProgress = true,
-                        selectedUris = uris
-                    )
-                )
-            }
-            
-            try {
-                val parsedUris = uris.map { ireader.domain.models.common.Uri.parse(it) }
-                libraryUseCases.importEpub.parse(parsedUris)
-            } catch (e: Exception) {
-                // Handle error
-            }
-            
-            _uiState.update { 
-                it.copy(
-                    epubImportState = it.epubImportState.copy(showProgress = false),
-                    showImportEpubDialog = false
-                )
-            }
+    private val imports=ireader.presentation.ui.truyenplus.ReaderImportQueue(scope) {format,uri ->
+        val parsed=listOf(ireader.domain.models.common.Uri.parse(uri))
+        when(format) {
+            ireader.presentation.ui.truyenplus.ReaderImportFormat.Epub->libraryUseCases.importEpub.parse(parsed)
+            ireader.presentation.ui.truyenplus.ReaderImportFormat.Pdf->libraryUseCases.importPdf.parse(parsed)
         }
     }
-    
-    // ==================== PDF Import ====================
-    
-    fun setShowImportPdfDialog(show: Boolean) {
-        _uiState.update { it.copy(showImportPdfDialog = show) }
-    }
-    
-    fun importPdfFiles(uris: List<String>) {
-        scope.launch {
-            _uiState.update { 
-                it.copy(
-                    epubImportState = it.epubImportState.copy(
-                        showProgress = true,
-                        selectedUris = uris
-                    )
-                )
-            }
-            
-            try {
-                val parsedUris = uris.map { ireader.domain.models.common.Uri.parse(it) }
-                libraryUseCases.importPdf.parse(parsedUris)
-            } catch (e: Exception) {
-                // Handle error
-            }
-            
-            _uiState.update { 
-                it.copy(
-                    epubImportState = it.epubImportState.copy(showProgress = false),
-                    showImportPdfDialog = false
-                )
-            }
-        }
-    }
-    
+    val importState=imports.state
+    fun importEpubFiles(uris:List<String>,names:(suspend (String)->String?)?=null)=imports.enqueue(ireader.presentation.ui.truyenplus.ReaderImportFormat.Epub,uris,names)
+    fun importPdfFiles(uris:List<String>,names:(suspend (String)->String?)?=null)=imports.enqueue(ireader.presentation.ui.truyenplus.ReaderImportFormat.Pdf,uris,names)
+    fun retryFailedImports()=imports.retryFailed()
+    fun clearImportResults()=imports.clearResults()
+    fun setShowImportPdfDialog(show:Boolean) {_uiState.update {it.copy(showImportPdfDialog=show)}}
+
     // ==================== Book Operations ====================
     
     /**
      * Mark selected books as read (uses current selection if no bookIds provided).
      */
-    fun markAsReadWithUndo(bookIds: List<Long> = state.value.selectedBookIds.toList()) {
+    fun markAsReadWithUndo(bookIds: List<Long> = state.value.selectedBookIds.toList()) = markWithUndo(bookIds,true)
+    fun markAsUnreadWithUndo(bookIds: List<Long> = state.value.selectedBookIds.toList()) = markWithUndo(bookIds,false)
+    private fun markWithUndo(ids:List<Long>,read:Boolean) {
+        if(ids.isEmpty() || _uiState.value.batchOperationInProgress)return
+        _uiState.update {it.copy(batchOperationInProgress=true)}
         scope.launch {
-            libraryUseCases.markAsRead.markAsRead(bookIds)
+            try {
+                val result=if(read)libraryUseCases.markAsRead.markAsReadWithUndo(ids) else libraryUseCases.markAsRead.markAsUnreadWithUndo(ids)
+                if(result is ireader.domain.usecases.local.book_usecases.MarkResult.Success) {
+                    _uiState.update {it.copy(lastUndoState=UndoState(result.previousStates,
+                        if(read)UndoOperationType.MARK_AS_READ else UndoOperationType.MARK_AS_UNREAD,
+                        ireader.domain.utils.extensions.currentTimeToLong()))}
+                }
+            } catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(_:Exception){showSnackBar(ireader.i18n.UiText.MStringResource(ireader.i18n.resources.Res.string.tp_operation_failed))}
+            finally {_uiState.update {it.copy(batchOperationInProgress=false)}}
         }
     }
-    
-    /**
-     * Mark selected books as unread (uses current selection if no bookIds provided).
-     */
-    fun markAsUnreadWithUndo(bookIds: List<Long> = state.value.selectedBookIds.toList()) {
+    fun expireLastUndo(expected:UndoState?=state.value.lastUndoState) {
+        _uiState.update {if(it.lastUndoState==expected)it.copy(lastUndoState=null) else it}
+    }
+    fun undoLastMark(expected:UndoState) {
+        if(_uiState.value.lastUndoState!=expected || _uiState.value.batchOperationInProgress)return
+        _uiState.update {it.copy(batchOperationInProgress=true)}
         scope.launch {
-            libraryUseCases.markAsRead.markAsNotRead(bookIds)
+            try {libraryUseCases.markAsRead.undoMark(expected.previousChapterStates);_uiState.update {it.copy(lastUndoState=null)}}
+            catch(e:kotlinx.coroutines.CancellationException){throw e}
+            catch(_:Exception){showSnackBar(ireader.i18n.UiText.MStringResource(ireader.i18n.resources.Res.string.tp_operation_failed))}
+            finally {_uiState.update {it.copy(batchOperationInProgress=false)}}
         }
     }
-    
+
     /**
      * Download chapters for selected books (uses current selection if no bookIds provided).
      */

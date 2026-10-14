@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.Flow
 class CategoryRepositoryImpl(
     private val handler: DatabaseHandler,
 ) : CategoryRepository {
+    override suspend fun deleteWithUndo(id:Long)=handler.await {SqlCategoryDeletionStore(this).remove(id)}
+    override suspend fun restoreDeleted(snapshot:ireader.domain.models.entities.CategoryDeletionSnapshot)=handler.await {SqlCategoryDeletionStore(this).restore(snapshot)}
     override fun subscribe(): Flow<List<CategoryWithCount>> {
         return handler.subscribeToList {
             this.categoryQueries.findAllWithCount(categoryWithCountMapper)

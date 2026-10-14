@@ -9,69 +9,22 @@ class MarkBookAsReadOrNotUseCase(
 
     ) {
 
-    suspend fun markAsRead(bookIds: List<Long>) {
-        bookIds.forEach { bookId ->
-            val chapters = localGetChapterUseCase.findChaptersByBookId(bookId)
-            insertUseCases.insertChapters(chapters.map { it.copy(read = true) })
-        }
+    suspend fun markAsRead(bookIds: List<Long>) { mark(bookIds, true) }
+    suspend fun markAsNotRead(bookIds: List<Long>) { mark(bookIds, false) }
+    suspend fun markAsReadWithUndo(bookIds: List<Long>): MarkResult = mark(bookIds, true)
+    suspend fun markAsUnreadWithUndo(bookIds: List<Long>): MarkResult = mark(bookIds, false)
+
+    private suspend fun mark(bookIds: List<Long>, read: Boolean): MarkResult.Success {
+        val previous = bookIds.distinct().associateWith { localGetChapterUseCase.findChaptersByBookId(it) }
+        val chapters = previous.values.flatten()
+        insertUseCases.insertChapters.updateReadState(chapters.associate { it.id to read })
+        return MarkResult.Success(chapters.size, previous.size, previous)
     }
-    suspend fun markAsNotRead(bookIds: List<Long>) {
-        bookIds.forEach { bookId ->
-            val chapters = localGetChapterUseCase.findChaptersByBookId(bookId)
-            insertUseCases.insertChapters(chapters.map { it.copy(read = false) })
-        }
-    }
-    
-    /**
-     * Mark all chapters as read for given books and return previous state for undo
-     */
-    suspend fun markAsReadWithUndo(bookIds: List<Long>): MarkResult {
-        val previousStates = mutableMapOf<Long, List<Chapter>>()
-        var totalChapters = 0
-        
-        bookIds.forEach { bookId ->
-            val chapters = localGetChapterUseCase.findChaptersByBookId(bookId)
-            previousStates[bookId] = chapters
-            totalChapters += chapters.size
-            insertUseCases.insertChapters(chapters.map { it.copy(read = true) })
-        }
-        
-        return MarkResult.Success(
-            totalChapters = totalChapters,
-            totalBooks = bookIds.size,
-            previousStates = previousStates
-        )
-    }
-    
-    /**
-     * Mark all chapters as unread for given books and return previous state for undo
-     */
-    suspend fun markAsUnreadWithUndo(bookIds: List<Long>): MarkResult {
-        val previousStates = mutableMapOf<Long, List<Chapter>>()
-        var totalChapters = 0
-        
-        bookIds.forEach { bookId ->
-            val chapters = localGetChapterUseCase.findChaptersByBookId(bookId)
-            previousStates[bookId] = chapters
-            totalChapters += chapters.size
-            insertUseCases.insertChapters(chapters.map { it.copy(read = false) })
-        }
-        
-        return MarkResult.Success(
-            totalChapters = totalChapters,
-            totalBooks = bookIds.size,
-            previousStates = previousStates
-        )
-    }
-    
-    /**
-     * Undo a mark operation by restoring previous chapter states
-     */
+
     suspend fun undoMark(previousStates: Map<Long, List<Chapter>>) {
-        previousStates.values.forEach { chapters ->
-            insertUseCases.insertChapters(chapters)
-        }
+        insertUseCases.insertChapters.updateReadState(previousStates.values.flatten().associate { it.id to it.read })
     }
+
 }
 
 /**

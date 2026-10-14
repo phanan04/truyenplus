@@ -80,6 +80,12 @@ class ReaderTtsDeviceTest {
     @Test fun supertonicVoicesReallyPlayThroughAudioTrack() = runBlocking<Unit> {
         requireQa()
         val model = OfflineVoiceCatalog.models.last()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        if(store.config(model.id)==null) {
+            store.startDownload(model.id)
+            val result=withTimeout(300_000){store.state.first {model.id in it.installed || model.id in it.errors}}
+            assertFalse("Official Supertonic model download/install failed",model.id in result.errors)
+        }
         for (speaker in listOf(0, 9)) {
             val config = model.config(context.noBackupFilesDir.resolve("voices").absolutePath, speaker)
             val engine = TTSEngineFactory.createOfflineEngine(config)!!

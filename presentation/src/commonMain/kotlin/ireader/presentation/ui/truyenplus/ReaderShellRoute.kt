@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.*
 import androidx.compose.ui.unit.dp
 import ireader.domain.models.BookCover
@@ -18,6 +19,7 @@ import ireader.domain.models.entities.ReadingStatisticsType1
 import ireader.domain.models.entities.toBookCategory
 import ireader.domain.models.library.LibrarySort
 import ireader.domain.usecases.statistics.GetReadingStatisticsUseCase
+import ireader.i18n.asString
 import ireader.i18n.LAST_CHAPTER
 import ireader.presentation.core.*
 import ireader.presentation.core.ui.*
@@ -32,7 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import org.koin.compose.koinInject
 
-fun LibraryBook.toReaderBookUi() = ReaderBookUi(id, title, BookCover.from(toBookItem()), readCount, totalChapters, isPinned, lastRead = lastRead)
+fun LibraryBook.toReaderBookUi() = ReaderBookUi(id, title, BookCover.from(toBookItem()), readCount, totalChapters, isPinned, lastRead = lastRead,author=author)
 
 @Composable
 fun ReaderShellRoute(initialIndex: Int = 0) {
@@ -40,6 +42,25 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val navigator = requireNotNull(LocalNavigator.current)
     val vm: LibraryViewModel = getIViewModel(key = "library")
     val state by vm.state.collectAsState()
+    val importState by vm.importState.collectAsState()
+    val importNames=rememberReaderImportNameResolver()
+    LaunchedEffect(importState.busy,importState.added) {
+        if(!importState.busy && importState.added>0)vm.resetAllPagination()
+    }
+    val snackbars=remember {SnackbarHostState()}
+    LaunchedEffect(vm) {
+        vm.eventFlow.collect {event ->
+            if(event is ireader.i18n.UiEvent.ShowSnackbar)snackbars.showSnackbar(event.uiText.asString(strings))
+        }
+    }
+    LaunchedEffect(state.lastUndoState) {
+        state.lastUndoState?.let {undo ->
+            val result=snackbars.showSnackbar(strings.localize(Res.string.tp_read_state_changed),
+                actionLabel=strings.localize(Res.string.undo),duration=SnackbarDuration.Long)
+            if(result==SnackbarResult.ActionPerformed)vm.undoLastMark(undo) else vm.expireLastUndo(undo)
+        }
+    }
+    DisposableEffect(vm) {onDispose {vm.expireLastUndo()}}
     val tts: ireader.domain.services.tts_service.v2.TTSController = koinInject()
     val ttsState by remember(tts) { tts.state.readerUpdates() }.collectAsState(initial=tts.state.value.readerProjection())
     val ttsService: ireader.domain.services.tts_service.v2.TTSV2ServiceStarter = koinInject()
@@ -49,6 +70,14 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     var showImport by rememberSaveable { mutableStateOf(false) }
     var showProgress by rememberSaveable { mutableStateOf(false) }
     val uiPreferences: ireader.domain.preferences.prefs.UiPreferences = koinInject()
+    val librarySearchHistory=rememberReaderSearchHistory(uiPreferences,false)
+    val searchScopePreference=remember(uiPreferences){uiPreferences.readerSearchShelf()}
+    var searchOpen by rememberSaveable {mutableStateOf(false)}
+    var searchShelf by rememberSaveable {mutableStateOf(searchScopePreference.get())}
+    val searchPages=rememberSaveableStateHolder()
+    var showSort by rememberSaveable {mutableStateOf(false)}
+    val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
     val localeHelper: ireader.presentation.core.theme.LocaleHelper = koinInject()
     val languageCode by localeHelper.currentLanguageFlow.collectAsState()
     val language = ReaderUiLanguage.fromCode(languageCode)
@@ -74,7 +103,18 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     var showEditingSettings by rememberSaveable { mutableStateOf(false) }
     var updateJob by remember { mutableStateOf<Job?>(null) }
     val books = state.books.map { it.toReaderBookUi() }
-    val onBook: (Long) -> Unit = { navigator.navigateTo(BookDetailScreenSpec(it)) }
+    val onBook: (Long) -> Unit = {if(searchOpen && !searchShelf)librarySearchHistory.record(state.searchQuery.orEmpty());navigator.navigateTo(BookDetailScreenSpec(it))}
+    val bookRepository:ireader.domain.data.repository.BookRepository=koinInject()
+    val pinUseCase:ireader.domain.usecases.local.book_usecases.ToggleBookPinUseCase=koinInject()
+    var pinBusy by remember {mutableStateOf(false)}
+    val lastRead=state.lastReadInfo
+    val resumeBook by produceState<ReaderBookUi?>(null,lastRead,books) {
+        value=lastRead?.let {info->
+            val book=kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO){bookRepository.findBookById(info.novelId)}
+            if(book?.favorite==true && !book.isArchived)(books.firstOrNull {it.id==info.novelId} ?: ReaderBookUi(book.id,book.title,BookCover.from(book),author=book.author))
+                .copy(chapter=info.chapterTitle,lastRead=info.lastReadAt) else null
+        }
+    }
     LaunchedEffect(destination, state.categories.map { it.id }) {
         if (destination != ReaderDestination.Settings) showProgress = false
         vm.loadLastReadInfo()
@@ -94,14 +134,14 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         }
     }
     IBackHandler(enabled = destination != ReaderDestination.Home || state.selectionMode) {
-        if (state.selectionMode) vm.unselectAll() else if (showProgress) showProgress = false else destinationIndex = 0
+        if (state.selectionMode) vm.unselectAll() else if(searchOpen){searchOpen=false;vm.clearSearch();keyboard?.hide()} else if (showProgress) showProgress = false else destinationIndex = 0
     }
     val appearancePref=remember(uiPreferences) { uiPreferences.readerAppearance() }
     val appearanceId by appearancePref.changes().collectAsState(initial=appearancePref.get())
     val blurSupported=rememberReaderBlurSupported()
     val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
     val backdrop=remember(sourceLayer,blurSupported) { if(blurSupported) ReaderNavigationBackdrop(sourceLayer) else null }
-    val onSearch: ()->Unit = { destinationIndex=ReaderDestination.Library.ordinal; searchRequested=true; vm.setSearchMode(true) }
+    val onSearch: ()->Unit = {vm.unselectAll();destinationIndex=ReaderDestination.Library.ordinal;searchOpen=true;searchRequested=true;if(!searchShelf)vm.setSearchMode(true)}
     var dockHeight by remember { mutableStateOf(100.dp) }
     val viewportDensity = androidx.compose.ui.platform.LocalDensity.current
     CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp, LocalReaderNavigationBackdrop provides backdrop) {
@@ -113,9 +153,17 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                 ReaderDestination.Home -> ReaderHomeScreen(books, state.isLoading, onBook,
                     onLibrary = { destinationIndex = 1 }, onImport = { showImport = true },
                     onSearch = onSearch, onUpdate = { showUpdate = true },
-                    onContinue={navigator.navigateTo(ReaderScreenSpec(it,LAST_CHAPTER))},
-                    onShelf={navigator.navigate("shelf")})
-                ReaderDestination.Library -> ReaderLibraryScreen(books,
+                    onContinue={navigator.navigateTo(ReaderScreenSpec(it,lastRead?.takeIf {info->info.novelId==it}?.chapterId ?: LAST_CHAPTER))},
+                    onShelf={navigator.navigate("shelf")},resumeBook=resumeBook,onProgress={destinationIndex=ReaderDestination.Settings.ordinal;showProgress=true})
+                ReaderDestination.Library -> Column {
+                    if(searchOpen)ReaderSearchScopePicker(searchShelf) {shelf ->
+                        keyboard?.hide();vm.unselectAll();searchShelf=shelf;searchScopePreference.set(shelf);searchRequested=true
+                    }
+                    Box(Modifier.weight(1f)) {
+                    if(searchOpen && searchShelf)searchPages.SaveableStateProvider("shelf") {
+                        ReaderShelfRoute(onLibrary={searchShelf=false;searchScopePreference.set(false);searchRequested=true},
+                            onBook=onBook,requestSearch=searchRequested,onSearchFocused={searchRequested=false})
+                    } else searchPages.SaveableStateProvider("library") { ReaderLibraryScreen(books,
                     categories = state.categories.map { when (it.category.id) {
                         0L -> strings.localize(Res.string.tp_all)
                         -1L -> strings.localize(Res.string.uncategorized)
@@ -126,9 +174,15 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     onQuery = { vm.setSearchMode(true); vm.searchInLibrary(it) }, onCategory = vm::setSelectedPage,
                     onBook = onBook, onSelect = vm::toggleSelection, onImport = { showImport = true },
                     onCollections = { navigator.navigate(NavigationRoutes.category) },
-                    onSort = { vm.toggleSort(if (state.sort.type == LibrarySort.Type.Title) LibrarySort.Type.LastRead else LibrarySort.Type.Title) },
+                    onSort = {showSort=true},
                     onLoadMore = { vm.loadMoreBooks(state.selectedCategory?.id ?: 0L) },
-                    requestSearch=searchRequested,onSearchFocused={searchRequested=false},onShelf={vm.unselectAll();navigator.navigate("shelf")})
+                    requestSearch=searchRequested,onSearchFocused={searchRequested=false},onShelf={vm.unselectAll();navigator.navigate("shelf")},sort=state.sort,
+                    preferList=state.layout==ireader.domain.models.DisplayMode.List,
+                    onLayout={vm.onLayoutTypeChange(if(it)ireader.domain.models.DisplayMode.List else ireader.domain.models.DisplayMode.CompactGrid)},
+                    recentSearches=if(searchOpen)librarySearchHistory.queries else emptyList(),onSearchSubmitted=librarySearchHistory.record,onClearSearchHistory=librarySearchHistory.clear)
+                    }
+                    }
+                }
                 ReaderDestination.Settings -> {
                     if (!showProgress) ReaderSettingsScreen(language, onLanguage = { selected ->
                         uiPreferences.language().set(selected.code)
@@ -157,25 +211,37 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
             Column(Modifier.align(Alignment.BottomCenter).widthIn(max=1120.dp).fillMaxWidth().onSizeChanged {
                 dockHeight = with(viewportDensity) { it.height.toDp() }
             }) {
+                ReaderImportFeedback(importState,vm::retryFailedImports,vm::clearImportResults)
                 if (state.selectionMode) {
                     Surface(shape = MaterialTheme.shapes.large, color=androidx.compose.ui.graphics.Color.Transparent, contentColor=MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth().padding(12.dp).readerPanel(24)) {
                         Column(Modifier.heightIn(max=LocalReaderViewport.current.height * .45f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(12.dp)) {
+                            if(pinBusy || state.batchOperationInProgress)LinearProgressIndicator(Modifier.fillMaxWidth())
                             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = vm::unselectAll) { Text(strings.localize(Res.string.tp_unselect)) }
-                                TextButton(onClick = { showCategories = true }) { Text(strings.localize(Res.string.tp_collections)) }
-                                TextButton(onClick = { confirmRemove = true }) { Text(strings.localize(Res.string.tp_remove_books)) }
+                                TextButton(onClick = vm::unselectAll,enabled=!pinBusy && !state.batchOperationInProgress) { Text(strings.localize(Res.string.tp_unselect)) }
+                                val pin=state.books.filter {it.id in state.selectedBookIds}.any {!it.isPinned}
+                                TextButton(onClick={
+                                    val ids=state.selectedBookIds.toList();pinBusy=true
+                                    scope.launch {
+                                        try {ids.forEach {pinUseCase.togglePin(it,pin).getOrThrow()};vm.unselectAll();snackbars.showSnackbar(strings.localize(Res.string.done))}
+                                        catch(e:kotlinx.coroutines.CancellationException){throw e}
+                                        catch(_:Exception){snackbars.showSnackbar(strings.localize(Res.string.tp_operation_failed))}
+                                        finally {pinBusy=false}
+                                    }
+                                },enabled=!pinBusy && !state.batchOperationInProgress) {Text(strings.localize(if(pin)Res.string.pin else Res.string.unpin))}
+                                TextButton(onClick = { showCategories = true },enabled=!pinBusy && !state.batchOperationInProgress) { Text(strings.localize(Res.string.tp_collections)) }
+                                TextButton(onClick = { confirmRemove = true },enabled=!pinBusy && !state.batchOperationInProgress) { Text(strings.localize(Res.string.tp_remove_books)) }
                             }
                             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = { vm.markAsReadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_mark_read)) }
-                                TextButton(onClick = { vm.markAsUnreadWithUndo(); vm.unselectAll() }) { Text(strings.localize(Res.string.tp_unread)) }
+                                TextButton(onClick = { vm.markAsReadWithUndo(); vm.unselectAll() },enabled=!pinBusy && !state.batchOperationInProgress) { Text(strings.localize(Res.string.tp_mark_read)) }
+                                TextButton(onClick = { vm.markAsUnreadWithUndo(); vm.unselectAll() },enabled=!pinBusy && !state.batchOperationInProgress) { Text(strings.localize(Res.string.tp_unread)) }
                             }
                         }
                     }
                 } else {
                     val listeningBook = ttsState.book
                     val listeningChapter = ttsState.chapter
-                    if (listeningBook != null && listeningChapter != null) {
-                        val openPlayer: () -> Unit = { navigator.navigateTo(TTSV2ScreenSpec(listeningBook.id, listeningChapter.id, listeningBook.sourceId, ttsState.currentParagraphIndex)) }
+                    if (listeningBook != null && listeningChapter != null && ttsState.hasListeningSession) {
+                        val openPlayer: () -> Unit = { navigator.navigateTo(readerListeningDestination(listeningBook.id, listeningChapter.id, ttsState.currentParagraphIndex)) }
                         ReaderMiniPlayer(ReaderBookUi(listeningBook.id, listeningBook.title, BookCover.from(listeningBook), chapter = listeningChapter.name),
                             onRead = openPlayer, onListen = openPlayer, isPlaying = ttsState.isPlaying,
                             onTogglePlayback = {
@@ -185,28 +251,21 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                                     tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Play)
                                 }
                             })
-                    } else {
-                    state.lastReadInfo?.let { info ->
-                        val book = books.firstOrNull { it.id == info.novelId }
-                            ?: ReaderBookUi(info.novelId, info.novelTitle, chapter = info.chapterTitle)
-                        ReaderMiniPlayer(book.copy(chapter = info.chapterTitle),
-                            onRead = { navigator.navigateTo(ReaderScreenSpec(info.novelId, info.chapterId)) },
-                            onListen = {
-                                val original = state.books.firstOrNull { it.id == info.novelId }
-                                if (original != null) navigator.navigateTo(TTSV2ScreenSpec(original.id, info.chapterId, original.sourceId, 0))
-                                else onBook(info.novelId)
-                            })
                     }
-                    }
-                    Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) { ReaderBottomNav(destination, { destinationIndex = it.ordinal }, onSearch=onSearch) }
+                    Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) { ReaderBottomNav(destination, {searchOpen=false;keyboard?.hide();destinationIndex=it.ordinal},onSearch=onSearch) }
                 }
             }
+            SnackbarHost(snackbars,Modifier.align(Alignment.BottomCenter).padding(horizontal=12.dp).padding(bottom=dockHeight+12.dp))
         }
+    }
+    if(showSort)ReaderGlassSheet(onDismissRequest={showSort=false}) {
+        ReaderSortContent(state.sort,{type->if(type!=state.sort.type)vm.toggleSort(type)},
+            {ascending->if(ascending!=state.sort.isAscending)vm.toggleSortDirection()},{showSort=false})
     }
     if(showVoices && voiceStore!=null)ReaderVoiceManager(voiceStore,
         onSystem={showVoices=false;showSystemVoices=true},onDismiss={showVoices=false})
     if(showSystemVoices)ireader.presentation.ui.home.tts.TTSVoiceSelectionScreen(isDesktop=false,onDismiss={
-        showSystemVoices=false;tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.SetEngine(ireader.domain.services.tts_service.v2.EngineType.NATIVE,true))
+        showSystemVoices=false;showVoices=true;tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.SetEngine(ireader.domain.services.tts_service.v2.EngineType.NATIVE,true))
     })
     if (showEditingSettings) EditingSettingsSheet { showEditingSettings=false }
     if (showUpdate) ReaderUpdateSheet(updatePlatform.installedApp.versionName, updatePlatform.endpoint,
@@ -219,11 +278,11 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         onImportEpub = { vm.setShowImportEpubDialog(true) }, onImportPdf = { vm.setShowImportPdfDialog(true) }, onDismiss = { showImport = false })
     OnShowImportEpub(show = state.showImportEpubDialog) { uris ->
         vm.setShowImportEpubDialog(false)
-        if (uris.isNotEmpty()) vm.importEpubFiles(uris.map { it.toString() })
+        if (uris.isNotEmpty()) vm.importEpubFiles(uris.map { it.toString() },importNames)
     }
     OnShowImportPdf(show = state.showImportPdfDialog) { uris ->
         vm.setShowImportPdfDialog(false)
-        if (uris.isNotEmpty()) vm.importPdfFiles(uris.map { it.toString() })
+        if (uris.isNotEmpty()) vm.importPdfFiles(uris.map { it.toString() },importNames)
     }
     if (confirmRemove) ReaderGlassDialog(onDismissRequest = { confirmRemove = false }, title = { Text(strings.localize(Res.string.tp_remove_title)) }, text = { Text(strings.localize(Res.string.tp_remove_count, state.selectedCount)) },
         confirmButton = { TextButton(onClick = { val ids = state.selectedBookIds.toList(); scope.launch { vm.deleteUseCase.unFavoriteBook(ids); vm.unselectAll() }; confirmRemove = false }) { Text(strings.localize(Res.string.tp_remove_books)) } }, dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(strings.localize(Res.string.tp_cancel)) } })

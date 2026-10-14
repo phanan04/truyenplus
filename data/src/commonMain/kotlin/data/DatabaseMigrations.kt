@@ -13,7 +13,7 @@ object DatabaseMigrations {
     /**
      * Current database schema version. Increment this when adding new migrations.
      */
-    const val CURRENT_VERSION = 41
+    const val CURRENT_VERSION = 42
     
     /**
      * Applies all necessary migrations to bring the database from [oldVersion] to [CURRENT_VERSION]
@@ -106,6 +106,7 @@ object DatabaseMigrations {
             38 -> migrateV38toV39(driver)
             39 -> migrateV39toV40(driver)
             40 -> migrateV40toV41(driver)
+            41 -> migrateV41toV42(driver)
             // Add more migration cases as the database evolves
         }
     }
@@ -2843,6 +2844,15 @@ object DatabaseMigrations {
         // SQLDelight's driver may already have applied the schema migration.
         addColumnIfNotExists(driver,"shelf_entry","title_key","TEXT NOT NULL DEFAULT ''")
         driver.execute(null, "CREATE TABLE IF NOT EXISTS shelf_search_state (singleton INTEGER NOT NULL PRIMARY KEY CHECK(singleton=1), version INTEGER NOT NULL)", 0)
+    }
+
+    private fun migrateV41toV42(driver:SqlDriver) {
+        driver.execute(null,"""CREATE TABLE IF NOT EXISTS chapter_edit_draft (
+ chapter_id INTEGER NOT NULL PRIMARY KEY REFERENCES chapter(_id) ON DELETE CASCADE,
+ payload TEXT NOT NULL)""",0)
+        driver.execute(null,"""CREATE TABLE IF NOT EXISTS book_edit_form_draft (
+ book_id INTEGER NOT NULL REFERENCES book(_id) ON DELETE CASCADE,
+ kind TEXT NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(book_id,kind))""",0)
     }
 
 } 

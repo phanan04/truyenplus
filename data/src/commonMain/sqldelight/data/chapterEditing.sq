@@ -21,3 +21,26 @@ characters:
 SELECT characters FROM book_edit_characters WHERE book_id=?;
 saveCharacters:
 INSERT INTO book_edit_characters(book_id,characters) VALUES(?,?) ON CONFLICT(book_id) DO UPDATE SET characters=excluded.characters;
+
+CREATE TABLE IF NOT EXISTS chapter_edit_draft (
+ chapter_id INTEGER NOT NULL PRIMARY KEY REFERENCES chapter(_id) ON DELETE CASCADE,
+ payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS book_edit_form_draft (
+ book_id INTEGER NOT NULL REFERENCES book(_id) ON DELETE CASCADE,
+ kind TEXT NOT NULL,
+ payload TEXT NOT NULL,
+ PRIMARY KEY(book_id,kind)
+);
+getDraft:
+SELECT payload FROM chapter_edit_draft WHERE chapter_id=?;
+saveDraft:
+INSERT OR REPLACE INTO chapter_edit_draft(chapter_id,payload) VALUES(?,?);
+clearDraft:
+DELETE FROM chapter_edit_draft WHERE chapter_id=?;
+getFormDraft:
+SELECT payload FROM book_edit_form_draft WHERE book_id=? AND kind=?;
+saveFormDraft:
+INSERT OR REPLACE INTO book_edit_form_draft(book_id,kind,payload) VALUES(?,?,?);
+clearFormDraft:
+DELETE FROM book_edit_form_draft WHERE book_id=? AND kind=?;

@@ -111,3 +111,5 @@ flags = coalesce(?, flags);
 
 selectLastInsertedRowId:
 SELECT LAST_INSERT_ROWID();
+restoreCategory:
+INSERT INTO categories(_id,name,sort,flags) VALUES(:id,:name,:sort,:flags);

@@ -53,6 +53,8 @@ actual class ImportPdf(
         uris.forEach { uri ->
             try {
                 importPdf(uri)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val filePath = uri.androidUri.path ?: uri.toString()
                 errors.add(filePath to (e.message ?: "Unknown error"))

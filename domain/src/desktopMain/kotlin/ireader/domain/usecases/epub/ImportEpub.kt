@@ -40,6 +40,8 @@ actual class ImportEpub(
         uris.forEach { uri ->
             try {
                 importEpub(uri)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 errors.add(uri.uriString to (e.message ?: "Unknown error"))
             }

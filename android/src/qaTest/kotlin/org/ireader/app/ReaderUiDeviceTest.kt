@@ -34,7 +34,12 @@ class ReaderUiDeviceTest {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
-            koin.get<UiPreferences>().apply {hasCompletedOnboarding().set(true);hasCompletedFirstLaunch().set(true);language().set("vi")}
+            if(description.methodName=="largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader")
+                koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
+            koin.get<UiPreferences>().apply {
+                val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
+                hasCompletedOnboarding().set(complete);hasCompletedFirstLaunch().set(complete);language().set("vi")
+            }
             koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true);ttsHighlightWords().set(false)}
             if(description.methodName in setOf("pageThemeOverridesAppThemeAndChromeDoesNotClipChapter","readingAppearanceWithoutListeningWrapsAndKeepsPaperUndimmed","voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists")) {
                 koin.get<UiPreferences>().apply {readerAppearance().set("dark");readerFollowsAppearance().set(false)}
@@ -154,7 +159,14 @@ class ReaderUiDeviceTest {
         val pixels=ui.onRoot().captureToImage().toPixelMap()
         Assert.assertTrue("Voice selection adds a dark backing",pixels[8,pixels.height/3].luminance()>.95f)
         shot("voice-manager-bottom-player")
-        ui.onNodeWithTag("voice-system").performClick()
+        ui.onNodeWithTag("voice-system").performClick();waitTag("reader-floating-task")
+        ui.onNodeWithTag("voice-manager").assertDoesNotExist()
+        val native=ui.onNodeWithTag("reader-floating-task").fetchSemanticsNode().boundsInRoot
+        val compact=ui.onNodeWithTag("listen-compact-toggle").fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("System voice panel overlaps playback",native.bottom<=compact.top)
+        shot("system-voice-panel")
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        waitTag("voice-manager")
     }
     @Test fun outsideSettingsAndImportRemainReadableWithGlassInBothThemes() {
         waitTag("nav-Settings");ui.onNodeWithTag("nav-Settings").performClick()
@@ -178,9 +190,9 @@ class ReaderUiDeviceTest {
             ui.waitUntil(15_000){ui.onAllNodesWithText("API key").fetchSemanticsNodes().isEmpty()}
             ui.onNodeWithText("Nhập ebook").performClick()
             ui.waitUntil(15_000){ui.onAllNodesWithText("Nhập sách").fetchSemanticsNodes().isNotEmpty()}
-            ui.waitUntil(15_000){runCatching {ui.onNodeWithText("Chọn tệp từ thiết bị").isDisplayed()}.getOrDefault(false)}
+            waitTag("import-epub");waitTag("import-pdf")
             shot("outside-import-$mode")
-            ui.onNodeWithText("Chọn tệp từ thiết bị").assertIsDisplayed()
+            ui.onNodeWithTag("import-epub").assertIsDisplayed();ui.onNodeWithTag("import-pdf").assertIsDisplayed()
             val pixels=ui.onNodeWithText("Nhập sách").captureToImage().toPixelMap()
             var ink=0
             for(y in 0 until pixels.height)for(x in 0 until pixels.width) {
@@ -197,17 +209,22 @@ class ReaderUiDeviceTest {
         ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
         wakeControls()
         shot("reader-before")
+        val automation=InstrumentationRegistry.getInstrumentation().uiAutomation
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("dumpsys gfxinfo ${ui.activity.packageName} reset")).use {it.readBytes()}
         for(i in 0..2) {
             val start=System.nanoTime()
             wakeControls()
             ui.onNodeWithTag("reader-settings").performClick()
             waitTag("reader-appearance-close")
+            Log.i("TruyenPlusQA","Font panel open $i elapsedMs=${(System.nanoTime()-start)/1_000_000}")
             ui.onNodeWithTag("reader-font-picker").performClick()
             waitTag("reader-font-serif")
             ui.onNodeWithTag(if(i%2==0)"reader-font-serif" else "reader-font-sans").performClick()
             shot("reader-font-$i")
+            val closing=System.nanoTime()
             ui.onNodeWithTag("reader-appearance-close").performClick()
             ui.onNodeWithTag("reader-appearance-close").assertDoesNotExist()
+            Log.i("TruyenPlusQA","Font panel close $i elapsedMs=${(System.nanoTime()-closing)/1_000_000}")
             Log.i("TruyenPlusQA","Font panel cycle $i elapsedMs=${(System.nanoTime()-start)/1_000_000}")
         }
         wakeControls();ui.onNodeWithTag("reader-listen").performClick()
@@ -235,6 +252,9 @@ class ReaderUiDeviceTest {
         shot("reader-voice-preview")
         ui.onNodeWithTag("voice-use-piper-vi-vais-int8").performClick()
         ui.onNodeWithTag("voice-manager").assertDoesNotExist()
+        // Selecting a voice returns to the listening settings; close them before scrolling the chapter.
+        if(ui.onAllNodesWithTag("listen-options-close").fetchSemanticsNodes().isNotEmpty())
+            ui.onNodeWithTag("listen-options-close").performClick()
         waitTag("listen-play");ui.onNodeWithTag("listen-play").performClick()
         val controller=GlobalContext.get().get<TTSController>()
         ui.waitUntil(30_000){controller.state.value.isPlaying && controller.state.value.spokenSentence!=null}
@@ -245,5 +265,65 @@ class ReaderUiDeviceTest {
         shot("reader-manual-scroll")
         ui.onNodeWithText("Về câu đang nghe").performClick()
         ui.onNodeWithText("Về câu đang nghe").assertDoesNotExist()
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val metrics=File(context.getExternalFilesDir(null),"qa-metrics").apply {mkdirs()}
+        for(tool in listOf("gfxinfo","meminfo")) {
+            val fd=automation.executeShellCommand("dumpsys $tool ${context.packageName}")
+            File(metrics,"reader-$tool.txt").writeBytes(android.os.ParcelFileDescriptor.AutoCloseInputStream(fd).use {it.readBytes()})
+        }
     }
+    @Test fun firstLaunchActionsFollowTheSelectedLanguage() {
+        ui.waitUntil(15_000){ui.onAllNodesWithText("English").fetchSemanticsNodes().isNotEmpty()}
+        ui.onNodeWithText("English").performClick()
+        ui.waitUntil(15_000){ui.onAllNodesWithText("Start reading").fetchSemanticsNodes().isNotEmpty()}
+        ui.onNodeWithText("Start reading").performScrollTo().performClick()
+        ui.waitUntil(15_000){ui.onAllNodesWithText("Select Storage Folder").fetchSemanticsNodes().isNotEmpty()}
+        ui.onNodeWithText("Select Storage Folder").assertIsDisplayed()
+        ui.onNodeWithText("extensions",substring=true).assertDoesNotExist()
+        shot("onboarding-english")
+    }
+
+    @Test fun embeddedPlaybackUsesTheReadersChapterListAndChangesChapter() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-next-chapter")
+        val controller=GlobalContext.get().get<TTSController>()
+        ui.waitUntil(30_000){controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
+        ui.onNodeWithTag("listen-previous-chapter").assertIsNotEnabled()
+        ui.onNodeWithTag("listen-next-chapter").assertIsEnabled().performClick()
+        ui.waitUntil(30_000){controller.state.value.chapter?.id==888102L && !controller.state.value.isLoading}
+        ui.onNodeWithTag("listen-previous-chapter").assertIsEnabled()
+        ui.onNodeWithTag("listen-next-chapter").assertIsEnabled().performClick()
+        ui.waitUntil(30_000){controller.state.value.chapter?.id==888103L && !controller.state.value.isLoading}
+        ui.onNodeWithTag("listen-previous-chapter").assertIsEnabled()
+        ui.onNodeWithTag("listen-next-chapter").assertIsNotEnabled()
+        controller.dispatch(TTSCommand.Pause)
+        shot("listening-next-chapter")
+    }
+
+    @Test fun largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls()
+        // At large font the secondary book label is deliberately omitted; a long
+        // chapter title may ellipsize horizontally, but its visible line must fit.
+        for(label in listOf("Chương 1: Gió đêm")) {
+            var layout:androidx.compose.ui.text.TextLayoutResult?=null
+            ui.onNode(hasText(label) and hasAnyAncestor(hasTestTag("reader-top-capsule")),useUnmergedTree=true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { action->
+                val values=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                Assert.assertTrue(action(values));layout=values.first()
+            }
+            Assert.assertTrue("Reader ignores large system font",layout!!.layoutInput.density.fontScale>=1.9f)
+            Assert.assertTrue("Header clips $label vertically",layout!!.getLineBottom(0)<=layout!!.size.height)
+        }
+        ui.onNode(hasText("Kiểm tra đọc và nghe") and hasAnyAncestor(hasTestTag("reader-top-capsule")),useUnmergedTree=true).assertDoesNotExist()
+        val header=ui.onNodeWithTag("reader-top-capsule").fetchSemanticsNode().boundsInRoot
+        val first=ui.onAllNodes(hasText("Hoàng Yên Trần khẽ gật đầu.",substring=true) and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult),useUnmergedTree=true)
+            .fetchSemanticsNodes().filter {it.boundsInRoot.height>0}.minBy {it.boundsInRoot.top}.boundsInRoot
+        Assert.assertTrue("Header overlaps the first paragraph: $header, $first",first.top>=header.bottom)
+        ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close")
+        ui.onNodeWithTag("reader-font-increase").assertIsDisplayed()
+        shot("reading-large-system-font")
+    }
+
 }

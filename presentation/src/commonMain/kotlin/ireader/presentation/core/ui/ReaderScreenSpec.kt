@@ -176,6 +176,8 @@ data class ReaderScreenSpec(
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
         val followState=remember { ireader.presentation.ui.truyenplus.ReaderFollowState() }
         val immersive=remember { ireader.presentation.ui.truyenplus.ReaderImmersiveState() }
+        // Capture visibility on pointer-down, before waking. A callback reads this only on click.
+        val wakingParagraphTap=remember { mutableStateOf(false) }
         val immersiveEpoch=remember { TimeSource.Monotonic.markNow() }
         val sentenceTarget=remember { kotlinx.coroutines.flow.MutableStateFlow<ireader.presentation.ui.truyenplus.ReaderSentenceTarget?>(null) }
         val reportSentenceBounds=remember { { page:Int,bounds:androidx.compose.ui.geometry.Rect -> sentenceTarget.value=ireader.presentation.ui.truyenplus.ReaderSentenceTarget(page,bounds) } }
@@ -510,23 +512,6 @@ data class ReaderScreenSpec(
             state = drawerState,
             sheetContent = {
                 val drawerScrollState = rememberLazyListState()
-                // Scroll to current chapter when drawer opens
-                LaunchedEffect(key1 = drawerState.targetValue) {
-                    if (chapter != null && drawerState.targetValue == androidx.compose.material3.DrawerValue.Open) {
-                        val drawerChapters = successState?.drawerChapters ?: emptyList()
-                        if (drawerChapters.isNotEmpty()) {
-                            val index = drawerChapters.indexOfFirst { it.id == chapter.id }
-                            if (index != -1) {
-                                scope.launch {
-                                    drawerScrollState.scrollToItem(
-                                        index,
-                                        -drawerScrollState.layoutInfo.viewportEndOffset / 2
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(initialOffsetY = { -it }),
@@ -542,6 +527,7 @@ data class ReaderScreenSpec(
                                 scope.launch {
                                     vm.clearChapterShell(scrollState)
                                     vm.getLocalChapter(ch.id)
+                                    drawerState.close()
                                 }
                                 scope.launch {
                                     scrollState.scrollTo(0)
@@ -585,6 +571,7 @@ data class ReaderScreenSpec(
                 // Use Box to overlay top bar without affecting content layout
                 androidx.compose.foundation.layout.Box(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize().readerWakeOnTouch {
+                        wakingParagraphTap.value=vm.isReaderModeEnable
                         immersive.touch(immersiveEpoch.elapsedNow().inWholeMilliseconds)
                         if(showListening)vm.toggleReaderMode(false)
                     }
@@ -597,13 +584,15 @@ data class ReaderScreenSpec(
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
-                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence,ttsState.spokenWord,wordHighlight) {
+                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence,ttsState.spokenWord,wordHighlight,chapters) {
                                 val matching=ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id
                                 ireader.presentation.ui.truyenplus.ReaderListeningContext(
                                     if(matching) ttsState.paragraphSourceIndices else emptyList(),spokenParagraph,
                                     highlightListening,if(matching) speechIndex else ireader.presentation.ui.truyenplus.ReaderSpeechIndex(emptyList()),selectSpeech,
                                     if(matching)ttsState.spokenSentence else null,reportSentenceBounds,
-                                    if(matching)ttsState.spokenWord else null,wordHighlight)
+                                    if(matching)ttsState.spokenWord else null,wordHighlight,
+                                    chapterIndex=if(matching)chapters.indexOfFirst {it.id==ttsState.chapter?.id} else -1,
+                                    chapterCount=chapters.size,allowInspection={!wakingParagraphTap.value})
                             } else null
                     ) {
                     ReadingScreen(
@@ -843,7 +832,10 @@ data class ReaderScreenSpec(
                             .then(Modifier.navigationBarsPadding())) {
                             TTSV2ScreenSpec(book.id, chapter.id, book.sourceId, listeningParagraph).Content(
                                 embedded = true, onCloseListening = { readerPanels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);listeningAdapter.pause(); showListening = false },
-                                onPlayerHeightChanged = { readerPlayerHeight = with(readerDensity) { it.toDp() } })
+                                onPlayerHeightChanged = { readerPlayerHeight = with(readerDensity) { it.toDp() } },
+                                chapterNavigation = ireader.presentation.ui.truyenplus.ReaderChapterNavigation(
+                                    chapters.indexOfFirst { it.id == (ttsState.chapter?.takeIf { ttsState.book?.id == bookId }?.id ?: chapter.id) },
+                                    chapters.size))
                         }
                     }
 

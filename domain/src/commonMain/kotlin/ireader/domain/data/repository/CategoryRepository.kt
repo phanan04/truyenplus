@@ -13,6 +13,9 @@ import ireader.domain.models.entities.CategoryWithCount
  * CRUD operations, batch updates, and reactive queries.
  */
 interface CategoryRepository {
+    suspend fun deleteWithUndo(id:Long):ireader.domain.models.entities.CategoryDeletionSnapshot=throw UnsupportedOperationException("Undo is unavailable")
+    suspend fun restoreDeleted(snapshot:ireader.domain.models.entities.CategoryDeletionSnapshot) {throw UnsupportedOperationException("Undo is unavailable")}
+
 
     /**
      * Subscribes to category changes with book counts.

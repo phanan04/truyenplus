@@ -52,6 +52,9 @@ SELECT *
 FROM chapter
 WHERE _id = :id;
 
+getChapterOwner:
+SELECT book_id FROM chapter WHERE _id = :id;
+
 findAll:
 SELECT * FROM chapter
 ORDER BY book_id, source_order ASC;

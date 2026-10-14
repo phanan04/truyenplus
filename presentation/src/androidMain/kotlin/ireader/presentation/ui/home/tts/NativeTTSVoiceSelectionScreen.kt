@@ -46,7 +46,8 @@ fun NativeTTSVoiceSelectionScreen(
     var availableVoices by remember { mutableStateOf<List<IReaderVoice>>(emptyList()) }
     var selectedLanguage by remember { mutableStateOf<Locale?>(null) }
     var selectedVoice by remember { mutableStateOf<IReaderVoice?>(null) }
-    var pitch by remember { mutableStateOf(1.0f) }
+    var saving by remember {mutableStateOf(false)}
+    var languageRequest by remember {mutableIntStateOf(0)}
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     
@@ -54,7 +55,6 @@ fun NativeTTSVoiceSelectionScreen(
     LaunchedEffect(Unit) {
         selectedVoice = textReaderPrefUseCase.readVoice()
         val savedLanguage = textReaderPrefUseCase.readLanguage()
-        pitch = textReaderPrefUseCase.readPitch()
         
         // Load available languages
         getNativeTTSVoicesUseCase.getAvailableLanguages()
@@ -82,27 +82,8 @@ fun NativeTTSVoiceSelectionScreen(
             }
     }
     
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = modifier
-    ) {
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            tonalElevation = 6.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                // Title
-                Text(
-                    text = localizeHelper.localize(Res.string.voice_selection),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
+    ireader.presentation.ui.truyenplus.ReaderFloatingTaskPanel(localizeHelper.localize(Res.string.tp_system_voice),{if(!saving)onDismiss()}) {
+            Column(modifier.fillMaxWidth()) {
                 if (isLoading) {
                     Box(
                         modifier = Modifier
@@ -114,7 +95,7 @@ fun NativeTTSVoiceSelectionScreen(
                     }
                 } else if (errorMessage != null) {
                     Text(
-                        text = errorMessage ?: "Unknown error",
+                        text = errorMessage ?: localizeHelper.localize(Res.string.tp_operation_failed),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -126,12 +107,11 @@ fun NativeTTSVoiceSelectionScreen(
                         onLanguageSelected = { locale ->
                             selectedLanguage = locale
                             isLoading = true
+                            val request=++languageRequest
                             scope.launch {
                                 loadVoicesForLanguage(locale, getNativeTTSVoicesUseCase) { voices ->
-                                    availableVoices = voices
-                                    isLoading = false
+                                    if(request==languageRequest){availableVoices=voices;isLoading=false}
                                 }
-                                textReaderPrefUseCase.saveLanguage(locale.language)
                             }
                         },
                         localizeHelper = localizeHelper
@@ -145,9 +125,6 @@ fun NativeTTSVoiceSelectionScreen(
                         selectedVoice = selectedVoice,
                         onVoiceSelected = { voice ->
                             selectedVoice = voice
-                            scope.launch {
-                                textReaderPrefUseCase.saveVoice(voice)
-                            }
                         },
                         localizeHelper = localizeHelper,
                         modifier = Modifier.weight(1f, fill = false)
@@ -155,17 +132,6 @@ fun NativeTTSVoiceSelectionScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Pitch Slider
-                    PitchSlider(
-                        pitch = pitch,
-                        onPitchChange = { newPitch ->
-                            pitch = newPitch
-                            scope.launch {
-                                textReaderPrefUseCase.savePitch(newPitch)
-                            }
-                        },
-                        localizeHelper = localizeHelper
-                    )
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -175,12 +141,24 @@ fun NativeTTSVoiceSelectionScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(localizeHelper.localize(Res.string.close))
+                    Button(onClick={
+                        val voice=selectedVoice?:return@Button
+                        val language=selectedLanguage?:return@Button
+                        saving=true;scope.launch {
+                            try {
+                                textReaderPrefUseCase.saveLanguage(language.language)
+                                textReaderPrefUseCase.saveVoice(voice)
+                                onDismiss()
+                            } catch(e:kotlinx.coroutines.CancellationException){throw e}
+                            catch(_:Exception){errorMessage=localizeHelper.localize(Res.string.tp_operation_failed)}
+                            finally {saving=false}
+                        }
+                    },enabled=!saving && !isLoading && selectedVoice?.let {it in availableVoices}==true,
+                        modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
+                        Text(localizeHelper.localize(if(saving)Res.string.tp_edit_load else Res.string.tp_voice_use))
                     }
                 }
             }
-        }
     }
 }
 
@@ -212,6 +190,7 @@ private fun LanguageSelector(
                 value = selectedLanguage?.displayName ?: "",
                 onValueChange = {},
                 readOnly = true,
+                singleLine = true,
                 trailingIcon = {
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                 },
@@ -362,63 +341,4 @@ private suspend fun loadVoicesForLanguage(
         .onFailure {
             onResult(emptyList())
         }
-}
-
-
-@Composable
-private fun PitchSlider(
-    pitch: Float,
-    onPitchChange: (Float) -> Unit,
-    localizeHelper: ireader.i18n.LocalizeHelper,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = localizeHelper.localize(Res.string.pitch),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = String.format("%.2f", pitch),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        Slider(
-            value = pitch,
-            onValueChange = onPitchChange,
-            valueRange = 0.5f..2.0f,
-            steps = 29, // 0.05 increments
-            modifier = Modifier.fillMaxWidth()
-        )
-        
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "0.5",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "1.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "2.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
 }

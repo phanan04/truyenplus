@@ -9,6 +9,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -21,6 +25,8 @@ import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.koin.compose.koinInject
 
 @Composable
@@ -28,7 +34,12 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
     val state by store.state.collectAsState()
     val scope=rememberCoroutineScope()
     val controller:TTSController=koinInject()
+    val actualEngine by remember(controller){controller.state.map {it.engineName}.distinctUntilChanged()}.collectAsState(initial=controller.state.value.engineName)
     val preferences:AppPreferences=koinInject()
+    val uiPreferences:ireader.domain.preferences.prefs.UiPreferences=koinInject()
+    val namePreference=remember(uiPreferences){uiPreferences.readerVoiceNames()}
+    val storedNames by namePreference.changes().collectAsState(namePreference.get())
+    val preferredNames=remember(storedNames){runCatching {Json.decodeFromString<Map<String,String>>(storedNames)}.getOrDefault(emptyMap())}
     var previewJob by remember {mutableStateOf<Job?>(null)}
     var previewGeneration by remember {mutableIntStateOf(0)}
     var preparing by remember {mutableStateOf(false)}
@@ -82,7 +93,7 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
                 } catch(_:TimeoutCancellationException){if(previewToken==previewGeneration)failed=true}
                 catch(e:CancellationException){throw e}
                 catch(_:Exception){if(previewToken==previewGeneration)failed=true}
-                finally {engine?.release();if(previewToken==previewGeneration){previewing=false;preparing=false}}
+                finally {withContext(Dispatchers.IO+NonCancellable){engine?.release()};if(previewToken==previewGeneration){previewing=false;preparing=false}}
             }
         },onSystem={
             stopPreview();store.select(null)
@@ -90,7 +101,12 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
             controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE,true))
             if(resumeOnDismiss)controller.dispatch(TTSCommand.Play)
             resumeOnDismiss=false;onSystem()
-        },onDismiss=::dismiss,onStopPreview=::stopPreview,previewPreparing=preparing)
+        },onDismiss=::dismiss,onStopPreview=::stopPreview,previewPreparing=preparing,actualEngine=actualEngine,preferredNames=preferredNames,
+        onRename={id,speaker,name->
+            val key="$id:$speaker"
+            val updated=if(name.isBlank())preferredNames-key else preferredNames+(key to name.trim().take(120))
+            namePreference.set(Json.encodeToString(updated))
+        })
 }
 
 /** Pure UI: selected model IDs and availability are supplied by the verified file store. */
@@ -98,20 +114,34 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
 fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Boolean,
     onDownload:(String)->Unit,onCancel:(String)->Unit,onDelete:(String)->Unit,
     onSelect:(String,Int)->Unit,onPreview:(String,Int)->Unit,onSystem:()->Unit,onDismiss:()->Unit,
-    onStopPreview:()->Unit={},previewPreparing:Boolean=true) {
+    onStopPreview:()->Unit={},previewPreparing:Boolean=true,actualEngine:String="",preferredNames:Map<String,String> = emptyMap(),onRename:(String,Int,String)->Unit={_,_,_->}) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var speakers by remember {mutableStateOf(mapOf<String,Int>())}
+    var renameModel by rememberSaveable {mutableStateOf<String?>(null)}
+    var renameSpeaker by rememberSaveable {mutableIntStateOf(0)}
+    var renameText by rememberSaveable {mutableStateOf("")}
+    val dismiss:()->Unit={if(renameModel!=null)renameModel=null else onDismiss()}
+    ireader.presentation.core.ui.PlatformBackHandler(renameModel!=null){renameModel=null}
+    val pane=s.localize(Res.string.tp_voice_manager)
     ReaderPaperTheme {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().clickable(remember {androidx.compose.foundation.interaction.MutableInteractionSource()},indication=null,onClick=onDismiss))
+        BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
+            Box(Modifier.fillMaxSize().clickable(remember {androidx.compose.foundation.interaction.MutableInteractionSource()},indication=null,onClick=dismiss))
             Surface(Modifier.align(Alignment.Center).widthIn(max=720.dp).fillMaxWidth().padding(12.dp)
-                .heightIn(max=(maxHeight-24.dp).coerceAtLeast(160.dp)).readerPanel(28).testTag("voice-manager"),
+                .heightIn(max=(maxHeight-24.dp).coerceAtLeast(160.dp)).readerPanel(28).testTag("voice-manager").semantics {paneTitle=pane;isTraversalGroup=true},
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent) {
                 Column(Modifier.padding(16.dp)) {
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                         Text(s.localize(Res.string.tp_voice_manager),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        IconButton(onClick=onDismiss,modifier=Modifier.size(48.dp)){Icon(Icons.Default.Close,s.localize(Res.string.close))}
+                        IconButton(onClick=dismiss,modifier=Modifier.size(48.dp)){Icon(Icons.Default.Close,s.localize(Res.string.close))}
                     }
+                    if(renameModel!=null) {
+                        Text(OfflineVoiceCatalog.models.firstOrNull {it.id==renameModel}?.title.orEmpty()+" · "+s.localize(Res.string.tp_voice_number,renameSpeaker+1))
+                        OutlinedTextField(renameText,{renameText=it.take(120)},label={Text(s.localize(Res.string.tp_edit_name))},modifier=Modifier.fillMaxWidth().testTag("voice-name-input"),singleLine=true)
+                        Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                            Button(onClick={onRename(renameModel!!,renameSpeaker,renameText);renameModel=null},modifier=Modifier.heightIn(min=48.dp).testTag("voice-name-save")){Text(s.localize(Res.string.tp_edit_save))}
+                            TextButton(onClick={renameModel=null},modifier=Modifier.heightIn(min=48.dp)){Text(s.localize(Res.string.tp_edit_cancel))}
+                        }
+                    } else {
                     OutlinedButton(onClick=onSystem,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("voice-system")) {
                         Icon(Icons.Default.Mic,null);Spacer(Modifier.width(8.dp));Text(s.localize(Res.string.tp_system_voice))
                     }
@@ -132,14 +162,20 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                                     Row(verticalAlignment=Alignment.CenterVertically) {
                                         Column(Modifier.weight(1f)) {
                                             Text(model.title,style=MaterialTheme.typography.titleMedium)
+                                            if(actualEngine.startsWith(model.title))Text(s.localize(Res.string.tp_voice_active)+
+                                                if(model.speakers>1)" · "+actualEngine.substringAfter(" · ","") else "",
+                                                style=MaterialTheme.typography.labelSmall,modifier=Modifier.testTag("voice-active-${model.id}"))
+                                            else if(state.selection?.modelId==model.id)Text(s.localize(Res.string.tp_voice_selected),style=MaterialTheme.typography.labelSmall)
                                             Text(s.localize(if(installed)Res.string.tp_voice_downloaded else Res.string.tp_voice_model_size,(model.archiveBytes/1048576f).toInt()+1),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                         if(installed)IconButton(onClick={onDelete(model.id)},modifier=Modifier.testTag("voice-delete-${model.id}")){Icon(Icons.Default.DeleteOutline,s.localize(Res.string.delete))}
                                     }
                                     if(model.speakers>1)Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
                                         for(id in 0 until model.speakers)FilterChip(speaker==id,onClick={speakers=speakers+(model.id to id)},
-                                            label={Text(s.localize(Res.string.tp_voice_number,id+1))},modifier=Modifier.testTag("voice-speaker-${model.id}-$id"))
+                                            label={Text(preferredNames["${model.id}:$id"] ?: s.localize(Res.string.tp_voice_number,id+1))},modifier=Modifier.testTag("voice-speaker-${model.id}-$id"))
                                     }
+                                    if(model.speakers==1)preferredNames["${model.id}:$speaker"]?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
+                                    TextButton(onClick={renameModel=model.id;renameSpeaker=speaker;renameText=preferredNames["${model.id}:$speaker"] ?: if(model.speakers>1)s.localize(Res.string.tp_voice_number,speaker+1) else model.title},modifier=Modifier.heightIn(min=48.dp).testTag("voice-rename-${model.id}")){Icon(Icons.Default.Edit,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text(s.localize(Res.string.tp_edit_name))}
                                     if(model.id in state.errors)Text(s.localize(Res.string.tp_voice_download_error),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
                                     if(downloading!=null) {
                                         if(downloading.phase==VoiceDownloadPhase.Downloading)LinearProgressIndicator(
@@ -157,6 +193,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                                 }
                             }
                         }
+                    }
                     }
                 }
             }

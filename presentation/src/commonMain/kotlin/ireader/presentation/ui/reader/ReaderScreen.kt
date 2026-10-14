@@ -1,5 +1,7 @@
 package ireader.presentation.ui.reader
 
+import ireader.presentation.ui.truyenplus.readerCoveredContent
+
 import androidx.compose.ui.layout.onSizeChanged
 import ireader.presentation.ui.truyenplus.LocalReaderNavigationBackdrop
 import ireader.presentation.ui.truyenplus.readerNavigationSource
@@ -324,6 +326,7 @@ private fun ReadingScreenContent(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .readerCoveredContent(panels?.active?.let {it!=ireader.presentation.ui.truyenplus.ReaderPanel.None} ?: vm.showSettingsBottomSheet)
                                 .readerNavigationSource(LocalReaderNavigationBackdrop.current)
                                 .background(backgroundColor)
                         ) {
@@ -442,7 +445,7 @@ private fun ReadingScreenContent(
                                     easing = androidx.compose.animation.core.FastOutLinearInEasing
                                 )
                             ),
-                            modifier = Modifier.align(Alignment.BottomCenter)
+                            modifier = Modifier.align(Alignment.BottomCenter).readerCoveredContent(panels?.active?.let {it!=ireader.presentation.ui.truyenplus.ReaderPanel.None} ?: vm.showSettingsBottomSheet)
                         ) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth().onSizeChanged { onControlsHeightChanged(it.height) },

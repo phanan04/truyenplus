@@ -24,7 +24,7 @@ class ShelfPresentationRepairTest {
         ImageComposeScene(360, 800, Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                 MaterialTheme { ReaderBackdrop {
-                    ReaderShelfScreen(listOf(ShelfSource("root", "Kho của tôi")), "van co", ShelfSearchPage(listOf(entry), false), false, null, emptyMap(),
+                    ReaderShelfScreen(listOf(ShelfSource("root", "Kho của tôi",updatedAt=1,entryCount=1)), "van co", ShelfSearchPage(listOf(entry), false), false, null, emptyMap(),
                         onQuery={}, onSource={}, onAdd={}, onRefresh={}, onRemove={}, onDownload={}, onBook={}, onLibrary={back=true}, onPrevious={}, onNext={}, onConnect={}, onCancel={}, showConnect=false)
                 } }
             }

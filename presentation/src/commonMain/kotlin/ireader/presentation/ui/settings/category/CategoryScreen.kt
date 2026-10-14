@@ -1,5 +1,8 @@
 package ireader.presentation.ui.settings.category
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -12,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
@@ -37,6 +41,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import ireader.presentation.ui.truyenplus.readerAppGlassCard
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.*
+import ireader.presentation.ui.truyenplus.readerPanel
+import ireader.presentation.ui.truyenplus.ReaderGlassDialog
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,11 +73,11 @@ fun CategoryScreen(
 ) {
     // Collect categories as state - this will automatically update when the flow emits
     val data by vm.categories.collectAsState()
-    
+
     val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     var categoryToDelete by remember { mutableStateOf<CategoryWithCount?>(null) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var categoryToRename by remember { mutableStateOf<CategoryWithCount?>(null) }
@@ -82,18 +90,18 @@ fun CategoryScreen(
             }
         },
     )
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Show Empty Categories Toggle using unified component
             SettingsSwitchItem(
                 title = localizeHelper.localize(Res.string.show_empty_categories),
-                description = "Display categories with no books",
+                description = localizeHelper.localize(Res.string.tp_category_empty_hint),
                 checked = vm.showEmptyCategories.value,
                 onCheckedChange = { vm.showEmptyCategories.value = it },
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
             )
-            
+
             CategoryContent(
                 state = state,
                 data = data,
@@ -110,7 +118,7 @@ fun CategoryScreen(
         }
 
         CategoryFloatingActionButton(vm)
-        
+
         // Snackbar host for undo functionality
         SnackbarHost(
             hostState = snackbarHostState,
@@ -125,14 +133,14 @@ fun CategoryScreen(
         SettingsTextInputDialog(
             title = localize(Res.string.edit_category),
             label = localize(Res.string.category_hint),
-            placeholder = "e.g., Fantasy, Romance, Sci-Fi",
+            placeholder = localizeHelper.localize(Res.string.tp_category_example),
             confirmText = localize(Res.string.confirm),
             validator = { text ->
                 when {
-                    text.isEmpty() -> "Category name cannot be empty"
-                    text.length < 2 -> "Category name must be at least 2 characters"
-                    data.any { it.name.equals(text, ignoreCase = true) } -> 
-                        "A category with this name already exists"
+                    text.isEmpty() -> localizeHelper.localize(Res.string.tp_category_name_empty)
+                    text.length < 2 -> localizeHelper.localize(Res.string.tp_category_name_short)
+                    data.any { it.name.equals(text, ignoreCase = true) } ->
+                        localizeHelper.localize(Res.string.tp_category_name_exists)
                     else -> null
                 }
             },
@@ -145,23 +153,23 @@ fun CategoryScreen(
             }
         )
     }
-    
+
     // Rename dialog using unified component
     if (showRenameDialog && categoryToRename != null) {
         SettingsTextInputDialog(
             title = localizeHelper.localize(Res.string.rename_category),
             initialValue = categoryToRename!!.name,
             label = localizeHelper.localize(Res.string.category_name),
-            placeholder = "Enter new category name",
-            confirmText = "Rename",
+            placeholder = localizeHelper.localize(Res.string.tp_category_new_name),
+            confirmText = localize(Res.string.rename_category),
             icon = Icons.Default.Edit,
             validator = { newName ->
                 when {
-                    newName.isEmpty() -> "Category name cannot be empty"
-                    newName.length < 2 -> "Category name must be at least 2 characters"
+                    newName.isEmpty() -> localizeHelper.localize(Res.string.tp_category_name_empty)
+                    newName.length < 2 -> localizeHelper.localize(Res.string.tp_category_name_short)
                     newName == categoryToRename!!.name -> "Please enter a different name"
-                    data.any { it.name.equals(newName, ignoreCase = true) } -> 
-                        "A category with this name already exists"
+                    data.any { it.name.equals(newName, ignoreCase = true) } ->
+                        localizeHelper.localize(Res.string.tp_category_name_exists)
                     else -> null
                 }
             },
@@ -178,42 +186,29 @@ fun CategoryScreen(
             }
         )
     }
-    
+
     // Delete confirmation dialog using unified component
     if (showDeleteConfirmation && categoryToDelete != null) {
         val category = categoryToDelete!!
-        val message = buildString {
-            append("Are you sure you want to delete \"${category.name}\"?")
-            if (category.bookCount > 0) {
-                append("\n\nThis category contains ${category.bookCount} ")
-                append(if (category.bookCount == 1) "book" else "books")
-                append(". ${if (category.bookCount == 1) "It" else "They"} will be moved to the default category.")
-            }
-            append("\n\nYou can undo this action immediately after deletion.")
-        }
-        
+        val message=localize(Res.string.tp_category_delete_question,category.name)+"\n\n"+localize(Res.string.tp_category_delete_hint)
+        val deletedMessage=localize(Res.string.tp_category_deleted,category.name)
+        val undoLabel=localize(Res.string.undo)
+        val failureMessage=localize(Res.string.tp_operation_failed)
         SettingsConfirmationDialog(
             title = localizeHelper.localize(Res.string.delete_category),
             message = message,
-            confirmText = "Delete",
+            confirmText = localize(Res.string.delete_category),
             icon = Icons.Default.DeleteForever,
             isDestructive = true,
             onConfirm = {
                 val deletedCategory = categoryToDelete!!
                 vm.scope.launch {
-                    vm.categoriesUseCase.deleteCategory(deletedCategory.category)
-                    
-                    // Show undo snackbar
-                    val result = snackbarHostState.showSnackbar(
-                        message = "Deleted \"${deletedCategory.name}\"",
-                        actionLabel = "UNDO",
-                        duration = SnackbarDuration.Short
-                    )
-                    
-                    if (result == SnackbarResult.ActionPerformed) {
-                        // Undo the deletion by recreating the category
-                        vm.createCategoryWithName.await(deletedCategory.name)
-                    }
+                    try {
+                        val snapshot=vm.categoriesUseCase.deleteCategoryWithUndo(deletedCategory.category)
+                        val result=snackbarHostState.showSnackbar(deletedMessage,actionLabel=undoLabel,duration=SnackbarDuration.Long)
+                        if(result==SnackbarResult.ActionPerformed)vm.categoriesUseCase.restoreDeletedCategory(snapshot)
+                    }catch(e:kotlinx.coroutines.CancellationException){throw e}
+                    catch(_:Exception){snackbarHostState.showSnackbar(failureMessage)}
                 }
                 showDeleteConfirmation = false
                 categoryToDelete = null
@@ -224,7 +219,7 @@ fun CategoryScreen(
             }
         )
     }
-    
+
     // Auto-categorization rules dialog
     if (vm.showAutoRulesDialog && vm.selectedCategoryForRules != null) {
         AutoCategorizationRulesDialog(
@@ -287,7 +282,7 @@ private fun CategoryContent(
     val userCategories = remember(data) {
         data.filter { it.id != ireader.domain.models.entities.Category.UNCATEGORIZED_ID }
     }
-    
+
     LazyColumn(
         state = state.listState,
         modifier = Modifier.reorderable(state)
@@ -298,6 +293,7 @@ private fun CategoryContent(
                 it.id
             }
         ) { item ->
+            val index=userCategories.indexOfFirst {it.id==item.id}
             val rules = vm.getRulesForCategory(item.id)
             EnhancedCategoryItem(
                 modifier = Modifier
@@ -313,194 +309,51 @@ private fun CategoryContent(
                     vm.showAutoRulesDialog = true
                 },
                 onToggleRule = { ruleId, enabled -> vm.toggleRule(ruleId, enabled) },
-                onDeleteRule = { ruleId -> vm.deleteRule(ruleId) }
+                onDeleteRule = { ruleId -> vm.deleteRule(ruleId) },
+                onMoveUp=if(index>0){{vm.scope.launch {vm.reorderCategory.await(item.id,index-1)}}} else null,
+                onMoveDown=if(index<userCategories.lastIndex){{vm.scope.launch {vm.reorderCategory.await(item.id,index+1)}}} else null
             )
         }
     }
 }
 
 @Composable
-private fun EnhancedCategoryItem(
-    modifier: Modifier = Modifier,
-    category: CategoryWithCount,
-    rules: List<CategoryAutoRule>,
-    onDelete: () -> Unit,
-    onRename: () -> Unit,
-    onConfigureAutoRules: () -> Unit,
-    onToggleRule: (Long, Boolean) -> Unit,
-    onDeleteRule: (Long) -> Unit
+internal fun EnhancedCategoryItem(
+    modifier:Modifier=Modifier,category:CategoryWithCount,rules:List<CategoryAutoRule>,onDelete:()->Unit,onRename:()->Unit,
+    onConfigureAutoRules:()->Unit,onToggleRule:(Long,Boolean)->Unit,onDeleteRule:(Long)->Unit,
+    onMoveUp:(()->Unit)?=null,onMoveDown:(()->Unit)?=null
 ) {
-    val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
-    var expanded by remember { mutableStateOf(false) }
-    
-    Surface(
-        modifier = modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp).readerAppGlassCard(12),
-        shape = RoundedCornerShape(12.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent,
-        tonalElevation = 2.dp
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Enhanced drag handle with better visibility
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(end = 12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.DragHandle,
-                        contentDescription = localizeHelper.localize(Res.string.drag_to_reorder),
-                        modifier = Modifier
-                            .size(32.dp)
-                            .padding(4.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+    var menu by remember {mutableStateOf(false)}
+    var expanded by remember {mutableStateOf(false)}
+    val up=localize(Res.string.tp_category_move_up)
+    val down=localize(Res.string.tp_category_move_down)
+    Surface(modifier.padding(horizontal=12.dp,vertical=4.dp).readerAppGlassCard(20).semantics {
+        customActions=listOfNotNull(onMoveUp?.let {CustomAccessibilityAction(up){it();true}},onMoveDown?.let {CustomAccessibilityAction(down){it();true}})
+    },shape=RoundedCornerShape(20.dp),color=androidx.compose.ui.graphics.Color.Transparent) {
+        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Icon(Icons.Default.DragHandle,localize(Res.string.drag_to_reorder),Modifier.width(24.dp).padding(end=8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(if(category.id==0L)localize(Res.string.tp_all) else category.name,style=MaterialTheme.typography.titleMedium,maxLines=3,overflow=TextOverflow.Ellipsis,
+                        modifier=Modifier.testTag("category-name"))
+                    Text(localize(Res.string.tp_category_book_count,category.bookCount),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                
-                // Category name and count
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = category.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Category count badge
-                        if (category.bookCount > 0) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Text(
-                                    text = "${category.bookCount} ${if (category.bookCount == 1) "book" else "books"}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                        
-                        // Auto-rules indicator
-                        if (rules.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AutoAwesome,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                    Text(
-                                        text = "${rules.size} ${if (rules.size == 1) "rule" else "rules"}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Action buttons (system categories like "All" can only be reordered)
-                if (!category.isSystemCategory) Row(
-                    modifier = Modifier.padding(start = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // Auto-rules button
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-                    ) {
-                        AppIconButton(
-                            imageVector = Icons.Default.AutoAwesome,
-                            onClick = onConfigureAutoRules,
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                    
-                    // Rename button
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    ) {
-                        AppIconButton(
-                            imageVector = Icons.Default.Edit,
-                            onClick = onRename,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    
-                    // Delete button with enhanced styling
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                    ) {
-                        AppIconButton(
-                            imageVector = Icons.Default.DeleteForever,
-                            onClick = onDelete,
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                    
-                    // Expand/collapse button for rules
-                    if (rules.isNotEmpty()) {
-                        AppIconButton(
-                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            onClick = { expanded = !expanded },
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                if(!category.isSystemCategory)Box {
+                    IconButton({menu=true},Modifier.size(48.dp).testTag("category-actions")){Icon(Icons.Default.MoreVert,localize(Res.string.more))}
+                    DropdownMenu(menu,{menu=false},modifier=Modifier.readerPanel(20),containerColor=androidx.compose.ui.graphics.Color.Transparent) {
+                        DropdownMenuItem(text={Text(localize(Res.string.rename_category))},onClick={menu=false;onRename()})
+                        DropdownMenuItem(text={Text(localize(Res.string.tp_category_auto_rules))},onClick={menu=false;onConfigureAutoRules()})
+                        DropdownMenuItem(text={Text(localize(Res.string.delete_category))},onClick={menu=false;onDelete()})
                     }
                 }
             }
-            
-            // Expandable rules section
-            AnimatedVisibility(
-                visible = expanded && rules.isNotEmpty(),
-                enter = expandVertically(),
-                exit = shrinkVertically()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 56.dp, end = 12.dp, bottom = 12.dp)
-                ) {
-                    Text(
-                        text = "Auto-categorization Rules",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    
-                    rules.forEach { rule ->
-                        AutoRuleChip(
-                            rule = rule,
-                            onToggle = { onToggleRule(rule.id, !rule.isEnabled) },
-                            onDelete = { onDeleteRule(rule.id) }
-                        )
-                    }
+            if(rules.isNotEmpty())TextButton({expanded=!expanded},Modifier.heightIn(min=48.dp)) {
+                Text(localize(Res.string.tp_category_rule_count,rules.size))
+                Icon(if(expanded)Icons.Default.ExpandLess else Icons.Default.ExpandMore,null)
+            }
+            AnimatedVisibility(expanded && rules.isNotEmpty()) {
+                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    rules.forEach {rule->AutoRuleChip(rule,{onToggleRule(rule.id,!rule.isEnabled)},{onDeleteRule(rule.id)})}
                 }
             }
         }
@@ -518,9 +371,9 @@ private fun AutoRuleChip(
             .padding(vertical = 2.dp)
             .clickable { onToggle() },
         shape = RoundedCornerShape(8.dp),
-        color = if (rule.isEnabled) 
+        color = if (rule.isEnabled)
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-        else 
+        else
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Row(
@@ -536,29 +389,29 @@ private fun AutoRuleChip(
 
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = if (rule.isEnabled) 
+                tint = if (rule.isEnabled)
                     MaterialTheme.colorScheme.onPrimaryContainer
-                else 
+                else
                     MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Text(
-                text = "${rule.ruleType.name}: ${rule.value}",
+                text = localize(if(rule.ruleType==CategoryAutoRule.RuleType.GENRE)Res.string.tp_category_genre else Res.string.tp_category_source)+": "+rule.value,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (rule.isEnabled) 
+                color = if (rule.isEnabled)
                     MaterialTheme.colorScheme.onPrimaryContainer
-                else 
+                else
                     MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
-            
+
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Delete rule",
+                    contentDescription = localize(Res.string.tp_edit_delete),
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.error
                 )
@@ -582,8 +435,8 @@ private fun AutoCategorizationRulesDialog(
     var showAddRuleSection by remember { mutableStateOf(false) }
     var selectedRuleType by remember { mutableStateOf(CategoryAutoRule.RuleType.GENRE) }
     var ruleValue by remember { mutableStateOf("") }
-    
-    AlertDialog(
+
+    ReaderGlassDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(
@@ -595,28 +448,28 @@ private fun AutoCategorizationRulesDialog(
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )
-                Text("Auto-categorization: ${category.name}")
+                Text(localize(Res.string.tp_category_rules_title,category.name))
             }
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().heightIn(max=ireader.presentation.ui.truyenplus.LocalReaderViewport.current.height*.58f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Novels matching these rules will be automatically added to this category.",
+                    text = localize(Res.string.tp_category_rules_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
+
                 // Existing rules
                 if (rules.isNotEmpty()) {
                     Text(
-                        text = "Current Rules",
+                        text = localize(Res.string.tp_category_rules_current),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     rules.forEach { rule ->
                         AutoRuleItem(
                             rule = rule,
@@ -631,27 +484,27 @@ private fun AutoCategorizationRulesDialog(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                     ) {
                         Text(
-                            text = "No rules configured. Add a rule to automatically categorize novels.",
+                            text = localize(Res.string.tp_category_rules_empty),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(12.dp)
                         )
                     }
                 }
-                
+
                 HorizontalDivider()
-                
+
                 // Add new rule section
                 AnimatedVisibility(visible = showAddRuleSection) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Add New Rule",
+                            text = localize(Res.string.tp_category_add_rule),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        
+
                         // Rule type selector
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -660,7 +513,7 @@ private fun AutoCategorizationRulesDialog(
                             FilterChip(
                                 selected = selectedRuleType == CategoryAutoRule.RuleType.GENRE,
                                 onClick = { selectedRuleType = CategoryAutoRule.RuleType.GENRE },
-                                label = { Text("Genre") },
+                                label = { Text(localize(Res.string.tp_category_genre)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Label,
@@ -673,7 +526,7 @@ private fun AutoCategorizationRulesDialog(
                             FilterChip(
                                 selected = selectedRuleType == CategoryAutoRule.RuleType.SOURCE,
                                 onClick = { selectedRuleType = CategoryAutoRule.RuleType.SOURCE },
-                                label = { Text("Source") },
+                                label = { Text(localize(Res.string.tp_category_source)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Source,
@@ -683,43 +536,43 @@ private fun AutoCategorizationRulesDialog(
                                 }
                             )
                         }
-                        
+
                         // Value input
                         OutlinedTextField(
                             value = ruleValue,
                             onValueChange = { ruleValue = it },
-                            label = { 
+                            label = {
                                 Text(
-                                    if (selectedRuleType == CategoryAutoRule.RuleType.GENRE) 
-                                        "Genre name" 
-                                    else 
-                                        "Source ID or name"
-                                ) 
+                                    if (selectedRuleType == CategoryAutoRule.RuleType.GENRE)
+                                        localize(Res.string.tp_category_genre_name)
+                                    else
+                                        localize(Res.string.tp_category_source_name)
+                                )
                             },
                             placeholder = {
                                 Text(
                                     if (selectedRuleType == CategoryAutoRule.RuleType.GENRE)
-                                        "e.g., Fantasy, Romance, Action"
+                                        localize(Res.string.tp_category_genre_example)
                                     else
-                                        "e.g., 12345 or NovelUpdates"
+                                        localize(Res.string.tp_category_source_example)
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(onClick = { 
+                            TextButton(onClick = {
                                 showAddRuleSection = false
                                 ruleValue = ""
                             }) {
-                                Text("Cancel")
+                                Text(localize(Res.string.cancel))
                             }
-                            
+
                             Button(
                                 onClick = {
                                     if (ruleValue.isNotBlank()) {
@@ -743,12 +596,12 @@ private fun AutoCategorizationRulesDialog(
                                 },
                                 enabled = ruleValue.isNotBlank()
                             ) {
-                                Text("Add Rule")
+                                Text(localize(Res.string.tp_category_add_rule))
                             }
                         }
                     }
                 }
-                
+
                 // Add rule button
                 if (!showAddRuleSection) {
                     OutlinedButton(
@@ -761,14 +614,14 @@ private fun AutoCategorizationRulesDialog(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add Rule")
+                        Text(localize(Res.string.tp_category_add_rule))
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done")
+                Text(localize(Res.string.done))
             }
         }
     )
@@ -808,7 +661,7 @@ private fun AutoRuleItem(
                 else
                     MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = rule.value,
@@ -824,20 +677,20 @@ private fun AutoRuleItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             Switch(
                 checked = rule.isEnabled,
                 onCheckedChange = { onToggle() },
                 modifier = Modifier.height(24.dp)
             )
-            
+
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Delete rule",
+                    contentDescription = localize(Res.string.tp_edit_delete),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.error
                 )

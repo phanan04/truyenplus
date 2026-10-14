@@ -12,6 +12,29 @@ import kotlinx.serialization.json.*
 
 /** Direct requests to the selected provider; no proxy, logging, retry or automatic paid fallback. */
 class CloudChapterEditingApi(private val http: HttpClient): ChapterEditingApi {
+    override suspend fun checkConnection(credentials:EditingCredentials) {
+        validateEditingConfig(credentials.config)
+        require(credentials.apiKey.isNotBlank()) { "Chưa có API key." }
+        try {withTimeout(15_000) {
+            val gemini=credentials.config.provider==EditingProvider.Gemini
+            val endpoint=if(gemini) "https://generativelanguage.googleapis.com/v1beta/models/${credentials.config.model}" else "https://api.deepseek.com/models"
+            val response=http.get(endpoint) {
+                if(gemini)header("x-goog-api-key",credentials.apiKey) else bearerAuth(credentials.apiKey)
+            }
+            apiCheck(response.status.value in 200..299) {when(response.status.value) {
+                401,403 -> "API key không hợp lệ hoặc chưa có quyền dùng model."
+                404 -> "Không tìm thấy model. Kiểm tra tên model."
+                429 -> "Đã đạt giới hạn API. Hãy thử lại sau."
+                else -> "Chưa kết nối được dịch vụ (HTTP ${response.status.value})."
+            }}
+            val raw=response.bodyAsText()
+            apiCheck(raw.length<=128_000) { "Phản hồi dịch vụ không hợp lệ." }
+            val info=Json.parseToJsonElement(raw).jsonObject
+            val supported=if(gemini)info["supportedGenerationMethods"]?.jsonArray?.any {it.jsonPrimitive.content=="generateContent"}==true
+                else info["data"]?.jsonArray?.any {it.jsonObject["id"]?.jsonPrimitive?.content==credentials.config.model}==true
+            apiCheck(supported) { "Model này chưa hỗ trợ biên tập với tài khoản của bạn." }
+        }}catch(e:CancellationException){throw e}catch(e:EditingApiFailure){throw e}catch(_:Exception){error("Không kết nối được dịch vụ. Kiểm tra mạng và thử lại.")}
+    }
     override suspend fun edit(credentials: EditingCredentials, mode: EditingMode, paragraphs: List<EditParagraph>, characters: List<EditingCharacter>): List<EditParagraph> {
         validateEditingConfig(credentials.config)
         require(credentials.apiKey.isNotBlank()) { "Chưa có API key. Mở Cài đặt biên tập để nhập key." }

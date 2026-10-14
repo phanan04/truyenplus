@@ -73,7 +73,6 @@
     <string name="tp_listen_book">Nghe truyện</string>
     <string name="tp_chapters">Chương</string>
     <string name="tp_bookmarks">Đánh dấu</string>
-    <string name="tp_search_chapters">Tìm chương</string>
     <string name="tp_no_content">Sách chưa có nội dung. Hãy nhập ebook có chương.</string>
     <string name="tp_no_chapters">Không có chương trong mục này.</string>
     <string name="tp_read">Đã đọc</string>

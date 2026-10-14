@@ -11,6 +11,27 @@ import kotlinx.serialization.json.*
 import kotlin.test.*
 
 class ChapterEditingHttpTest {
+    @Test fun connectionCheckUsesMetadataAndNeverGeneratesOrLeaksProviderErrors()=runBlocking {
+        for(provider in EditingProvider.entries) {
+            val config=EditingConfig(provider)
+            var requests=0
+            val client=HttpClient(MockEngine {request->
+                requests++;assertEquals(HttpMethod.Get,request.method)
+                if(provider==EditingProvider.Gemini) {
+                    assertEquals("/v1beta/models/${config.model}",request.url.encodedPath)
+                    assertEquals("secret",request.headers["x-goog-api-key"])
+                    respond("""{"name":"models/${config.model}","supportedGenerationMethods":["generateContent"]}""",HttpStatusCode.OK)
+                } else {
+                    assertEquals("/models",request.url.encodedPath)
+                    assertEquals("Bearer secret",request.headers[HttpHeaders.Authorization])
+                    respond("""{"data":[{"id":"${config.model}"}]}""",HttpStatusCode.OK)
+                }
+            })
+            try {CloudChapterEditingApi(client).checkConnection(EditingCredentials(config,"secret"));assertEquals(1,requests)}finally {client.close()}
+        }
+        val failed=HttpClient(MockEngine {respond("secret raw failure",HttpStatusCode.Forbidden)})
+        try {val error=assertFails {CloudChapterEditingApi(failed).checkConnection(EditingCredentials(EditingConfig(),"secret"))};assertFalse(error.message.orEmpty().contains("secret"))}finally {failed.close()}
+    }
     @Test fun geminiSendsCharacterMemoryAndUsesKeyHeaderWithoutQueryOrLogging()=runBlocking {
         val client=HttpClient(MockEngine { request ->
             assertEquals("generativelanguage.googleapis.com",request.url.host)

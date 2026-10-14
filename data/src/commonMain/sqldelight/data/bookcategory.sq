@@ -36,3 +36,10 @@ DELETE FROM bookcategories WHERE bookcategories.book_id = :bookId;
 
 deleteByBookIdAndCategoryId:
 DELETE FROM bookcategories WHERE book_id = :bookId AND category_id = :categoryId;
+findByCategoryId:
+SELECT * FROM bookcategories WHERE category_id=:categoryId;
+
+restoreAssignment:
+INSERT INTO bookcategories(book_id,category_id)
+SELECT :bookId,:categoryId WHERE EXISTS(SELECT 1 FROM book WHERE _id=:bookId)
+AND NOT EXISTS(SELECT 1 FROM bookcategories WHERE book_id=:bookId AND category_id=:categoryId);

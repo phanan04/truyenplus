@@ -16,7 +16,9 @@ import ireader.presentation.ui.component.components.IBookImageComposable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import ireader.presentation.ui.truyenplus.readerAppGlassCard
+import ireader.presentation.ui.truyenplus.readerPanel
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -79,20 +81,24 @@ fun EpubExportDialog(
     onExport: (ExportOptions) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var includeCover by remember { mutableStateOf(true) }
-    var useTranslatedContent by remember { mutableStateOf(false) }
-    var selectAllChapters by remember { mutableStateOf(true) }
-    var selectedChapterIds by remember(chapters) { mutableStateOf(chapters.map { it.id }.toSet()) }
-    var paragraphSpacing by remember { mutableStateOf(1.0f) }
-    var chapterHeadingSize by remember { mutableStateOf(2.0f) }
-    var typography by remember { mutableStateOf(Typography.DEFAULT) }
+    var includeCover by rememberSaveable { mutableStateOf(true) }
+    var useTranslatedContent by rememberSaveable { mutableStateOf(false) }
+    var selection by rememberSaveable(book.id,stateSaver=ExportChapterSelectionSaver) {mutableStateOf(ExportChapterSelection(true,chapters.map {it.id}.toSet()))}
+    val selectAllChapters=selection.all
+    val selectedChapterIds=selection.ids
+    var paragraphSpacing by rememberSaveable { mutableStateOf(1.0f) }
+    var chapterHeadingSize by rememberSaveable { mutableStateOf(2.0f) }
+    var typography by rememberSaveable { mutableStateOf(Typography.DEFAULT) }
+    var formattingOpen by rememberSaveable {mutableStateOf(false)}
+    val chapterIds=remember(chapters){chapters.map {it.id}.toSet()}
+    LaunchedEffect(chapterIds) {selection=selection.reconcile(chapterIds)}
     
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .widthIn(max = 640.dp)
                 .fillMaxWidth()
-                .fillMaxHeight(0.9f).readerAppGlassCard(28),
+                .fillMaxHeight(0.9f).readerPanel(28),
             shape = RoundedCornerShape(28.dp),
             color = androidx.compose.ui.graphics.Color.Transparent,
             tonalElevation = 0.dp
@@ -109,6 +115,7 @@ fun EpubExportDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
+                        modifier=Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -221,8 +228,7 @@ fun EpubExportDialog(
                             RadioButton(
                                 selected = selectAllChapters,
                                 onClick = {
-                                    selectAllChapters = true
-                                    selectedChapterIds = chapters.map { it.id }.toSet()
+                                    selection=ExportChapterSelection(true,chapterIds)
                                 }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -240,7 +246,7 @@ fun EpubExportDialog(
                         ) {
                             RadioButton(
                                 selected = !selectAllChapters,
-                                onClick = { selectAllChapters = false }
+                                onClick = { selection=selection.copy(all=false) }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -262,11 +268,7 @@ fun EpubExportDialog(
                                 Checkbox(
                                     checked = chapter.id in selectedChapterIds,
                                     onCheckedChange = { checked ->
-                                        selectedChapterIds = if (checked) {
-                                            selectedChapterIds + chapter.id
-                                        } else {
-                                            selectedChapterIds - chapter.id
-                                        }
+                                        selection=selection.toggle(chapter.id,checked)
                                     }
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -278,6 +280,8 @@ fun EpubExportDialog(
                         }
                     }
                     
+                    item {TextButton(onClick={formattingOpen=!formattingOpen},modifier=Modifier.heightIn(min=48.dp)) {Text(localize(Res.string.formatting))}}
+                    if(formattingOpen) {
                     // Formatting section
                     item {
                         Text(
@@ -334,7 +338,7 @@ fun EpubExportDialog(
                                 onExpandedChange = { expanded = it }
                             ) {
                                 OutlinedTextField(
-                                    value = typography.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
+                                    value = exportTypographyLabel(typography),
                                     onValueChange = {},
                                     readOnly = true,
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -348,7 +352,7 @@ fun EpubExportDialog(
                                 ) {
                                     Typography.values().forEach { option ->
                                         DropdownMenuItem(
-                                            text = { Text(option.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }) },
+                                            text = { Text(exportTypographyLabel(option)) },
                                             onClick = {
                                                 typography = option
                                                 expanded = false
@@ -358,6 +362,7 @@ fun EpubExportDialog(
                                 }
                             }
                         }
+                    }
                     }
                 }
                 
@@ -391,7 +396,7 @@ fun EpubExportDialog(
                             )
                             onExport(options)
                         },
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp).testTag("export-apply"),
                         shape = RoundedCornerShape(14.dp),
                         enabled = selectedChapterIds.isNotEmpty()
                     ) {
@@ -404,3 +409,9 @@ fun EpubExportDialog(
         }
     }
 }
+
+@Composable private fun exportTypographyLabel(value:Typography)=localize(when(value) {
+    Typography.DEFAULT->Res.string.tp_reader_default_font
+    Typography.SERIF->Res.string.tp_system_serif
+    Typography.SANS_SERIF->Res.string.tp_system_sans
+})

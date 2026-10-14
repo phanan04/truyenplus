@@ -110,6 +110,8 @@ class CategoriesUseCases  internal constructor(
             .distinctUntilChanged()
     }
 
+    suspend fun deleteCategoryWithUndo(category:Category)=repo.deleteWithUndo(category.id)
+    suspend fun restoreDeletedCategory(snapshot:ireader.domain.models.entities.CategoryDeletionSnapshot)=repo.restoreDeleted(snapshot)
     suspend fun deleteCategory(category: Category) {
         repo.delete(category.id)
     }

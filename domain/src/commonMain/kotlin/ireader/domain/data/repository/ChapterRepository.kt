@@ -136,6 +136,14 @@ interface ChapterRepository : ChapterReadRepository, ChapterWriteRepository {
      * @param lastPageRead The scroll position to save
      */
     suspend fun updateLastPageRead(chapterId: Long, lastPageRead: Long)
+
+    /** Update read flags without writing stale chapter text, bookmarks or scroll positions. */
+    suspend fun updateReadState(states: Map<Long, Boolean>) {
+        // Repository implementations with a database override this with a partial transaction.
+        states.forEach { (id, read) ->
+            findChapterById(id)?.let { insertChapter(it.copy(read = read)) }
+        }
+    }
     
     /**
      * Subscribes to chapter changes for a specific book.

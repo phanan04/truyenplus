@@ -35,8 +35,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.platform.testTag
+import ireader.i18n.resources.tp_listen_from_here
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -277,27 +282,13 @@ internal fun StyleTextOptimized(
 ) {
     val listening = ireader.presentation.ui.truyenplus.LocalReaderListening.current
     val speechIndex = listening?.paragraphForReaderPage(index)
-    val listenModifier = if (listening != null && speechIndex != null) modifier
-        .clickable { listening.onSelect(speechIndex) } else modifier
-    val originalText = remember(
-        page.text,
-        index,
-        isLastIndex,
-        preferences.topContentPadding,
-        preferences.distanceBetweenParagraphs,
-        preferences.bottomContentPadding,
-        preferences.paragraphIndent
-    ) {
-        setText(
-            text = page.text,
-            index = index,
-            isLast = isLastIndex,
-            topContentPadding = preferences.topContentPadding,
-            contentPadding = preferences.distanceBetweenParagraphs,
-            bottomContentPadding = preferences.bottomContentPadding,
-            paragraphIndent = preferences.paragraphIndent
-        )
-    }
+    // Spacing belongs to layout. Inserting whitespace changes selection and UTF-16 TTS offsets.
+    val originalText = page.text
+    val topInset = if (index == 0) preferences.topContentPadding.coerceIn(0, 10) * 4 else 0
+    val bottomInset = if (isLastIndex) preferences.bottomContentPadding.coerceIn(0, 10) * 4
+        else preferences.distanceBetweenParagraphs.coerceIn(0, 10) * 3
+    val paragraphModifier = modifier.padding(top = topInset.dp, bottom = bottomInset.dp)
+    val topPixels = with(androidx.compose.ui.platform.LocalDensity.current) { topInset.dp.toPx() }
 
     val styleParams = remember(
         preferences.fontSize,
@@ -322,7 +313,29 @@ internal fun StyleTextOptimized(
     }
 
     if (listening != null) {
-        ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,listening,preferences,listenModifier.fillMaxWidth())
+        var actionsOpen by remember(page.text, index) { mutableStateOf(false) }
+        val strings = requireNotNull(LocalLocalizeHelper.current)
+        val actionLabel = strings.localize(ireader.i18n.resources.Res.string.tp_listen_from_here)
+        val positioned = listening.copy(onSentenceBounds = { pageIndex, bounds ->
+            listening.onSentenceBounds(pageIndex, bounds.translate(androidx.compose.ui.geometry.Offset(0f, topPixels)))
+        })
+        Box {
+            val actions = if (speechIndex == null) paragraphModifier else paragraphModifier
+                .clickable { if(listening.allowInspection())actionsOpen = true }
+                .then(Modifier.semantics {
+                    customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction(actionLabel) {
+                        listening.onSelect(speechIndex); true
+                    })
+                })
+            ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,positioned,preferences,actions.fillMaxWidth())
+            androidx.compose.material3.DropdownMenu(actionsOpen, onDismissRequest = { actionsOpen = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(actionLabel) },
+                    modifier = Modifier.testTag("reader-listen-from-here"), onClick = {
+                        actionsOpen = false
+                        speechIndex?.let(listening.onSelect)
+                    })
+            }
+        }
         return
     }
 
@@ -337,7 +350,7 @@ internal fun StyleTextOptimized(
             originalText = originalText,
             translatedText = translatedText,
             mode = bilingualMode,
-            modifier = listenModifier.fillMaxWidth(),
+            modifier = paragraphModifier.fillMaxWidth(),
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),
@@ -369,7 +382,8 @@ internal fun StyleTextOptimized(
 
         Text(
             text = bionicText,
-            modifier = listenModifier.fillMaxWidth(),
+            modifier = paragraphModifier.fillMaxWidth(),
+            style = androidx.compose.ui.text.TextStyle(textIndent = androidx.compose.ui.text.style.TextIndent(firstLine = preferences.paragraphIndent.sp)),
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),
@@ -381,7 +395,8 @@ internal fun StyleTextOptimized(
     } else {
         SelectableTranslatableText(
             text = originalText,
-            modifier = listenModifier.fillMaxWidth(),
+            modifier = paragraphModifier.fillMaxWidth(),
+            paragraphIndent = preferences.paragraphIndent.sp,
             fontSize = styleParams.fontSize.sp,
             fontFamily = styleParams.fontFamily,
             textAlign = mapTextAlign(styleParams.textAlignment).toComposeTextAlign(),
@@ -663,6 +678,7 @@ internal fun getHighlightColor(backgroundColor: Color): Color {
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal fun setText(
     text: String,
     index: Int,
@@ -672,38 +688,5 @@ internal fun setText(
     contentPadding: Int,
     paragraphIndent: Int = 0,
 ): String {
-    if (text.isEmpty()) {
-        return ""
-    }
-
-    val stringBuilder = StringBuilder()
-
-    if (index == 0 && topContentPadding > 0) {
-        stringBuilder.append("\n".repeat(topContentPadding.coerceAtLeast(0)))
-    }
-
-    val cleanedText = if (index == 0) {
-        text.trimStart()
-    } else {
-        text
-    }
-
-    val indentSpaces = if (paragraphIndent > 0) {
-        " ".repeat((paragraphIndent / 2).coerceAtLeast(0))
-    } else {
-        ""
-    }
-
-    stringBuilder.append(indentSpaces)
-    stringBuilder.append(cleanedText)
-
-    if (isLast && bottomContentPadding > 0) {
-        stringBuilder.append("\n".repeat(bottomContentPadding.coerceAtLeast(0)))
-    }
-
-    if (!isLast && contentPadding > 0) {
-        stringBuilder.append("\n".repeat(contentPadding.coerceAtLeast(0)))
-    }
-
-    return stringBuilder.toString()
+    return text
 }
