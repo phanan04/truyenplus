@@ -168,8 +168,11 @@ data class ReaderScreenSpec(
         val readerState by vm.state.collectAsState()
 
         val ttsController: ireader.domain.services.tts_service.v2.TTSController = koinInject()
-        val ttsState by remember(ttsController) { ttsController.state.readerUpdates() }.collectAsState(initial=ttsController.state.value.readerProjection())
         val listeningPreferences: ireader.domain.preferences.prefs.ReaderPreferences = koinInject()
+        val wordHighlight by listeningPreferences.ttsHighlightWords().changes().collectAsState(initial=listeningPreferences.ttsHighlightWords().get())
+        val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial=listeningPreferences.ttsHighlightText().get())
+        val includeWords=wordHighlight && highlightListening
+        val ttsState by remember(ttsController,includeWords) {ttsController.state.readerUpdates(includeWords)}.collectAsState(initial=ttsController.state.value.readerProjection(includeWords))
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
         val followState=remember { ireader.presentation.ui.truyenplus.ReaderFollowState() }
         val immersive=remember { ireader.presentation.ui.truyenplus.ReaderImmersiveState() }
@@ -183,7 +186,6 @@ data class ReaderScreenSpec(
         val chapterBackdrop=remember(sourceLayer,blurSupported) {
             if(blurSupported) ireader.presentation.ui.truyenplus.ReaderNavigationBackdrop(sourceLayer) else null
         }
-        val highlightListening by listeningPreferences.ttsHighlightText().changes().collectAsState(initial = listeningPreferences.ttsHighlightText().get())
         val followListening by listeningPreferences.ttsFollowParagraph().changes().collectAsState(initial = listeningPreferences.ttsFollowParagraph().get())
         val readerDensity = androidx.compose.ui.platform.LocalDensity.current
         var readerFooterHeight by remember { mutableStateOf(72.dp) }
@@ -595,12 +597,13 @@ data class ReaderScreenSpec(
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
-                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence) {
+                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence,ttsState.spokenWord,wordHighlight) {
                                 val matching=ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id
                                 ireader.presentation.ui.truyenplus.ReaderListeningContext(
                                     if(matching) ttsState.paragraphSourceIndices else emptyList(),spokenParagraph,
                                     highlightListening,if(matching) speechIndex else ireader.presentation.ui.truyenplus.ReaderSpeechIndex(emptyList()),selectSpeech,
-                                    if(matching)ttsState.spokenSentence else null,reportSentenceBounds)
+                                    if(matching)ttsState.spokenSentence else null,reportSentenceBounds,
+                                    if(matching)ttsState.spokenWord else null,wordHighlight)
                             } else null
                     ) {
                     ReadingScreen(

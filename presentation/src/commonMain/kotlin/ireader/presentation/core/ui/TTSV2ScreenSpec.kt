@@ -1151,6 +1151,7 @@ class TTSV2ScreenSpec(
             var voiceName by remember { mutableStateOf(runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")) }
             val activeVoiceLabel=ireader.presentation.ui.truyenplus.readerVoiceLabel(voiceSelection,state.engineName,voiceName.ifBlank {localizeHelper.localize(Res.string.tp_system_voice)})
             val highlight by readerPreferences.ttsHighlightText().changes().collectAsState(initial = readerPreferences.ttsHighlightText().get())
+            val highlightWords by readerPreferences.ttsHighlightWords().changes().collectAsState(initial=readerPreferences.ttsHighlightWords().get())
             val follow by readerPreferences.ttsFollowParagraph().changes().collectAsState(initial = readerPreferences.ttsFollowParagraph().get())
             val audio = ireader.presentation.ui.truyenplus.rememberListeningAudio(viewModel.adapter)
             val audioState by audio.state.collectAsState()
@@ -1174,7 +1175,8 @@ class TTSV2ScreenSpec(
                         if (sleepModeEnabled) viewModel.startSleepTimer(it)
                     }, onDismiss = { panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening) },
                     onSpeechVolume = audio::speechVolume, timerRemaining = sleepTimerState?.formatRemaining().orEmpty(),
-                    timerPaused = sleepTimerState?.isPaused == true)
+                    timerPaused = sleepTimerState?.isPaused == true,highlightWords=highlightWords,
+                    onHighlightWords={readerPreferences.ttsHighlightWords().set(it)})
                 }, player = {
                 if(panels.minimized || optionsOpen || panels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None) ireader.presentation.ui.truyenplus.ReaderCollapsedPlayer(
                     isPlaying,
@@ -1195,11 +1197,11 @@ class TTSV2ScreenSpec(
                     voiceLabel = activeVoiceLabel, chapterLabel = state.chapter?.name.orEmpty(),
                     paragraphIndex = screenState.currentReadingParagraph, paragraphCount = screenState.contentSize,
                     isLoading = state.isLoading)
-            })
-            if(voiceStore!=null && panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Voices)
+            }, overlay = if(voiceStore!=null && panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.Voices) ({
                 ireader.presentation.ui.truyenplus.ReaderVoiceManager(voiceStore,
                     onSystem={panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Voices);showVoiceSelection=true},
                     onDismiss={panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Voices)})
+            }) else null)
             if (showVoiceSelection) TTSVoiceSelectionScreen(isDesktop = isTabletOrDesktop, onDismiss = {
                 showVoiceSelection = false
                 val selectedName = runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")

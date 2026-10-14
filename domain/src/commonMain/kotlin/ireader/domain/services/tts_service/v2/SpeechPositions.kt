@@ -25,6 +25,7 @@ fun sentenceAt(text: String, offset: Int): SpeechSegment? = speechSegments(text,
 
 /** Built once per utterance; range callbacks only search the prepared sentence list. */
 class SpokenTextIndex(paragraphs: List<String>, indices: List<Int>, spokenText: String) {
+    private val length=spokenText.length
     private data class Entry(val global: SpeechSegment, val position: SpokenSentencePosition)
     private val entries = buildList {
         var cursor = 0
@@ -42,6 +43,16 @@ class SpokenTextIndex(paragraphs: List<String>, indices: List<Int>, spokenText: 
         }
     }
     fun at(offset: Int): SpokenSentencePosition? = entries.firstOrNull { offset in it.global }?.position
+    fun range(start:Int,end:Int):SpokenSentencePosition? {
+        if(start<0 || end<=start || end>length)return null
+        val entry=entries.firstOrNull {start in it.global && end<=it.global.end} ?: return null
+        val from=start-entry.global.start
+        val until=end-entry.global.start
+        return entry.position.copy(start=entry.position.start+from,end=entry.position.start+until,
+            text=entry.position.text.substring(from,until))
+    }
+    fun wordAt(event:EngineEvent.RangeStarted):SpokenSentencePosition? =
+        if(event.isWordBoundary)range(event.start,event.end) else null
 }
 fun spokenSentencePosition(paragraphs: List<String>, indices: List<Int>, spokenText: String, offset: Int) =
     SpokenTextIndex(paragraphs,indices,spokenText).at(offset)

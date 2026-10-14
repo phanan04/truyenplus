@@ -131,7 +131,9 @@ interface TTSEngine {
  */
 sealed class EngineEvent {
     data class Started(val utteranceId: String) : EngineEvent()
-    data class RangeStarted(val utteranceId: String, val start: Int, val end: Int) : EngineEvent()
+    // Chunk starts locate a sentence. Only an engine's real boundary callback can locate words.
+    data class RangeStarted(val utteranceId: String, val start: Int, val end: Int,
+        val isWordBoundary: Boolean = false) : EngineEvent()
     data class Completed(val utteranceId: String) : EngineEvent()
     data class Error(val utteranceId: String, val message: String) : EngineEvent()
     object Ready : EngineEvent()

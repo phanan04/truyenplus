@@ -15,12 +15,17 @@ fun readerVoiceLabel(selection:ireader.domain.services.tts_service.v2.offline.Of
     return model.title+if(model.speakers>1)" · ${selection.speaker+1}" else ""
 }
 
-/** Reader ignores cache downloads, word timing and timer ticks; the player owns those. */
+/** Reader ignores cache/timer ticks; word ranges are opt-in so other screens stay unchanged. */
 data class ReaderPlaybackProjection(val book: Book?, val chapter: Chapter?, val currentParagraphIndex: Int,
     val paragraphSourceIndices: List<Int>, val isPlaying: Boolean, val chunkModeEnabled: Boolean,
-    val spokenSentence: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null, val isLoading:Boolean=false)
-fun TTSState.readerProjection() = ReaderPlaybackProjection(book,chapter,currentParagraphIndex,paragraphSourceIndices,isPlaying,chunkModeEnabled,spokenSentence?.takeIf { it.paragraphIndex==currentParagraphIndex || (chunkModeEnabled && it.paragraphIndex in currentChunkParagraphs) },isLoading)
-fun Flow<TTSState>.readerUpdates(): Flow<ReaderPlaybackProjection> = map { it.readerProjection() }.distinctUntilChanged()
+    val spokenSentence: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null, val isLoading:Boolean=false,
+    val spokenWord:ireader.domain.services.tts_service.v2.SpokenSentencePosition?=null)
+fun TTSState.readerProjection(includeWordRanges:Boolean=false):ReaderPlaybackProjection {
+    val sentence=spokenSentence?.takeIf { it.paragraphIndex==currentParagraphIndex || (chunkModeEnabled && it.paragraphIndex in currentChunkParagraphs) }
+    return ReaderPlaybackProjection(book,chapter,currentParagraphIndex,paragraphSourceIndices,isPlaying,chunkModeEnabled,sentence,isLoading,
+        spokenWord?.takeIf {includeWordRanges && sentence?.paragraphIndex==it.paragraphIndex})
+}
+fun Flow<TTSState>.readerUpdates(includeWordRanges:Boolean=false): Flow<ReaderPlaybackProjection> = map { it.readerProjection(includeWordRanges) }.distinctUntilChanged()
 
 class ReaderSpeechIndex(sourceIndices: List<Int>) {
     private val firstParagraph=buildMap<Int,Int> { sourceIndices.forEachIndexed { speech, page -> if(page !in this) put(page,speech) } }

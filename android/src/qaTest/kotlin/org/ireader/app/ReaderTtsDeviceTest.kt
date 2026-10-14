@@ -41,6 +41,13 @@ class ReaderTtsDeviceTest {
         assertTrue("Completion: $seen", done.await() is EngineEvent.Completed)
         assertTrue("No playback start: $seen", seen.any { it is EngineEvent.Started && it.utteranceId == id })
         assertTrue("No actual range: $seen", seen.any { it is EngineEvent.RangeStarted && it.utteranceId == id && it.end > it.start })
+        val ranges=seen.filterIsInstance<EngineEvent.RangeStarted>()
+        assertTrue("Chunk boundaries must remain coarse",ranges.any {!it.isWordBoundary})
+        for(range in ranges.filter {it.isWordBoundary}) {
+            assertTrue("Invalid real boundary",range.start>=0 && range.end<=text.length && range.end>range.start)
+        }
+        if(engine.name!="Native Android TTS")assertTrue("Offline engine must not invent word timing",ranges.none {it.isWordBoundary})
+        Log.i("TruyenPlusQA","$id actualWordBoundaries=${ranges.count {it.isWordBoundary}} coarseRanges=${ranges.count {!it.isWordBoundary}}")
         Log.i("TruyenPlusQA", "PASS $id engine=${engine.name} elapsedMs=${(System.nanoTime()-start)/1_000_000}")
     }
 

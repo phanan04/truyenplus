@@ -267,6 +267,8 @@
     <string name="tp_music_error">Không phát được file này. Hãy chọn file nhạc khác.</string>
     <string name="tp_auto_next">Tự động chuyển chương</string>
     <string name="tp_highlight_paragraph">Nổi bật đoạn văn</string>
+    <string name="tp_highlight_sentence">Câu</string>
+    <string name="tp_highlight_words">Câu + từ</string>
     <string name="tp_follow_paragraph">Tự động cuộn</string>
     <string name="tp_reader_scroll_speed">Tốc độ cuộn</string>
     <string name="tp_reader_line_spacing">Khoảng cách dòng</string>

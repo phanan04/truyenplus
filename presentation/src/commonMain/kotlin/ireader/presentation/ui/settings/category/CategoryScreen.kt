@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import ireader.presentation.ui.truyenplus.readerAppGlassCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -334,9 +335,9 @@ private fun EnhancedCategoryItem(
     
     Surface(
         modifier = modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp).readerAppGlassCard(12),
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         tonalElevation = 2.dp
     ) {
         Column {

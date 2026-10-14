@@ -47,7 +47,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
         contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(20.dp)) {
         item { Text(strings.localize(Res.string.tp_settings),Modifier.padding(top=24.dp,bottom=8.dp),style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold) }
         item {
-            Surface(modifier=Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+            Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16).testTag("settings-general"),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
                 Column {
                     SettingsRow(strings.localize(Res.string.tp_language),language.displayName,Icons.Outlined.Language,{languageOpen=true})
                     HorizontalDivider(Modifier.padding(start=56.dp),color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.5f))
@@ -56,7 +56,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
             }
         }
         item {
-            Surface(modifier=Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+            Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
                 Column {
                     SettingsRow(strings.localize(Res.string.tp_import_ebook),strings.localize(Res.string.tp_import_formats),Icons.Outlined.FolderOpen,onImport)
                     HorizontalDivider(Modifier.padding(start=56.dp),color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.5f))
@@ -64,23 +64,23 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
                 }
             }
         }
-        if(onVoices!=null)item {Surface(Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+        if(onVoices!=null)item {Surface(Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
             SettingsRow(strings.localize(Res.string.tp_voice_manager),strings.localize(Res.string.tp_voice_settings_hint),Icons.Outlined.Mic,onVoices)
         }}
-        item { Surface(modifier=Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+        item { Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
             SettingsRow(strings.localize(Res.string.tp_edit_settings),strings.localize(Res.string.tp_edit_settings_hint),Icons.Outlined.AutoFixHigh,onEditing)
         } }
-        item { Surface(modifier=Modifier.fillMaxWidth().readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+        item { Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
             SettingsRow(strings.localize(Res.string.tp_app_update),"Truyện+",Icons.Outlined.SystemUpdate,onUpdate)
         } }
     }
-    if(languageOpen) AlertDialog(onDismissRequest={languageOpen=false},title={Text(strings.localize(Res.string.tp_language))},
+    if(languageOpen) ReaderGlassDialog(onDismissRequest={languageOpen=false},title={Text(strings.localize(Res.string.tp_language))},
         text={Column { ReaderUiLanguage.entries.forEach { option ->
             Row(Modifier.fillMaxWidth().heightIn(min=56.dp).selectable(option==language,onClick={onLanguage(option);languageOpen=false},role=Role.RadioButton),verticalAlignment=Alignment.CenterVertically) {
                 RadioButton(option==language,onClick=null);Text(option.displayName,Modifier.padding(start=8.dp))
             }
         } }},confirmButton={TextButton(onClick={languageOpen=false}) {Text(strings.localize(Res.string.tp_cancel))}})
-    if(appearanceOpen) AlertDialog(onDismissRequest={appearanceOpen=false},title={Text(strings.localize(Res.string.tp_appearance))},
+    if(appearanceOpen) ReaderGlassDialog(onDismissRequest={appearanceOpen=false},title={Text(strings.localize(Res.string.tp_appearance))},
         text={ReaderAppearancePicker(appearance) {onAppearance(it);appearanceOpen=false}},
         confirmButton={TextButton(onClick={appearanceOpen=false}) {Text(strings.localize(Res.string.tp_cancel))}})
 }

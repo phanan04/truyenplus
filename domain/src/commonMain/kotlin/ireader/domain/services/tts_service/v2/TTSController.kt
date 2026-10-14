@@ -349,7 +349,9 @@ class TTSController(
             is EngineEvent.RangeStarted -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
                 val position = spokenTextIndex?.at(event.start)
-                if (position != _state.value.spokenSentence) _state.update { it.copy(spokenSentence=position) }
+                val word = spokenTextIndex?.wordAt(event)
+                if (position != _state.value.spokenSentence || word != _state.value.spokenWord)
+                    _state.update { it.copy(spokenSentence=position,spokenWord=word) }
             }
             is EngineEvent.Completed -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
@@ -457,7 +459,7 @@ class TTSController(
             prefetchNextChapter()
             
             spokenTextIndex = SpokenTextIndex(currentState.displayContent,listOf(paragraphIndex),text)
-            _state.update { it.copy(spokenSentence=null) }
+            _state.update { it.copy(spokenSentence=null,spokenWord=null) }
             engine?.speak(text, utteranceId)
             precacheUpcomingParagraphs(paragraphIndex)
         } else {
@@ -556,7 +558,7 @@ class TTSController(
         nextChapterWatchJob?.cancel()
         nextChapterWatchJob = null
         engine?.stop()
-        _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false) }
+        _state.update { it.copy(playbackState = PlaybackState.STOPPED, pausedByAudioFocus = false,spokenWord=null) }
         _events.emit(TTSEvent.PlaybackStopped)
     }
     
@@ -1497,7 +1499,7 @@ class TTSController(
         
         currentUtteranceId = utteranceId
         spokenTextIndex = SpokenTextIndex(currentState.displayContent,chunk.paragraphIndices,textToSpeak)
-        _state.update { it.copy(spokenSentence=null) }
+        _state.update { it.copy(spokenSentence=null,spokenWord=null) }
         engine?.speak(textToSpeak, utteranceId)
         
         // Pre-cache next chunk(s) for smoother playback

@@ -721,6 +721,7 @@ Visit.*for more chapters"""
     fun ttsHighlightText(): Preference<Boolean> {
         return preferenceStore.getBoolean("tts_highlight_text", true)
     }
+    fun ttsHighlightWords(): Preference<Boolean> = preferenceStore.getBoolean("tts_highlight_words", false)
 
     fun ttsSkipEmptyLines(): Preference<Boolean> {
         return preferenceStore.getBoolean("tts_skip_empty_lines", true)

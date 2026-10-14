@@ -42,6 +42,7 @@ data class TTSState(
     // Sentence highlighting
     val paragraphStartTime: Long = 0L,
     val spokenSentence: SpokenSentencePosition? = null,
+    val spokenWord: SpokenSentencePosition? = null,
     val sentenceHighlightEnabled: Boolean = false,
     val calibratedWPM: Float? = null,
     val isCalibrated: Boolean = false,

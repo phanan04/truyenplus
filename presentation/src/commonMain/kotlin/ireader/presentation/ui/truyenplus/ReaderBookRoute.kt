@@ -73,7 +73,19 @@ fun ReaderBookRoute(bookId: Long) {
             finally { withContext(Dispatchers.Main) { updatingMetadata = false } }
         }
     }
-    if (showMetadataChoice) AlertDialog(onDismissRequest = { showMetadataChoice = false },
+    LaunchedEffect(bookId) { vm.onScreenResumed() }
+    LaunchedEffect(vm) {
+        vm.events.collectLatest { event ->
+            when (event) {
+                is BookDetailEvent.ShowSnackbar -> snackbars.showSnackbar(event.message)
+                is BookDetailEvent.NavigateToReader -> nav.navigateTo(ReaderScreenSpec(event.bookId, event.chapterId))
+                BookDetailEvent.NavigateBack -> nav.safePopBackStack()
+                else -> Unit // Online-source, migration and recommendation destinations are outside this app.
+            }
+        }
+    }
+    ReaderAppBackdrop {
+    if (showMetadataChoice) ReaderGlassDialog(onDismissRequest = { showMetadataChoice = false },
         title = { Text(strings.localize(Res.string.tp_book_metadata)) }, text = {
             Column {
                 TextButton(onClick = { showMetadataChoice = false; pickMetadataEpub = true }, Modifier.fillMaxWidth()) {
@@ -100,18 +112,6 @@ fun ReaderBookRoute(bookId: Long) {
                 }, Modifier.fillMaxWidth()) { Text(strings.localize(Res.string.tp_metadata_online)) }
             }
         }, confirmButton = {})
-    LaunchedEffect(bookId) { vm.onScreenResumed() }
-    LaunchedEffect(vm) {
-        vm.events.collectLatest { event ->
-            when (event) {
-                is BookDetailEvent.ShowSnackbar -> snackbars.showSnackbar(event.message)
-                is BookDetailEvent.NavigateToReader -> nav.navigateTo(ReaderScreenSpec(event.bookId, event.chapterId))
-                BookDetailEvent.NavigateBack -> nav.safePopBackStack()
-                else -> Unit // Online-source, migration and recommendation destinations are outside this app.
-            }
-        }
-    }
-    ReaderBackdrop {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
             when (val current = state) {
                 is BookDetailState.Success -> {
@@ -160,7 +160,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
     ReaderContentPane(maxWidth=960.dp) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp).readerAppGlassCard(28), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, strings.localize(Res.string.tp_back)) }
                 Text(strings.localize(Res.string.tp_in_library), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                 IconButton(onClick = onExport) { Icon(Icons.Outlined.IosShare, strings.localize(Res.string.tp_export_epub)) }
@@ -192,7 +192,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
             }
         }
         item {
-            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp).readerAppGlassCard(20),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
                 color=androidx.compose.ui.graphics.Color.Transparent) {
                 Column(Modifier.padding(vertical=16.dp)) {
                     Row(verticalAlignment=Alignment.CenterVertically) {
@@ -211,7 +211,7 @@ fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>
             }
         }
         item { ReaderChips(listOf(strings.localize(Res.string.tp_chapters), strings.localize(Res.string.tp_bookmarks), strings.localize(Res.string.tp_unread)), filter) { filter = it } }
-        item { OutlinedTextField(query, { query = it }, placeholder = { Text(strings.localize(Res.string.tp_search_chapters)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = CircleShape, modifier = Modifier.fillMaxWidth().padding(20.dp)) }
+        item { OutlinedTextField(query, { query = it }, placeholder = { Text(strings.localize(Res.string.tp_search_chapters)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, singleLine = true, shape = CircleShape, modifier = Modifier.fillMaxWidth().padding(20.dp).readerAppGlassCard(28)) }
         if (visible.isEmpty()) item { Text(if (chapters.isEmpty()) strings.localize(Res.string.tp_no_content) else strings.localize(Res.string.tp_no_chapters), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
         items(visible, key = { it.id }) { chapter ->
             val current = chapter.id == activeChapterId

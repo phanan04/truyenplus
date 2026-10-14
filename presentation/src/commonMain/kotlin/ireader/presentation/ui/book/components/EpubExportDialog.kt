@@ -16,6 +16,7 @@ import ireader.presentation.ui.component.components.IBookImageComposable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import ireader.presentation.ui.truyenplus.readerAppGlassCard
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,9 +92,9 @@ fun EpubExportDialog(
             modifier = Modifier
                 .widthIn(max = 640.dp)
                 .fillMaxWidth()
-                .fillMaxHeight(0.9f),
+                .fillMaxHeight(0.9f).readerAppGlassCard(28),
             shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface,
+            color = androidx.compose.ui.graphics.Color.Transparent,
             tonalElevation = 0.dp
         ) {
             Column(

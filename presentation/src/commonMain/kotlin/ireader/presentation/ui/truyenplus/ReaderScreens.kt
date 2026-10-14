@@ -72,9 +72,9 @@ private fun PageHeader(title: String, subtitle: String, onImport: () -> Unit, on
             Text(title,style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold)
             if(subtitle.isNotBlank()) Text(subtitle,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.align(Alignment.End)) {
-                IconButton(onClick=onSearch) { Icon(Icons.Outlined.Search,strings.localize(Res.string.tp_search_library)) }
-                IconButton(onClick=onImport) { Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_import_ebook)) }
-                if(onUpdate!=null) IconButton(onClick=onUpdate) { Icon(Icons.Outlined.SystemUpdate,strings.localize(Res.string.tp_app_update)) }
+                IconButton(onClick=onSearch,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.Search,strings.localize(Res.string.tp_search_library)) }
+                IconButton(onClick=onImport,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_import_ebook)) }
+                if(onUpdate!=null) IconButton(onClick=onUpdate,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.SystemUpdate,strings.localize(Res.string.tp_app_update)) }
             }
         }
         return
@@ -84,10 +84,10 @@ private fun PageHeader(title: String, subtitle: String, onImport: () -> Unit, on
             Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             if(subtitle.isNotBlank()) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
         }
-        IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, strings.localize(Res.string.tp_search_library)) }
-        IconButton(onClick = onImport) { Icon(Icons.Outlined.Add, strings.localize(Res.string.tp_import_ebook)) }
+        IconButton(onClick = onSearch,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.Search, strings.localize(Res.string.tp_search_library)) }
+        IconButton(onClick = onImport,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.Add, strings.localize(Res.string.tp_import_ebook)) }
         if (onUpdate != null) Box {
-            IconButton(onClick = { showMenu = true }) { Icon(Icons.Outlined.MoreHoriz, strings.localize(Res.string.tp_app_options)) }
+            IconButton(onClick = { showMenu = true },modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Outlined.MoreHoriz, strings.localize(Res.string.tp_app_options)) }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(text = { Text(strings.localize(Res.string.tp_app_update)) }, leadingIcon = { Icon(Icons.Outlined.SystemUpdate, null) },
                     onClick = { showMenu = false; onUpdate() })
@@ -101,7 +101,8 @@ fun ReaderChips(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(labels) { index, label ->
             Surface(onClick = { onSelect(index) }, shape = CircleShape,
-                color = if (selected == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier=if(selected==index)Modifier else Modifier.readerAppGlassCard(24),
+                color = if (selected == index) MaterialTheme.colorScheme.primary else Color.Transparent,
                 contentColor=if(selected==index) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 border = BorderStroke(1.dp, if (selected == index) Color.Transparent else Color.Transparent)) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -167,7 +168,7 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
         item { PageHeader("Truyện+", "", onImport, onSearch, onUpdate) }
         if(onShelf!=null) item {
             Surface(onClick=onShelf,shape=RoundedCornerShape(20.dp),color=Color.Transparent,
-                modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp).readerGlassCard(20).semantics { testTag="home-shelf" }) {
+                modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp).readerAppGlassCard(20).semantics { testTag="home-shelf" }) {
                 Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.CloudQueue,null)
                     Text(strings.localize(Res.string.tp_shelf),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium)
@@ -203,7 +204,7 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
 
 @Composable private fun ReaderContinueBook(book:ReaderBookUi,onRead:()->Unit) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
-    Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp).readerGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp).readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
         Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(18.dp)) {
             ReaderCover(book,Modifier.width(92.dp).height(132.dp).clickable(onClick=onRead))
             Column(Modifier.weight(1f)) {
@@ -236,9 +237,9 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(strings.localize(Res.string.tp_library), Modifier.weight(1f), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                     if(onShelf!=null) IconButton(onClick=onShelf,modifier=Modifier.semantics { testTag="library-shelf" }) { Icon(Icons.Outlined.CloudQueue,strings.localize(Res.string.tp_shelf)) }
-                    IconButton(onClick = onImport) { Icon(Icons.Default.Add, strings.localize(Res.string.tp_import_ebook)) }
+                    IconButton(onClick = onImport,modifier=Modifier.readerAppGlassCard(24)) { Icon(Icons.Default.Add, strings.localize(Res.string.tp_import_ebook)) }
                 }
-                OutlinedTextField(query, onQuery, modifier = Modifier.fillMaxWidth().padding(top = 16.dp).readerGlassCard(28).focusRequester(searchFocus), singleLine = true,
+                OutlinedTextField(query, onQuery, modifier = Modifier.fillMaxWidth().padding(top = 16.dp).readerAppGlassCard(28).focusRequester(searchFocus), singleLine = true,
                     placeholder = { Text(strings.localize(Res.string.tp_search_books)) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, shape = CircleShape,
                     colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Color.Transparent,focusedBorderColor=MaterialTheme.colorScheme.outline.copy(alpha=.4f)))
             }
@@ -297,7 +298,7 @@ fun ReaderProgressScreen(stats: ReadingStatisticsType1, books: List<ReaderBookUi
         item { ReaderChips(listOf(strings.localize(Res.string.tp_overview), strings.localize(Res.string.tp_history)), tab) { tab = it } }
         if (tab == 0) {
             item {
-                Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                Surface(shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(20.dp).readerAppGlassCard(24)) {
                     Column(Modifier.padding(24.dp)) {
                         Icon(Icons.Outlined.LocalFireDepartment, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                         Text(strings.localize(Res.string.tp_streak_days, stats.readingStreak), style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))

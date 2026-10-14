@@ -267,6 +267,8 @@
     <string name="tp_music_error">Cannot play this file. Choose another audio file.</string>
     <string name="tp_auto_next">Auto next chapter</string>
     <string name="tp_highlight_paragraph">Highlight paragraph</string>
+    <string name="tp_highlight_sentence">Sentence</string>
+    <string name="tp_highlight_words">Sentence + words</string>
     <string name="tp_follow_paragraph">Auto scroll</string>
     <string name="tp_reader_scroll_speed">Scroll speed</string>
     <string name="tp_reader_line_spacing">Line spacing</string>

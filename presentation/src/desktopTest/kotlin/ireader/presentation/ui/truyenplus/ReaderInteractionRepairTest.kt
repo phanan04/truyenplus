@@ -14,6 +14,25 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderInteractionRepairTest {
+    @Test fun voiceOverlayKeepsCompactPlayerAtBottomAndLabelInset() {
+        for((width,height) in listOf(360 to 800,800 to 600,640 to 320)) {
+            scene(width,height) {
+                ReaderListeningDock(false,{}, {
+                    ReaderCollapsedPlayer(false,{},{},{},{},onPrevious={},onNext={})
+                }, overlay = {
+                    Box(Modifier.fillMaxSize().semantics {testTag="voices-area"})
+                })
+            }.use { scene ->
+                scene.render(0);scene.render(1_000_000_000)
+                val player=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-compact-toggle"}.boundsInRoot
+                val area=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="voices-area"}.boundsInRoot
+                val label=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-expand"}.boundsInRoot
+                assertTrue(player.bottom>=height-9,"Player lifted: $player")
+                assertTrue(area.bottom<=player.top,"Voice panel overlaps playback: $area / $player")
+                assertTrue(label.left-player.left>=15,"Label too near edge: $label / $player")
+            }
+        }
+    }
     @Test fun panelsExcludeEachOtherAndMinimizingKeepsListening() {
         val state=ReaderPanelState()
         state.open(ReaderPanel.Appearance)

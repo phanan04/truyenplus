@@ -20,8 +20,7 @@ import androidx.compose.ui.unit.dp
 fun ReaderUpdateSheet(version: String, endpoint: String, supported: Boolean, state: ReaderUpdateState,
     onCheck: (String) -> Unit, onDownload: () -> Unit, onInstall: () -> Unit, onCancel: () -> Unit,
     onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ReaderGlassSheet(onDismissRequest=onDismiss) {
         ReaderUpdateContent(version, endpoint, supported, state, onCheck, onDownload, onInstall, onCancel)
     }
 }

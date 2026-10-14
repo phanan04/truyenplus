@@ -76,7 +76,7 @@ import org.koin.compose.koinInject
   onRemove={removeSource=it},onDownload=repo::download,onBook=onBook,onLibrary=onLibrary,
   onPrevious={offset=(offset-40).coerceAtLeast(0);searches.invalidate(query.isNotBlank())},onNext={offset+=40;searches.invalidate(query.isNotBlank())},onConnect={retryAdd=false;connect()},onCancel=repo::cancel,
   requestSearch=requestSearch,onSearchFocused=onSearchFocused,offset=offset,error=error?:searchState.failure,showConnect=!repo.publicAccess)
- if(showAdd) AlertDialog(onDismissRequest={if(!adding){showAdd=false;retryAdd=false}},title={Text(strings.localize(Res.string.tp_shelf_add))},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+ if(showAdd) ReaderGlassDialog(onDismissRequest={if(!adding){showAdd=false;retryAdd=false}},title={Text(strings.localize(Res.string.tp_shelf_add))},text={Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   OutlinedTextField(link,{link=it},label={Text(strings.localize(Res.string.tp_shelf_link))},singleLine=true,enabled=!adding)
   OutlinedTextField(name,{name=it},label={Text(strings.localize(Res.string.tp_shelf_name))},singleLine=true,enabled=!adding)
   if(!repo.publicAccess)Text(strings.localize(Res.string.tp_shelf_auth_hint),style=MaterialTheme.typography.bodySmall)
@@ -84,7 +84,7 @@ import org.koin.compose.koinInject
  }},confirmButton={TextButton(onClick={retryAdd=true;add()},enabled=!adding && link.isNotBlank()){Text(strings.localize(if(adding)Res.string.tp_shelf_busy else Res.string.tp_shelf_add))}},dismissButton={
   Row { if(error==ShelfFailure.Authentication)TextButton(onClick={retryAdd=true;connect()}){Text(strings.localize(Res.string.tp_shelf_connect))};TextButton(onClick={showAdd=false;retryAdd=false},enabled=!adding){Text(strings.localize(Res.string.tp_cancel))} }
  })
- removeSource?.let { source->AlertDialog(onDismissRequest={removeSource=null},title={Text(strings.localize(Res.string.tp_shelf_remove))},text={Text(strings.localize(Res.string.tp_shelf_remove_hint))},confirmButton={TextButton(onClick={scope.launch{repo.remove(source.id);if(selectedSource==source.id)selectedSource=null};removeSource=null}){Text(strings.localize(Res.string.tp_shelf_remove))}},dismissButton={TextButton(onClick={removeSource=null}){Text(strings.localize(Res.string.tp_cancel))}}) }
+ removeSource?.let { source->ReaderGlassDialog(onDismissRequest={removeSource=null},title={Text(strings.localize(Res.string.tp_shelf_remove))},text={Text(strings.localize(Res.string.tp_shelf_remove_hint))},confirmButton={TextButton(onClick={scope.launch{repo.remove(source.id);if(selectedSource==source.id)selectedSource=null};removeSource=null}){Text(strings.localize(Res.string.tp_shelf_remove))}},dismissButton={TextButton(onClick={removeSource=null}){Text(strings.localize(Res.string.tp_cancel))}}) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,13 +99,13 @@ import org.koin.compose.koinInject
  LaunchedEffect(requestSearch){if(requestSearch){focus.requestFocus();keyboard?.show();onSearchFocused()}}
  LaunchedEffect(query,selectedSource,offset){list.scrollToItem(0)}
  Column(Modifier.fillMaxSize()) {
-  Row(Modifier.fillMaxWidth().padding(start=8.dp,end=12.dp,top=8.dp,bottom=8.dp),verticalAlignment=Alignment.CenterVertically) {
+  Row(Modifier.fillMaxWidth().padding(start=8.dp,end=12.dp,top=8.dp,bottom=8.dp).readerAppGlassCard(28),verticalAlignment=Alignment.CenterVertically) {
    IconButton(onClick=onLibrary,modifier=Modifier.size(48.dp).testTag("shelf-back")){Icon(Icons.Outlined.ChevronLeft,strings.localize(Res.string.tp_back))}
    Text(strings.localize(Res.string.tp_shelf),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
    IconButton(onClick={keyboard?.hide();manage=true},modifier=Modifier.size(48.dp).testTag("shelf-manage")){Icon(Icons.Outlined.Tune,strings.localize(Res.string.tp_shelf_sources))}
    IconButton(onClick=onAdd,modifier=Modifier.size(48.dp)){Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_shelf_add))}
   }
-  OutlinedTextField(query,onQuery,modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp).readerGlassCard(28).focusRequester(focus).testTag("shelf-query"),
+  OutlinedTextField(query,onQuery,modifier=Modifier.fillMaxWidth().padding(horizontal=20.dp).readerAppGlassCard(28).focusRequester(focus).testTag("shelf-query"),
    singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search))},leadingIcon={Icon(Icons.Outlined.Search,null)},
    trailingIcon={if(query.isNotEmpty())IconButton(onClick={onQuery("")}){Icon(Icons.Outlined.Close,strings.localize(Res.string.close))}},shape=CircleShape,
    colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Color.Transparent,focusedBorderColor=MaterialTheme.colorScheme.outline.copy(alpha=.4f)))
@@ -144,7 +144,7 @@ import org.koin.compose.koinInject
    }
   }
  }
- if(manage) ModalBottomSheet(onDismissRequest={manage=false},containerColor=MaterialTheme.colorScheme.surface) {
+ if(manage) ReaderGlassSheet(onDismissRequest={manage=false}) {
   LazyColumn(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.7f),contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
    item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
     Text(strings.localize(Res.string.tp_shelf_sources),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
@@ -159,7 +159,7 @@ import org.koin.compose.koinInject
 @Composable private fun ShelfSourceCard(source:ShelfSource,op:ShelfOperation?,onRefresh:(String)->Unit,onRemove:(ShelfSource)->Unit,onCancel:(String)->Unit,onSelect:()->Unit) {
  val strings=requireNotNull(LocalLocalizeHelper.current)
  var menu by remember { mutableStateOf(false) }
- Surface(onClick=onSelect,shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerGlassCard(20)) {
+ Surface(onClick=onSelect,shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerAppGlassCard(20)) {
   Column(Modifier.padding(start=16.dp,end=8.dp,top=10.dp,bottom=10.dp)) {
    Row(verticalAlignment=Alignment.CenterVertically) {
     Icon(Icons.Outlined.CloudQueue,null,Modifier.size(26.dp));Spacer(Modifier.width(14.dp))
@@ -189,7 +189,7 @@ import org.koin.compose.koinInject
  val title=if(divider>0)filename.substring(0,divider).trim() else filename
  val author=if(divider>0)filename.substring(divider+3).trim() else ""
  val busy=op?.task==ShelfTask.Downloading || op?.task==ShelfTask.Importing
- Surface(shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerGlassCard(20)) {
+ Surface(shape=RoundedCornerShape(20.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerAppGlassCard(20)) {
   Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     // Only real filename metadata is available before import; no invented cover.

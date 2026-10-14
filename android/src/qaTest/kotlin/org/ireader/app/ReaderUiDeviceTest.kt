@@ -35,7 +35,7 @@ class ReaderUiDeviceTest {
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
             koin.get<UiPreferences>().apply {hasCompletedOnboarding().set(true);hasCompletedFirstLaunch().set(true);language().set("vi")}
-            koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true)}
+            koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true);ttsHighlightWords().set(false)}
             if(description.methodName=="pageThemeOverridesAppThemeAndChromeDoesNotClipChapter") {
                 koin.get<UiPreferences>().apply {readerAppearance().set("dark");readerFollowsAppearance().set(false)}
                 koin.get<AppPreferences>().apply {
@@ -116,6 +116,48 @@ class ReaderUiDeviceTest {
         Assert.assertTrue(kotlin.math.abs(play.right-next.left)<=3f)
         ui.onRoot().performTouchInput {swipe(Offset(width/2f,height*.5f),Offset(width/2f,height*.3f),500)}
         waitTag("reader-return-to-speech");shot("chrome-dark-app-light-compact-return")
+    }
+    @Test fun voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+        ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
+        ui.onNodeWithTag("listen-page-reading").performClick();waitTag("listen-highlight-words")
+        ui.onNodeWithTag("listen-highlight-words").performClick()
+        ui.onNodeWithTag("listen-highlight-words").assertIsSelected()
+        ui.onNodeWithTag("listen-page-voice").performClick()
+        ui.onNodeWithTag("listen-voice-choice").performClick();waitTag("voice-manager")
+        val manager=ui.onNodeWithTag("voice-manager").fetchSemanticsNode().boundsInRoot
+        val player=ui.onNodeWithTag("listen-compact-toggle").fetchSemanticsNode().boundsInRoot
+        val label=ui.onNodeWithTag("listen-expand").fetchSemanticsNode().boundsInRoot
+        val root=ui.onRoot().fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("Player jumps above voice panel",player.top>=root.height*.65f)
+        Assert.assertTrue("Voice manager overlaps compact player",manager.bottom<=player.top)
+        Assert.assertTrue("Status label too near edge",label.left-player.left>=ui.activity.resources.displayMetrics.density*15)
+        shot("voice-manager-bottom-player")
+        ui.onNodeWithTag("voice-system").performClick()
+    }
+    @Test fun outsideSettingsAndImportRemainReadableWithGlassInBothThemes() {
+        waitTag("nav-Settings");ui.onNodeWithTag("nav-Settings").performClick()
+        for(mode in listOf("light","dark")) {
+            ui.runOnIdle {GlobalContext.get().get<UiPreferences>().readerAppearance().set(mode)}
+            waitTag("settings-general");ui.waitForIdle()
+            shot("outside-settings-$mode")
+            ui.onNodeWithText("Nhập ebook").performClick()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("Nhập sách").fetchSemanticsNodes().isNotEmpty()}
+            ui.waitUntil(15_000){runCatching {ui.onNodeWithText("Chọn tệp từ thiết bị").isDisplayed()}.getOrDefault(false)}
+            shot("outside-import-$mode")
+            ui.onNodeWithText("Chọn tệp từ thiết bị").assertIsDisplayed()
+            val pixels=ui.onNodeWithText("Nhập sách").captureToImage().toPixelMap()
+            var ink=0
+            for(y in 0 until pixels.height)for(x in 0 until pixels.width) {
+                val l=pixels[x,y].luminance()
+                if(if(mode=="dark")l>.7f else l<.15f)ink++
+            }
+            Assert.assertTrue("Import title unreadable in $mode",ink>8)
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("Nhập sách").fetchSemanticsNodes().isEmpty()}
+        }
     }
     @Test fun actualReaderFontPanelAndListeningPanelsDoNotOverlap() {
         waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()

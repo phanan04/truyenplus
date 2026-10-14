@@ -102,7 +102,8 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     timer: Boolean, minutes: Int, audio: ListeningAudioState,
     onVoice: () -> Unit, onMusic: () -> Unit, onMusicEnabled: (Boolean) -> Unit, onMusicVolume: (Float) -> Unit,
     onPitch: (Float) -> Unit, onAutoNext: (Boolean) -> Unit, onHighlight: (Boolean) -> Unit, onAutoScroll: (Boolean) -> Unit,
-    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "", onDismiss:(()->Unit)?=null,onSpeechVolume:(Float)->Unit={},timerRemaining:String="",timerPaused:Boolean=false) {
+    onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "", onDismiss:(()->Unit)?=null,onSpeechVolume:(Float)->Unit={},timerRemaining:String="",timerPaused:Boolean=false,
+    highlightWords:Boolean=false,onHighlightWords:(Boolean)->Unit={}) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
     Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(20.dp)) {
@@ -160,12 +161,16 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
                         else Column {musicChoice();musicVolume()}
                     }
                     2 -> {
+                        val highlightStyles:@Composable ()->Unit={
+                            ReaderSettingsTabs(listOf(s.localize(Res.string.tp_highlight_sentence),s.localize(Res.string.tp_highlight_words)),
+                                listOf("sentence","words"),if(highlightWords)1 else 0,{onHighlightWords(it==1)},"listen-highlight")
+                        }
                         val followChoices:@Composable ()->Unit={
                         ReaderSettingSwitch(s.localize(Res.string.tp_auto_next),autoNext,onAutoNext)
                         ReaderSettingSwitch(s.localize(Res.string.tp_highlight_paragraph),highlight,onHighlight)
                         }
-                        if(wideShort)Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Column(Modifier.weight(1f)){followChoices()};Box(Modifier.weight(1f)){ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)}}
-                        else Column {followChoices();ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll)}
+                        if(wideShort)Row(horizontalArrangement=Arrangement.spacedBy(16.dp)){Column(Modifier.weight(1f)){followChoices()};Column(Modifier.weight(1f)){ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll);highlightStyles()}}
+                        else Column {followChoices();ReaderSettingSwitch(s.localize(Res.string.tp_follow_paragraph),autoScroll,onAutoScroll);highlightStyles()}
                     }
                     else -> {
                         val switch:@Composable ()->Unit={ReaderSettingSwitch(s.localize(Res.string.tp_sleep_timer),timer,onTimer)}
@@ -227,7 +232,7 @@ fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,on
                 }
             } else Row(Modifier.fillMaxWidth().height(56.dp),verticalAlignment=Alignment.CenterVertically) {
                 if(!chapterButtons)expand()
-                Column(Modifier.weight(1f).height(48.dp).clickable(onClick=onExpand).testTag(if(chapterButtons)"listen-expand" else "listen-status"),verticalArrangement=Arrangement.Center) {label()}
+                Column(Modifier.weight(1f).padding(start=12.dp).height(48.dp).clickable(onClick=onExpand).testTag(if(chapterButtons)"listen-expand" else "listen-status"),verticalArrangement=Arrangement.Center) {label()}
                 if(chapterButtons)previous();play();if(chapterButtons)next();settings();close()
             }
         }

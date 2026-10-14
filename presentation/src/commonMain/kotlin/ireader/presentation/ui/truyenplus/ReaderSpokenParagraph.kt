@@ -26,6 +26,14 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
     var previous by remember { mutableStateOf<IntRange?>(null) }
     var last by remember { mutableStateOf<IntRange?>(null) }
     val fade=remember { Animatable(1f) }
+    val word=context.wordRange(page,text)
+    val wordFade=remember {Animatable(1f)}
+    var previousWord by remember {mutableStateOf<IntRange?>(null)}
+    var lastWord by remember {mutableStateOf<IntRange?>(null)}
+    LaunchedEffect(word) {
+        previousWord=lastWord;lastWord=word
+        wordFade.snapTo(0f);wordFade.animateTo(1f,tween(100))
+    }
     LaunchedEffect(visibleRange) {
         previous=last;last=visibleRange
         fade.snapTo(0f);fade.animateTo(1f,tween(180))
@@ -40,7 +48,7 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
     }
     val decorated=modifier.drawWithContent {
         val result=layout
-        fun shade(range:IntRange?,alpha:Float) {
+        fun shade(range:IntRange?,alpha:Float,strength:Float=.11f) {
             if(result==null || range==null || range.isEmpty() || range.last>=text.length || alpha<=0)return
             val first=result.getLineForOffset(range.first);val end=result.getLineForOffset(range.last)
             for(line in first..end) {
@@ -51,11 +59,12 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
                 val right=result.getBoundingBox(until-1).right
                 val top=result.getLineTop(line)+2.dp.toPx()
                 val bottom=result.getLineBottom(line)-2.dp.toPx()
-                drawRoundRect(preferences.textColor.copy(alpha=.11f*alpha),Offset(left-2.dp.toPx(),top),
+                drawRoundRect(preferences.textColor.copy(alpha=strength*alpha),Offset(left-2.dp.toPx(),top),
                     Size((right-left).coerceAtLeast(1f)+4.dp.toPx(),(bottom-top).coerceAtLeast(1f)),CornerRadius(4.dp.toPx()))
             }
         }
         shade(previous,1f-fade.value);shade(visibleRange,fade.value)
+        shade(previousWord,1f-wordFade.value,.22f);shade(word,wordFade.value,.22f)
         if(result!=null && context.isHighlighted(page) && sentence==null) {
             drawCircle(preferences.textColor.copy(alpha=.35f),2.dp.toPx(),Offset(0f,result.getLineTop(0)+8.dp.toPx()))
         }

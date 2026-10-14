@@ -88,6 +88,9 @@ class AndroidNativeTTSEngineV2(private val context: Context) : TTSEngine, KoinCo
             override fun onRangeStart(utteranceId: String, start: Int, end: Int) {
                 _events.tryEmit(EngineEvent.RangeStarted(utteranceId,start,end))
             }
+            override fun onWordRangeStart(utteranceId: String, start: Int, end: Int) {
+                _events.tryEmit(EngineEvent.RangeStarted(utteranceId,start,end,isWordBoundary=true))
+            }
             override fun onStart(utteranceId: String) {
                 Log.warn { "$TAG: onStart($utteranceId)" }
                 _events.tryEmit(EngineEvent.Started(utteranceId))

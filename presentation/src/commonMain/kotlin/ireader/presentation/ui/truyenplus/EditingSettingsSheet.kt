@@ -28,7 +28,7 @@ import org.koin.compose.koinInject
     LaunchedEffect(settings) {
         try{config=settings.load()}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}
     }
-    ModalBottomSheet(onDismissRequest=onDismiss,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+    ReaderGlassSheet(onDismissRequest=onDismiss) {
         LazyColumn(Modifier.fillMaxWidth().imePadding().navigationBarsPadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             item {Text(localize(Res.string.tp_edit_settings),style=MaterialTheme.typography.headlineSmall)}
             item {Text(localize(Res.string.tp_edit_key_info),style=MaterialTheme.typography.bodySmall)}

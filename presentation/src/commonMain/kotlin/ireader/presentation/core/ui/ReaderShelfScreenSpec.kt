@@ -14,7 +14,7 @@ import ireader.presentation.ui.truyenplus.*
 class ReaderShelfScreenSpec {
     @Composable fun Content() {
         val navigator = requireNotNull(LocalNavigator.current)
-        ReaderBackdrop {
+        ReaderAppBackdrop {
             CompositionLocalProvider(LocalReaderDockInset provides 24.dp) {
                 Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                     ReaderContentPane(maxWidth = 900.dp) {

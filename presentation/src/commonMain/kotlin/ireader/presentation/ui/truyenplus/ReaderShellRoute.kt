@@ -104,8 +104,8 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val onSearch: ()->Unit = { destinationIndex=ReaderDestination.Library.ordinal; searchRequested=true; vm.setSearchMode(true) }
     var dockHeight by remember { mutableStateOf(100.dp) }
     val viewportDensity = androidx.compose.ui.platform.LocalDensity.current
+    CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp, LocalReaderNavigationBackdrop provides backdrop) {
     ReaderBackdrop {
-        CompositionLocalProvider(LocalReaderDockInset provides dockHeight + 16.dp, LocalReaderNavigationBackdrop provides backdrop) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
             Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
             ReaderContentPane {
@@ -158,7 +158,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                 dockHeight = with(viewportDensity) { it.height.toDp() }
             }) {
                 if (state.selectionMode) {
-                    Surface(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    Surface(shape = MaterialTheme.shapes.large, color=androidx.compose.ui.graphics.Color.Transparent, contentColor=MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth().padding(12.dp).readerPanel(24)) {
                         Column(Modifier.heightIn(max=LocalReaderViewport.current.height * .45f).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(12.dp)) {
                             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = vm::unselectAll) { Text(strings.localize(Res.string.tp_unselect)) }
@@ -202,7 +202,6 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                 }
             }
         }
-        }
     }
     if(showVoices && voiceStore!=null)ReaderVoiceManager(voiceStore,
         onSystem={showVoices=false;showSystemVoices=true},onDismiss={showVoices=false})
@@ -226,7 +225,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         vm.setShowImportPdfDialog(false)
         if (uris.isNotEmpty()) vm.importPdfFiles(uris.map { it.toString() })
     }
-    if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text(strings.localize(Res.string.tp_remove_title)) }, text = { Text(strings.localize(Res.string.tp_remove_count, state.selectedCount)) },
+    if (confirmRemove) ReaderGlassDialog(onDismissRequest = { confirmRemove = false }, title = { Text(strings.localize(Res.string.tp_remove_title)) }, text = { Text(strings.localize(Res.string.tp_remove_count, state.selectedCount)) },
         confirmButton = { TextButton(onClick = { val ids = state.selectedBookIds.toList(); scope.launch { vm.deleteUseCase.unFavoriteBook(ids); vm.unselectAll() }; confirmRemove = false }) { Text(strings.localize(Res.string.tp_remove_books)) } }, dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(strings.localize(Res.string.tp_cancel)) } })
     EditCategoriesDialog(vm = vm, showDialog = showCategories,
         categories = state.categories.filter { !it.category.isSystemCategory },
@@ -236,4 +235,5 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
         onAddDeleteQueue = { deleteQueue.addAll(it.toBookCategory(state.selectedBookIds.toList())) },
         onRemoteInInsertQueue = { category -> addQueue.removeAll { it.categoryId == category.id } },
         onRemoteInDeleteQueue = { category -> deleteQueue.removeAll { it.categoryId == category.id } })
+    }
 }

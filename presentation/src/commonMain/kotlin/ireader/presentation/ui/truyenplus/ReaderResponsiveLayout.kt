@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.*
 
 data class ReaderViewport(val width: Dp = 360.dp, val height: Dp = 800.dp, val fontScale: Float = 1f) {
@@ -31,9 +32,19 @@ fun ReaderContentPane(maxWidth: Dp = 1120.dp, content: @Composable () -> Unit) {
 
 /** Keep playback reachable while fixed settings pages fit the remaining height. */
 @Composable
-fun ReaderListeningDock(optionsOpen: Boolean, options: @Composable () -> Unit, player: @Composable () -> Unit) {
-    ReaderPaperTheme { Column(Modifier.widthIn(max=760.dp).fillMaxWidth().heightIn(max=(LocalReaderViewport.current.height-32.dp).coerceAtLeast(48.dp))) {
+fun ReaderListeningDock(optionsOpen: Boolean, options: @Composable () -> Unit, player: @Composable () -> Unit,
+    overlay: (@Composable () -> Unit)? = null) {
+    var playerHeight by remember { mutableStateOf(72.dp) }
+    val density=LocalDensity.current
+    val dock:@Composable ()->Unit={ Column(Modifier.widthIn(max=760.dp).fillMaxWidth().heightIn(max=(LocalReaderViewport.current.height-32.dp).coerceAtLeast(48.dp))) {
         if(optionsOpen) Box(Modifier.weight(1f,fill=false)) { options() }
-        player()
+        Box(Modifier.onSizeChanged {playerHeight=with(density){it.height.toDp()}}) {player()}
     } }
+    ReaderPaperTheme {
+        if(overlay==null)dock()
+        else Box(Modifier.fillMaxSize()) {
+            Box(Modifier.matchParentSize().padding(bottom=playerHeight)) {overlay()}
+            Box(Modifier.align(Alignment.BottomCenter)) {dock()}
+        }
+    }
 }

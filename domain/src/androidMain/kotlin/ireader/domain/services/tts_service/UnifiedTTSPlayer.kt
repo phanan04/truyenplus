@@ -39,6 +39,7 @@ interface TTSCallback {
     /** Called when TTS engine becomes ready to speak */
     fun onReady() {}
     fun onRangeStart(utteranceId: String, start: Int, end: Int) {}
+    fun onWordRangeStart(utteranceId: String, start: Int, end: Int) { onRangeStart(utteranceId,start,end) }
 }
 
 /**
@@ -164,7 +165,7 @@ class NativeTTSPlayer(
             }
 
             override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
-                emitRange(utteranceId,start,end)
+                emitRange(utteranceId,start,end,wordBoundary=true)
             }
             override fun onDone(utteranceId: String?) {
                 handleUtteranceDone(utteranceId)
@@ -199,7 +200,7 @@ class NativeTTSPlayer(
         val length = synchronized(utteranceLock) { activeUtterance?.chunks?.getOrNull(chunkIndex)?.length } ?: return
         emitRange(subId,0,length)
     }
-    private fun emitRange(subId:String?,start:Int,end:Int) {
+    private fun emitRange(subId:String?,start:Int,end:Int,wordBoundary:Boolean=false) {
         val (parent,index)=parseSubUtteranceId(subId) ?: return
         val range=synchronized(utteranceLock) {
             val active=activeUtterance?.takeIf {it.utteranceId==parent} ?: return@synchronized null
@@ -208,7 +209,10 @@ class NativeTTSPlayer(
             val until=(segment.start+end).coerceIn(from,segment.end)
             from to until
         } ?: return
-        if(range.second>range.first)scope.launch {callback?.onRangeStart(parent,range.first,range.second)}
+        if(range.second>range.first)scope.launch {
+            if(wordBoundary)callback?.onWordRangeStart(parent,range.first,range.second)
+            else callback?.onRangeStart(parent,range.first,range.second)
+        }
     }
 
     private fun handleUtteranceDone(subId: String?) {
