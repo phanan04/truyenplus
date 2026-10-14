@@ -2,7 +2,6 @@ package ireader.presentation.ui.reader
 
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
@@ -30,6 +29,7 @@ internal fun ContinuousReaderContent(
     modifier: Modifier = Modifier,
     lazyListState: LazyListState,
     onNext: () -> Unit,
+    contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(0.dp),
     onShowComments: (ireader.domain.models.entities.Chapter) -> Unit,
 ) {
     val readerState by vm.state.collectAsState()
@@ -96,9 +96,9 @@ internal fun ContinuousReaderContent(
         selectionMode = vm.isScrollIndicatorDraggable.value,
         rightSide = vm.scrollIndicatorAlignment.value == PreferenceValues.PreferenceTextAlignment.Right,
     ) {
-        LazyColumn(
-            modifier = modifier.fillMaxSize(),
-            state = lazyListState,
+        ReaderScrollViewport(
+            modifier = modifier,
+            state = lazyListState, contentPadding = contentPadding,
         ) {
             // Render ONLY the current chapter's content
             items(

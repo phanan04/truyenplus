@@ -101,6 +101,7 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
     onSettings: () -> Unit, modifier: Modifier = Modifier, onListen: (() -> Unit)? = null,
     backgroundColor: Color = MaterialTheme.colorScheme.surface, textColor: Color = MaterialTheme.colorScheme.onSurface, bookTitle: String = "", onEdit: (() -> Unit)? = null) {
     var moreOpen by remember { mutableStateOf(false) }
+    ireader.presentation.ui.truyenplus.ReaderPaperTheme(backgroundColor,textColor) {
     Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp,vertical=6.dp),contentAlignment=Alignment.TopCenter) {
         Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(56.dp).testTag("reader-top-capsule"),
             verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -128,5 +129,6 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
                 }
             }
         }
+    }
     }
 }

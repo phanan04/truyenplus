@@ -65,15 +65,30 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
                     Text(s.localize(Res.string.tp_listening_next),style=MaterialTheme.typography.labelSmall,maxLines=1)
                 }
             }
-            val density=LocalDensity.current
-            val speedScroll=rememberScrollState(initial=with(density){100.dp.roundToPx()})
-            Row(Modifier.fillMaxWidth().horizontalScroll(speedScroll).padding(vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                for(step in 2..8) {
-                    val value=step*.25f;val selected=kotlin.math.abs(speed-value)<.01f
-                    Surface(onClick={onSpeed(value)},shape=RoundedCornerShape(14.dp),color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
-                        contentColor=if(selected)colors.surface else colors.onSurface,
-                        modifier=Modifier.width((48f*density.fontScale.coerceAtLeast(1f)).dp).height(48.dp).semantics {this.selected=selected}) {
-                        Box(contentAlignment=Alignment.Center){Text(listeningSpeedLabel(value),fontSize=12.sp,maxLines=1,softWrap=false,fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)}
+            BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical=4.dp)) {
+                val fontScale=LocalDensity.current.fontScale.coerceAtLeast(1f)
+                val columns=((maxWidth.value+4f)/(48f*fontScale+4f)).toInt().coerceIn(1,7)
+                val rowCount=(7+columns-1)/columns
+                val values=(2..8).toList()
+                Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    repeat(rowCount) { row ->
+                        val first=(row*7+rowCount-1)/rowCount
+                        val end=((row+1)*7+rowCount-1)/rowCount
+                        val steps=values.subList(first,end)
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                            steps.forEach { step ->
+                                val value=step*.25f;val selected=kotlin.math.abs(speed-value)<.01f
+                                Surface(onClick={onSpeed(value)},shape=RoundedCornerShape(14.dp),
+                                    color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
+                                    contentColor=if(selected)colors.surface else colors.onSurface,
+                                    modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-$step").semantics {this.selected=selected}) {
+                                    Box(contentAlignment=Alignment.Center) {
+                                        Text(listeningSpeedLabel(value),fontSize=12.sp,maxLines=1,softWrap=false,
+                                            fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -90,7 +105,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     onTimer: (Boolean) -> Unit, onMinutes: (Int) -> Unit, notice: String = "", onDismiss:(()->Unit)?=null,onSpeechVolume:(Float)->Unit={},timerRemaining:String="",timerPaused:Boolean=false) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,shape=RoundedCornerShape(20.dp)) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(20.dp)) {
         Column {
             Row(Modifier.fillMaxWidth().height(48.dp).padding(start=18.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically) {
                 Text(s.localize(Res.string.tp_listening_settings),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
@@ -183,7 +198,7 @@ fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,on
     val colors=MaterialTheme.colorScheme
     Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(22)
         .clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() },indication=null,onClick=onExpand)
-        .testTag("listen-compact-toggle"),shape=RoundedCornerShape(22.dp),color=Color.Transparent) {
+        .testTag("listen-compact-toggle"),shape=RoundedCornerShape(22.dp),color=Color.Transparent,contentColor=colors.onSurface) {
         BoxWithConstraints(Modifier.testTag("listen-collapsed").padding(horizontal=4.dp)) {
             val chapterButtons=onPrevious!=null && onNext!=null
             val narrow=chapterButtons && maxWidth<300.dp
@@ -206,11 +221,14 @@ fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,on
             }
             if(narrow) Column {
                 Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {expand();Column(Modifier.weight(1f)){label()};close()}
-                Row(Modifier.fillMaxWidth().height(48.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {previous();play();next();settings()}
+                Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f),horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically) {previous();play();next()}
+                    settings()
+                }
             } else Row(Modifier.fillMaxWidth().height(56.dp),verticalAlignment=Alignment.CenterVertically) {
-                if(chapterButtons)previous() else expand()
+                if(!chapterButtons)expand()
                 Column(Modifier.weight(1f).height(48.dp).clickable(onClick=onExpand).testTag(if(chapterButtons)"listen-expand" else "listen-status"),verticalArrangement=Arrangement.Center) {label()}
-                play();if(chapterButtons)next();settings();close()
+                if(chapterButtons)previous();play();if(chapterButtons)next();settings();close()
             }
         }
     }

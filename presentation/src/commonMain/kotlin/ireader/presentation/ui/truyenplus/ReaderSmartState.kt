@@ -34,3 +34,12 @@ data class ReaderSentenceTarget(val page:Int,val bounds:Rect)
         }
     }
 }
+
+/** Screen coordinates, excluding only the actual floating controls. */
+internal fun readerFollowScrollDelta(top:Float,bottom:Float,height:Float,topInset:Float,bottomInset:Float):Float? {
+    val start=topInset.coerceAtLeast(0f)
+    val end=height-bottomInset.coerceAtLeast(0f)
+    val available=end-start
+    if(available<80f)return null
+    return if(top<start+available*.2f || bottom>end-available*.22f)top-(start+available*.28f) else null
+}

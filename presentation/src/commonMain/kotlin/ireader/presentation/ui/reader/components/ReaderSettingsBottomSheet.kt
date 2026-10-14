@@ -31,8 +31,7 @@ fun ReaderSettingsBottomSheet(modifier: Modifier = Modifier, vm: ReaderScreenVie
     val background = vm.backgroundColor.value.toComposeColor()
     val ink = vm.textColor.value.toComposeColor()
     IBackHandler(enabled=true) { onDismiss() }
-    MaterialTheme(colorScheme=MaterialTheme.colorScheme.copy(surface=background,background=background,onSurface=ink,onBackground=ink,
-        onSurfaceVariant=ink.copy(alpha=.7f),outline=ink.copy(alpha=.2f))) {
+    ReaderPaperTheme(background,ink) {
         ReaderAppearanceOverlay(onDismiss=onDismiss,background=background,ink=ink) {
             Column(Modifier.fillMaxWidth()) {
                 ReaderAppearanceContent(

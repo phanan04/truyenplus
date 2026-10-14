@@ -101,6 +101,7 @@ fun ReaderText(
     onChapterShown: (chapter: Chapter) -> Unit,
     onShowComments: (chapter: Chapter) -> Unit,
     onOpenDrawer: () -> Unit = {},
+    contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(0.dp),
     onCopyModeDone: ((ireader.domain.models.quote.QuoteCreationParams) -> Unit)? = null,
 ) {
     val mode = if (ireader.presentation.ui.truyenplus.LocalReaderListening.current != null) ReadingMode.Continues else vm.readingMode.value
@@ -333,11 +334,15 @@ fun ReaderText(
         // Use lazyValue for immediate UI updates during slider drag
         val refreshTriggerPx = with(androidx.compose.ui.platform.LocalDensity.current) { 80.dp.toPx() }
 
+        val scrollPadding=androidx.compose.foundation.layout.PaddingValues(
+            top=contentPadding.calculateTopPadding()+vm.topMargin.lazyValue.dp,
+            bottom=contentPadding.calculateBottomPadding()+vm.bottomMargin.lazyValue.dp)
         Box(
             modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max=840.dp)
+                .then(if(mode==ReadingMode.Page) Modifier.padding(contentPadding) else Modifier)
                 .padding(
-                    top = vm.topMargin.lazyValue.dp,
-                    bottom = vm.bottomMargin.lazyValue.dp,
+                    top = if(mode==ReadingMode.Page) vm.topMargin.lazyValue.dp else 0.dp,
+                    bottom = if(mode==ReadingMode.Page) vm.bottomMargin.lazyValue.dp else 0.dp,
                     start = vm.leftMargin.lazyValue.dp,
                     end = vm.rightMargin.lazyValue.dp
                 )
@@ -518,6 +523,7 @@ fun ReaderText(
                                     vm = vm,
                                     modifier = Modifier,
                                     lazyListState = lazyListState,
+                                    contentPadding = scrollPadding,
                                     onNext = onNext,
                                     onShowComments = onShowComments
                                 )
@@ -528,6 +534,7 @@ fun ReaderText(
                                     vm = vm,
                                     modifier = Modifier,
                                     lazyListState = lazyListState,
+                                    contentPadding = scrollPadding,
                                     onNext = onNext,
                                     onShowComments = onShowComments
                                 )

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +43,7 @@ fun InfiniteScrollReaderContent(
     modifier: Modifier = Modifier,
     lazyListState: LazyListState,
     onNext: () -> Unit,
+    contentPadding: androidx.compose.foundation.layout.PaddingValues = androidx.compose.foundation.layout.PaddingValues(0.dp),
     onShowComments: (chapter: Chapter) -> Unit,
 ) {
     val readerState by vm.state.collectAsState()
@@ -192,9 +192,9 @@ fun InfiniteScrollReaderContent(
 
     val preferences = rememberReaderTextPreferencesState(vm)
 
-    LazyColumn(
-        state = lazyListState,
-        modifier = modifier.fillMaxSize(),
+    ReaderScrollViewport(
+        state = lazyListState, contentPadding = contentPadding,
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         items(

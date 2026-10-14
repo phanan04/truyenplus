@@ -326,9 +326,9 @@ private fun ReadingScreenContent(
                                 .fillMaxSize()
                                 .readerNavigationSource(LocalReaderNavigationBackdrop.current)
                                 .background(backgroundColor)
-                                .padding(paddingValues)
                         ) {
                             ReaderText(
+                                contentPadding = paddingValues,
                                 vm = readerScreenPreferencesState,
                                 onNext = onNextWithoutReset,
                                 swipeState = swipeState,

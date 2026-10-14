@@ -15,6 +15,10 @@ import ireader.domain.services.tts_service.v2.TTSCommand
 import ireader.domain.services.tts_service.v2.TTSController
 import ireader.domain.services.tts_service.v2.TTSV2ServiceStarter
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toPixelMap
+import ireader.domain.preferences.prefs.AppPreferences
+import ireader.domain.models.common.DomainColor
 import kotlinx.coroutines.runBlocking
 import org.junit.*
 import org.junit.rules.TestRule
@@ -25,13 +29,19 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class ReaderUiDeviceTest {
-    @get:Rule(order=0) val seed = TestRule { base, _ -> object:Statement() {
+    @get:Rule(order=0) val seed = TestRule { base, description -> object:Statement() {
         override fun evaluate() {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
             koin.get<UiPreferences>().apply {hasCompletedOnboarding().set(true);hasCompletedFirstLaunch().set(true);language().set("vi")}
             koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true)}
+            if(description.methodName=="pageThemeOverridesAppThemeAndChromeDoesNotClipChapter") {
+                koin.get<UiPreferences>().apply {readerAppearance().set("dark");readerFollowsAppearance().set(false)}
+                koin.get<AppPreferences>().apply {
+                    backgroundColorReader().set(DomainColor(1f,1f,1f));textColorReader().set(DomainColor(0f,0f,0f))
+                }
+            }
             runBlocking {
                 val id=koin.get<BookRepository>().upsert(Book(id=888100,sourceId=-200,title="Kiểm tra đọc và nghe",key="qa-ui",favorite=true,initialized=true))!!
                 val chapters=(1..3).map {i->Chapter(id=888100+i.toLong(),bookId=id,key="qa-ui-$i",name="Chương $i: Gió đêm",
@@ -59,6 +69,53 @@ class ReaderUiDeviceTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val out=File(context.getExternalFilesDir(null),"qa-screens/$name.png").apply {parentFile!!.mkdirs()}
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(out)
+    }
+    @Test fun pageThemeOverridesAppThemeAndChromeDoesNotClipChapter() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls()
+        ui.onRoot().performTouchInput {swipe(Offset(width/2f,height*.55f),Offset(width/2f,height*.28f),500)}
+        wakeControls()
+        val header=ui.onNodeWithTag("reader-top-capsule").fetchSemanticsNode().boundsInRoot
+        val paragraphs=ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes()
+        Assert.assertTrue("Floating header clips the chapter",paragraphs.any{it.boundsInRoot.top<header.bottom && it.boundsInRoot.height>0})
+        ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+        ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
+        fun assertTitleInk(light:Boolean) {
+            val pixels=ui.onNodeWithText("chỉnh nghe",substring=true).captureToImage().toPixelMap()
+            var ink=0
+            for(y in 0 until pixels.height)for(x in 0 until pixels.width) {
+                val l=pixels[x,y].luminance()
+                if(if(light) l>.75f else l<.1f)ink++
+            }
+            Assert.assertTrue("Settings title has incorrect ink",ink>8)
+        }
+        assertTitleInk(false);shot("chrome-white-app-dark-options")
+        ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close")
+        ui.onNodeWithTag("listen-options-close").assertDoesNotExist();shot("chrome-white-app-dark-font")
+        ui.onNodeWithTag("reader-appearance-close").performClick();waitTag("listen-settings")
+        ui.runOnIdle {
+            val koin=GlobalContext.get()
+            koin.get<UiPreferences>().readerAppearance().set("light")
+            koin.get<AppPreferences>().apply {
+                backgroundColorReader().set(DomainColor(.09f,.095f,.1f));textColorReader().set(DomainColor(1f,1f,1f))
+            }
+        }
+        ui.waitForIdle()
+        ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
+        assertTitleInk(true);shot("chrome-dark-app-light-options")
+        ui.onNodeWithTag("listen-options-close").performClick();waitTag("listen-expanded-toggle")
+        for(step in 2..8)ui.onNodeWithTag("listen-speed-$step").assertIsDisplayed()
+        shot("chrome-dark-app-light-expanded")
+        ui.onNodeWithTag("listen-expanded-toggle").performTouchInput {click(Offset(width/2f,4f))}
+        waitTag("listen-compact-previous")
+        val previous=ui.onNodeWithTag("listen-compact-previous").fetchSemanticsNode().boundsInRoot
+        val play=ui.onNodeWithTag("listen-play").fetchSemanticsNode().boundsInRoot
+        val next=ui.onNodeWithTag("listen-compact-next").fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue(kotlin.math.abs(previous.right-play.left)<=3f)
+        Assert.assertTrue(kotlin.math.abs(play.right-next.left)<=3f)
+        ui.onRoot().performTouchInput {swipe(Offset(width/2f,height*.5f),Offset(width/2f,height*.3f),500)}
+        waitTag("reader-return-to-speech");shot("chrome-dark-app-light-compact-return")
     }
     @Test fun actualReaderFontPanelAndListeningPanelsDoNotOverlap() {
         waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()

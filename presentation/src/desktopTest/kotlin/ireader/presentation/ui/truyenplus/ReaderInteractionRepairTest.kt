@@ -75,15 +75,15 @@ class ReaderInteractionRepairTest {
                 }
             }.use { scene ->
                 scene.render(0);scene.render(1_000_000_000)
-                val panel=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-panel"}.boundsInRoot
-                val player=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-collapsed"}.boundsInRoot
+                val panel=(nodes(scene).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-panel"} ?: error("Missing appearance panel")).boundsInRoot
+                val player=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-compact-toggle"}.boundsInRoot
                 assertTrue(panel.bottom<=player.top,"Panel overlaps listening: $panel vs $player")
                 for((i,page) in listOf("text","spacing","colors","scroll").withIndex()) {
                     click(scene,"appearance-page-$page");scene.render((i+2L)*1_000_000_000);scene.render((i+2L)*1_000_000_000+500_000_000)
                     assertFalse(nodes(scene).any {it.config.getOrNull(SemanticsProperties.VerticalScrollAxisRange)!=null})
                     if(page=="spacing") {
                         for(tag in listOf("reader-line-increase","reader-margin-increase","reader-mode-page")) {
-                            val b=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)==tag}.boundsInRoot
+                            val b=(nodes(scene).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)==tag} ?: error("Missing $tag; present: "+nodes(scene).mapNotNull{it.config.getOrNull(SemanticsProperties.TestTag)})).boundsInRoot
                             assertTrue(b.height>=47f && b.bottom<=panel.bottom,"Clipped $tag: $b in $panel")
                         }
                     }
@@ -102,5 +102,5 @@ class ReaderInteractionRepairTest {
         fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
         return scene.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
     }
-    private fun click(scene:ImageComposeScene,tag:String) { nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)==tag}.config[SemanticsActions.OnClick].action!!.invoke() }
+    private fun click(scene:ImageComposeScene,tag:String) { (nodes(scene).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)==tag} ?: error("Missing $tag; present: "+nodes(scene).mapNotNull{it.config.getOrNull(SemanticsProperties.TestTag)})).config[SemanticsActions.OnClick].action!!.invoke() }
 }
