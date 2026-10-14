@@ -139,15 +139,15 @@
     <string name="tp_books_shown">%1$d books shown</string>
     <string name="tp_books_selected">%1$d books selected</string>
     <string name="tp_streak_days">%1$d days</string>
-    <string name="tp_book_percent">%1$d/%2$d chapters · %3$d%%</string>
+    <string name="tp_book_percent">%1$d/%2$d chapters · %3$s</string>
     <string name="tp_remove_count">Remove %1$d selected books from your library.</string>
     <string name="tp_speed">Speed · %1$s×</string>
     <string name="tp_pitch">Pitch · %1$s×</string>
     <string name="tp_minutes">%1$d minutes</string>
-    <string name="tp_book_summary">%1$d chapters · %2$d%% read</string>
+    <string name="tp_book_summary">%1$d chapters · %2$s read</string>
     <string name="tp_version">Truyện+ · Version %1$s</string>
     <string name="tp_new_version">Version %1$s available</string>
-    <string name="tp_downloading">Downloading · %1$d%%</string>
+    <string name="tp_downloading">Downloading · %1$s</string>
     <string name="tp_source_date">Source data: %1$s</string>
     <string name="tp_novels_count">%1$d novels · via novel-tracker</string>
     <string name="tp_no_source_data">No data from %1$s yet.</string>
@@ -284,7 +284,7 @@
     <string name="tp_metadata_online">Find on TruyenFull · Internet</string>
     <string name="tp_metadata_updated">Book information updated; reading progress kept.</string>
     <string name="tp_metadata_failed">No matching information. Check the EPUB or try the source later.</string>
-    <string name="tp_metadata_missing">This EPUB has no description. Update from an EPUB or a matching source.</string>
+    <string name="tp_metadata_missing">No description yet.</string>
     <string name="tp_metadata_source">Metadata source</string>
     <string name="tp_metadata_updating">Updating information…</string>
     <string name="tp_mode_system">System</string>

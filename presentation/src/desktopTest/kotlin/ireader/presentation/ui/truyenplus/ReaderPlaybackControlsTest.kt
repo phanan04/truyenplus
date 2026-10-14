@@ -21,7 +21,7 @@ class ReaderPlaybackControlsTest {
     }
     @Test fun offlineVoicesDoNotAdvertiseWordTimestampsAndUnknownSystemVoicesStayConditional() {
         assertEquals(ReaderWordTiming.SentenceOnly,readerWordTiming("Piper",false))
-        assertEquals(ReaderWordTiming.SentenceOnly,readerWordTiming("Supertonic 3 · 10",false))
+        assertEquals(ReaderWordTiming.SentenceOnly,readerWordTiming("VieNeu v3 Nano · Minh Quân",false))
         assertEquals(ReaderWordTiming.Conditional,readerWordTiming("Native Android TTS",false))
         assertEquals(ReaderWordTiming.Reported,readerWordTiming("Native Android TTS",true))
     }

@@ -102,11 +102,11 @@ import org.koin.compose.koinInject
  val incompleteSources=relevantSources.filter {it.pending || it.updatedAt==0L || operations[it.id]?.task==ShelfTask.Syncing}
  val list=rememberLazyListState()
  LaunchedEffect(requestSearch){if(requestSearch){focus.requestFocus();keyboard?.show();onSearchFocused()}}
- LaunchedEffect(query,selectedSource,offset){list.scrollToItem(0)}
+ LaunchedEffect(query,selectedSource,offset){list.requestScrollToItem(0)}
  Column(Modifier.fillMaxSize()) {
-  Row(Modifier.fillMaxWidth().padding(start=8.dp,end=12.dp,top=8.dp,bottom=8.dp).readerAppGlassCard(28),verticalAlignment=Alignment.CenterVertically) {
+  Row(Modifier.fillMaxWidth().padding(start=8.dp,end=12.dp,top=12.dp,bottom=12.dp),verticalAlignment=Alignment.CenterVertically) {
    IconButton(onClick=onLibrary,modifier=Modifier.size(48.dp).testTag("shelf-back")){Icon(Icons.Outlined.ChevronLeft,strings.localize(Res.string.tp_back))}
-   Text(strings.localize(Res.string.tp_shelf),Modifier.weight(1f),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.SemiBold)
+   Text(strings.localize(Res.string.tp_shelf),Modifier.weight(1f),style=MaterialTheme.typography.headlineLarge,fontFamily=androidx.compose.ui.text.font.FontFamily.Serif,fontWeight=FontWeight.SemiBold)
    IconButton(onClick={keyboard?.hide();manage=true},modifier=Modifier.size(48.dp).testTag("shelf-manage")){Icon(Icons.Outlined.Tune,strings.localize(Res.string.tp_shelf_sources))}
    IconButton(onClick=onAdd,modifier=Modifier.size(48.dp)){Icon(Icons.Outlined.Add,strings.localize(Res.string.tp_shelf_add))}
   }
@@ -116,8 +116,10 @@ import org.koin.compose.koinInject
    singleLine=true,placeholder={Text(strings.localize(Res.string.tp_shelf_search),maxLines=1,overflow=TextOverflow.Ellipsis)},leadingIcon={Icon(Icons.Outlined.Search,null)},
    trailingIcon={if(query.isNotEmpty())IconButton(onClick={onQuery("")}){Icon(Icons.Outlined.Close,strings.localize(Res.string.close))}},shape=CircleShape,
    colors=OutlinedTextFieldDefaults.colors(unfocusedBorderColor=Color.Transparent,focusedBorderColor=MaterialTheme.colorScheme.outline.copy(alpha=.4f)))
-  if(sources.size>1) ReaderChips(listOf(strings.localize(Res.string.tp_shelf_all_sources))+sources.map{it.name},sources.indexOfFirst{it.id==selectedSource}+1,
-   {onSource(if(it==0)null else sources[it-1].id)})
+  if(sources.isNotEmpty()) Box(Modifier.fillMaxWidth().padding(horizontal=12.dp)) {
+   ReaderCollectionPicker(listOf(strings.localize(Res.string.tp_shelf_all_sources))+sources.map{it.name},sources.indexOfFirst{it.id==selectedSource}+1,
+    {onSource(if(it==0)null else sources[it-1].id)},{keyboard?.hide();manage=true},strings.localize(Res.string.tp_shelf_sources))
+  }
   LazyColumn(state=list,modifier=Modifier.weight(1f).fillMaxWidth(),contentPadding=PaddingValues(start=20.dp,end=20.dp,top=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(12.dp)) {
    error?.let { failure ->item {
     Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -129,11 +131,6 @@ import org.koin.compose.koinInject
    } }
    if(query.isBlank()) {
     if(query.isBlank() && recentSearches.isNotEmpty())item {ReaderRecentSearches(recentSearches,{onQuery(it);onSearchSubmitted(it);keyboard?.hide()},onClearSearchHistory)}
-  if(sources.isNotEmpty())item{Text(strings.localize(Res.string.tp_shelf_sources),style=MaterialTheme.typography.labelLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)}
-    items(sources,key={"source:${it.id}"}) { source ->
-     ShelfSourceCard(source,operations[source.id],onRefresh,onRemove,onCancel,
-      onSelect={onSource(source.id);focus.requestFocus();keyboard?.show()})
-    }
     if(showConnect && sources.isNotEmpty())item { TextButton(onClick=onConnect){Text(strings.localize(Res.string.tp_shelf_connect))} }
     item {
      Column(Modifier.fillMaxWidth().padding(vertical=36.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {

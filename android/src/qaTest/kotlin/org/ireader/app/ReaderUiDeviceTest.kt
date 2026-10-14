@@ -326,4 +326,35 @@ class ReaderUiDeviceTest {
         shot("reading-large-system-font")
     }
 
+    @Test fun appleLibraryCollectionPickerAndBookActionsKeepUsableBounds() {
+        waitTag("nav-Library");ui.onNodeWithTag("nav-Library").performClick()
+        waitTag("library-collections");ui.onNodeWithTag("library-collections").performClick()
+        waitTag("collection-choice-0")
+        val row=ui.onNodeWithTag("collection-choice-0").fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("Collection picker touch area clipped: $row",row.height>=48*ui.activity.resources.displayMetrics.density)
+        shot("apple-collections")
+        ui.onNodeWithTag("collection-choice-0").performClick()
+        waitTag("library-book-888100");ui.onNodeWithTag("library-book-888100").performClick()
+        waitTag("book-read");ui.onNodeWithTag("book-read").assertIsEnabled().assertIsDisplayed()
+        ui.onNodeWithTag("book-listen").assertIsEnabled().assertIsDisplayed()
+        shot("apple-book-details")
+        ui.onAllNodesWithText("%%",substring=true).assertCountEquals(0)
+        ui.onNodeWithTag("book-read").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-settings").performClick();waitTag("appearance-page-colors")
+        ui.onNodeWithTag("appearance-page-colors").performClick()
+        waitTag("reader-paper-next")
+        val pane=ui.onNodeWithTag("reader-appearance-panel").fetchSemanticsNode().boundsInRoot
+        for(tag in listOf("reader-paper-next","reader-paper-options")) {
+            val n=ui.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+            Assert.assertTrue("Paper control clipped: $tag $n / $pane",n.bottom<=pane.bottom && n.height>=48*ui.activity.resources.displayMetrics.density)
+        }
+        shot("apple-reading-paper-palette")
+        ui.onNodeWithTag("reader-paper-next").performClick()
+        shot("apple-reading-paper-palette-more")
+        ui.onNodeWithTag("reader-paper-options").performClick()
+        ui.onNodeWithContentDescription("Độ sáng tự động").assertIsDisplayed()
+        shot("apple-reading-paper-brightness")
+    }
+
 }

@@ -12,7 +12,7 @@ fun readerVoiceLabel(selection:ireader.domain.services.tts_service.v2.offline.Of
     if(selection==null || actualEngine=="Native Android TTS")return systemVoice
     if(actualEngine.isNotBlank())return actualEngine
     val model=ireader.domain.services.tts_service.v2.offline.OfflineVoiceCatalog.find(selection.modelId) ?: return systemVoice
-    return model.title+if(model.speakers>1)" · ${selection.speaker+1}" else ""
+    return model.title+if(model.speakers>1)" · "+(model.voiceNames.getOrNull(selection.speaker) ?: (selection.speaker+1).toString()) else ""
 }
 
 /** Reader ignores cache/timer ticks; word ranges are opt-in so other screens stay unchanged. */
@@ -40,7 +40,7 @@ fun Flow<TTSState>.readerControlUpdates():Flow<TTSState> = map {it.copy(
 
 enum class ReaderWordTiming { SentenceOnly, Conditional, Reported }
 fun readerWordTiming(engine:String,reported:Boolean):ReaderWordTiming = when {
-    engine.startsWith("Piper") || engine.startsWith("Supertonic 3")->ReaderWordTiming.SentenceOnly
+    engine.startsWith("Piper") || engine.startsWith("VieNeu v3 Nano")->ReaderWordTiming.SentenceOnly
     reported->ReaderWordTiming.Reported
     else->ReaderWordTiming.Conditional
 }

@@ -426,3 +426,15 @@ if (!taskRequests.contains("Fdroid", ignoreCase = true) &&
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
 }
+
+// Compile the preset-only VieNeu bridge from pinned native sources before packaging.
+val buildVieNeuNative by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    commandLine("python3",rootProject.file("scripts/build-vieneu-native.py").absolutePath)
+    inputs.dir(rootProject.file("native/vieneu"))
+    inputs.file(rootProject.file("scripts/build-vieneu-native.py"))
+    outputs.files(listOf("arm64-v8a","x86_64","armeabi-v7a","x86").flatMap {abi->
+        listOf("libsea_g2p_rs.so","libvieneu-nano-jni.so").map {name->file("src/main/jniLibs/$abi/$name")}
+    })
+}
+tasks.matching {it.name=="preBuild"}.configureEach {dependsOn(buildVieNeuNative)}

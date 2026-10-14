@@ -51,7 +51,7 @@ fun ReaderUpdateContent(version: String, endpoint: String, supported: Boolean, s
                         }
                         if (state.stage == ReaderUpdateStage.Downloading) {
                             LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
-                            Text(strings.localize(Res.string.tp_downloading, (state.progress * 100).toInt()), style = MaterialTheme.typography.bodySmall)
+                            Text(strings.localize(Res.string.tp_downloading, "${(state.progress * 100).toInt()}%"), style = MaterialTheme.typography.bodySmall)
                         }
                         if (state.stage == ReaderUpdateStage.Ready) Text(strings.localize(Res.string.tp_update_ready))
                     }

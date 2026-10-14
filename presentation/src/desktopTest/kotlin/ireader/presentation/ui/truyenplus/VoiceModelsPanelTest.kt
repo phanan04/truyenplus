@@ -69,6 +69,19 @@ class VoiceModelsPanelTest {
    assertEquals(piper.id,selected)
   }
  }
+ @Test fun theDefaultNanoSpeakerIsVisibleWhenTheVoicePanelOpens() {
+  val nano=OfflineVoiceCatalog.find("vieneu-v3-nano-vi")!!
+  ImageComposeScene(360,900,Density(1f)) {
+   CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+    MaterialTheme {VoiceModelsPanel(OfflineVoiceState(installed=setOf(nano.id)),false,false,{},{},{},{_,_->},{_,_->},{},{})}
+   }
+  }.use {scene->
+   scene.render(0);scene.render(1_000_000_000)
+   val selected=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)=="voice-speaker-${nano.id}-9"}
+   assertTrue(selected.config[SemanticsProperties.Selected])
+   assertTrue(selected.boundsInRoot.left>=0 && selected.boundsInRoot.right<=360 && selected.boundsInRoot.width>=48,"Default voice hidden: ${selected.boundsInRoot}")
+  }
+ }
  private fun nodes(scene:ImageComposeScene):List<SemanticsNode> {
   fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
   return scene.semanticsOwners.flatMap{all(it.rootSemanticsNode)}

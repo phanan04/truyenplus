@@ -1,3 +1,37 @@
+# Vietnamese offline TTS — current engines
+
+Truyện+ now offers Android system TTS, Piper VAIS1000 INT8 and VieNeu-TTS v3 Nano.
+Supertonic 3 has been removed from the app catalog and adapter. Its known model
+folder and saved selection are retired on upgrade; installing Nano is optional.
+
+## VieNeu v3 Nano
+
+- Official model revision: `aba295eb96a6fa6003ebe417cc1f2802a7adc1dc`.
+- 11 real preset names; 24 kHz mono, four ONNX graphs, 8 Euler steps, sway -1, CFG 3.
+- Optional download: 346,903,105 bytes including the sea-g2p dictionary and preset
+  tensors. Every file has a pinned size and SHA-256, then an atomic verified install.
+- No Python runtime, remote service, API key or voice-cloning models in Android.
+- Native C API from sea-g2p performs Vietnamese normalization and phonemization;
+  the existing ONNX Runtime library performs inference through a dedicated JNI adapter.
+- The shared worker serializes synthesis and previews; real AudioTrack playback
+  supplies sentence ranges, timer progress, completion and automatic next chapters.
+  Word timestamps are not synthesized or estimated.
+- Native source builds and toolchain requirements: `native/vieneu/README.md`.
+- Apache-2.0 upstream source/model, retained notices under assets/licenses.
+
+Two reference desktop runs produced real audio with Minh Quân and Ái Hân. On the
+current Intel Mac, initialization was 1.92 s and synthesis RTF was 0.34–0.37 on two
+CPU threads. This is a pipeline check, not a claim about Android or Tab A9 speed.
+Android QA verification passed on the API 36 emulator: official downloads and
+verified installation, actual AudioTrack playback with Ái Hân and Minh Quân,
+Vietnamese names/numbers, pause/resume at 2x and automatic chapter continuation.
+The names/numbers and pause/resume test also passed with Wi-Fi and mobile data
+disabled. These checks reject a silent fallback to system TTS. They establish
+integration and offline operation, not Tab A9 performance, sustained playback,
+battery use or subjective voice quality on physical devices.
+
+## Historical engine evaluation (before Nano replacement)
+
 # Vietnamese speech in Truyện+
 
 Android speech remains the default. Two optional, locally synthesized voices use the pinned Sherpa-ONNX 1.13.8 Android runtime. Models are downloaded separately; neither model is embedded in the APK. No API key or server is needed after installation.

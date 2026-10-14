@@ -77,22 +77,22 @@ class ReaderTtsDeviceTest {
         // Keep the verified model installed for the background lifecycle test.
     }
 
-    @Test fun supertonicVoicesReallyPlayThroughAudioTrack() = runBlocking<Unit> {
+    @Test fun vieneuVoicesReallyPlayThroughAudioTrack() = runBlocking<Unit> {
         requireQa()
         val model = OfflineVoiceCatalog.models.last()
         val store=GlobalContext.get().get<OfflineVoiceStore>()
         if(store.config(model.id)==null) {
             store.startDownload(model.id)
-            val result=withTimeout(300_000){store.state.first {model.id in it.installed || model.id in it.errors}}
-            assertFalse("Official Supertonic model download/install failed",model.id in result.errors)
+            val result=withTimeout(600_000){store.state.first {model.id in it.installed || model.id in it.errors}}
+            assertFalse("Official VieNeu Nano model download/install failed",model.id in result.errors)
         }
-        for (speaker in listOf(0, 9)) {
+        for (speaker in listOf(1, 9)) {
             val config = model.config(context.noBackupFilesDir.resolve("voices").absolutePath, speaker)
             val engine = TTSEngineFactory.createOfflineEngine(config)!!
             try {
                 ready(engine)
                 assertTrue(engine.name.startsWith(model.title))
-                speakAndCheck(engine, "Chào bạn, đây là giọng đọc tiếng Việt.", "qa-supertonic-$speaker")
+                speakAndCheck(engine, "Chào bạn, đây là giọng đọc tiếng Việt.", "qa-vieneu-$speaker")
                 assertTrue("Fallback must not pass", engine.name.startsWith(model.title))
             } finally { engine.release() }
         }
@@ -157,4 +157,46 @@ class ReaderTtsDeviceTest {
             screenScope.cancel();store.select(null)
         }
     }
+    @Test fun vieneuKeepsVietnameseNamesNumbersAndPlaybackAfterPauseOffline() = runBlocking<Unit> {
+        requireQa()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        val model=OfflineVoiceCatalog.find("vieneu-v3-nano-vi")!!
+        check(store.config(model.id,9)!=null){"Run Nano download test first"}
+        val engine=TTSEngineFactory.createOfflineEngine(store.config(model.id,9)!!)!!
+        try {
+            ready(engine);assertTrue(engine.name.startsWith(model.title))
+            speakAndCheck(engine,"Hoàng Yên Trần khẽ gật đầu. Chương 273: Luận Kiếm Thiếp.","qa-nano-names")
+            engine.speak("Đây là đoạn được hủy khi giọng đọc đang chuẩn bị âm thanh.","qa-nano-cancel")
+            delay(120);engine.pause();delay(300)
+            engine.setSpeed(2f)
+            speakAndCheck(engine,"Gió đêm thổi qua, mang hương hoa thoang thoảng.","qa-nano-resume")
+            assertTrue("System fallback must not pass",engine.name.startsWith(model.title))
+        } finally {engine.release();store.select(null)}
+    }
+
+    @Test fun vieneuControllerContinuesToTheNextChapter() = runBlocking<Unit> {
+        requireQa()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        assertTrue(store.select("vieneu-v3-nano-vi",9))
+        val book=Book(id=910001,sourceId=-1,title="QA Nano",key="qa-nano")
+        val first=Chapter(id=910002,bookId=book.id,key="qa-nano-1",name="Chương 1")
+        val second=first.copy(id=910003,key="qa-nano-2",name="Chương 2")
+        val loader=object:TTSContentLoader {
+            override suspend fun loadChapter(bookId:Long,chapterId:Long)=TTSContentLoader.ChapterContent(book,
+                if(chapterId==first.id)first else second,listOf("Hoàng Yên Trần khẽ gật đầu."),listOf(0))
+            override suspend fun getNextChapterId(bookId:Long,currentChapterId:Long)=if(currentChapterId==first.id)second.id else null
+            override suspend fun getPreviousChapterId(bookId:Long,currentChapterId:Long)=if(currentChapterId==second.id)first.id else null
+            override fun subscribeChapters(bookId:Long)=flowOf(listOf(first,second))
+        }
+        val controller=TTSController(loader,{TTSEngineFactory.createNativeEngine()})
+        try {
+            controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.SetAutoNextChapter(true))
+            controller.dispatch(TTSCommand.LoadChapter(book.id,first.id))
+            withTimeout(30_000){controller.state.first {it.hasContent && it.isEngineReady}}
+            controller.dispatch(TTSCommand.Play)
+            withTimeout(90_000){controller.state.first {it.chapter?.id==second.id && it.isPlaying}}
+            assertTrue("Fallback must not pass",controller.state.value.engineName.startsWith("VieNeu v3 Nano"))
+        } finally {controller.dispatch(TTSCommand.Cleanup);store.select(null)}
+    }
+
 }

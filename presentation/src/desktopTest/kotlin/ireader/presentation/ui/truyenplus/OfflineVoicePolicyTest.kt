@@ -6,13 +6,13 @@ import kotlin.test.*
 class OfflineVoicePolicyTest {
  @Test fun onlyVerifiedVietnameseModelsAndValidSpeakerSelectionsAreAllowed() {
   val piper=OfflineVoiceCatalog.models.first {it.family==OfflineVoiceFamily.Piper}
-  val supertonic=OfflineVoiceCatalog.models.first {it.family==OfflineVoiceFamily.Supertonic}
+  val nano=OfflineVoiceCatalog.models.first {it.family==OfflineVoiceFamily.VieNeuNano}
   assertTrue(piper.archiveBytes<25_000_000)
   assertTrue(piper.sha256.matches(Regex("[a-f0-9]{64}")))
   assertEquals(1,piper.speakers)
   assertFailsWith<IllegalArgumentException>{piper.config("/models",1)}
-  assertEquals(9,supertonic.config("/models",9).speaker)
-  assertFailsWith<IllegalArgumentException>{supertonic.config("/models",10)}
+  assertEquals(9,nano.config("/models",9).speaker)
+  assertFailsWith<IllegalArgumentException>{nano.config("/models",11)}
  }
  @Test fun archivePathsCannotEscapeTheExpectedModelFolder() {
   val root="model"

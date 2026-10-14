@@ -103,16 +103,22 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
                     } else Column {lines();paragraphs();margins();modes()}
                 }
                 2 -> {
-                    val themeControls:@Composable ()->Unit={
-                        LazyRowThemes(state,actions.onTheme)
+                    var options by remember {mutableStateOf(false)}
+                    ireader.presentation.core.ui.PlatformBackHandler(options){options=false}
+                    if(options)Column {
+                        Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                            IconButton(onClick={options=false},modifier=Modifier.size(48.dp).testTag("reader-paper-options-back")) {Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_back))}
+                            Text(s.localize(Res.string.tp_reader_brightness),style=MaterialTheme.typography.titleMedium)
+                        }
                         ReaderSettingSwitch(s.localize(Res.string.tp_follow_appearance),state.followAppearance,actions.onFollowAppearance)
-                    }
-                    val brightnessControls:@Composable ()->Unit={
                         ReaderSettingSwitch(s.localize(Res.string.tp_reader_auto_brightness),state.autoBrightness,actions.onAutoBrightness)
-                        Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f,enabled=!state.autoBrightness,modifier=Modifier.height(48.dp).semantics {contentDescription=s.localize(Res.string.tp_reader_brightness)})
+                        if(!state.autoBrightness)Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f,
+                            modifier=Modifier.height(48.dp).semantics {contentDescription=s.localize(Res.string.tp_reader_brightness)})
+                    } else ReaderThemePalette(state.themes,state.themeId,actions.onTheme) {
+                        TextButton(onClick={options=true},modifier=Modifier.heightIn(min=48.dp).testTag("reader-paper-options")) {
+                            Icon(Icons.Default.Brightness6,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp));Text(s.localize(Res.string.tp_reader_brightness))
+                        }
                     }
-                    if(shortWide) Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {Column(Modifier.weight(1f)){themeControls()};Column(Modifier.weight(1f)){brightnessControls()}}
-                    else Column {themeControls();brightnessControls()}
                 }
                 else -> Column {
                     ReaderSettingSwitch(s.localize(Res.string.auto_scroll),state.scrollEnabled,actions.onScrollEnabled,Modifier.testTag("reader-scroll-toggle"))
@@ -140,15 +146,34 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
     }
 }
 
-@Composable private fun LazyRowThemes(state: ReaderAppearanceUi, select: (Long) -> Unit) {
-    val s = requireNotNull(LocalLocalizeHelper.current)
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        state.themes.forEachIndexed { index, theme ->
-            Surface(onClick = { select(theme.id) }, shape = CircleShape, color = theme.backgroundColor.toComposeColor(), contentColor = theme.onTextColor.toComposeColor(),
-                border = BorderStroke(if (state.themeId==theme.id) 2.dp else 1.dp, if (state.themeId==theme.id) ReaderControlAccent else theme.onTextColor.toComposeColor().copy(alpha=.5f)),
-                modifier = Modifier.size(48.dp).testTag("reader-theme-${theme.id}").semantics { selected = state.themeId==theme.id; contentDescription = "${s.localize(Res.string.tp_background_tab)} ${index+1}" }) {
-                Box(contentAlignment = Alignment.Center) { Text("T", style = MaterialTheme.typography.titleLarge) }
+/** All page papers stay visible, like the Apple Books theme palette, without a horizontal hunt. */
+@Composable internal fun ReaderThemePalette(themes:List<ReaderColors>,selectedId:Long,select:(Long)->Unit,
+    controls:(@Composable RowScope.()->Unit)?=null) {
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    val pages=themes.chunked(8)
+    var page by remember(themes,selectedId) {mutableIntStateOf((themes.indexOfFirst {it.id==selectedId}.coerceAtLeast(0)/8))}
+    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        pages.getOrNull(page).orEmpty().chunked(4).forEach {row->
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                row.forEach {theme->
+                    Surface(onClick={select(theme.id)},shape=RoundedCornerShape(14.dp),
+                        color=theme.backgroundColor.toComposeColor(),contentColor=theme.onTextColor.toComposeColor(),
+                        border=BorderStroke(if(selectedId==theme.id)2.dp else 1.dp,theme.onTextColor.toComposeColor().copy(alpha=if(selectedId==theme.id).85f else .2f)),
+                        modifier=Modifier.weight(1f).heightIn(min=56.dp).testTag("reader-theme-${theme.id}")
+                            .semantics {selected=selectedId==theme.id;contentDescription="${s.localize(Res.string.tp_background_tab)} ${themes.indexOf(theme)+1}"}) {
+                        Box(Modifier.padding(8.dp),contentAlignment=Alignment.Center) {Text("Aa",style=MaterialTheme.typography.titleMedium)}
+                    }
+                }
+                repeat(4-row.size){Spacer(Modifier.weight(1f))}
             }
+        }
+        if(pages.size>1 || controls!=null)Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+            if(pages.size>1) {
+                IconButton(onClick={page--},enabled=page>0,modifier=Modifier.size(48.dp).testTag("reader-paper-previous")) {Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_shelf_previous))}
+                Text("${page+1}/${pages.size}",style=MaterialTheme.typography.labelMedium)
+                IconButton(onClick={page++},enabled=page<pages.lastIndex,modifier=Modifier.size(48.dp).testTag("reader-paper-next")) {Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_shelf_next))}
+            }
+            Spacer(Modifier.weight(1f));controls?.invoke(this)
         }
     }
 }

@@ -139,15 +139,15 @@
     <string name="tp_books_shown">%1$d sách đang hiển thị</string>
     <string name="tp_books_selected">Đã chọn %1$d sách</string>
     <string name="tp_streak_days">%1$d ngày</string>
-    <string name="tp_book_percent">%1$d/%2$d chương · %3$d%%</string>
+    <string name="tp_book_percent">%1$d/%2$d chương · %3$s</string>
     <string name="tp_remove_count">Gỡ %1$d sách đã chọn khỏi thư viện.</string>
     <string name="tp_speed">Tốc độ · %1$s×</string>
     <string name="tp_pitch">Cao độ · %1$s×</string>
     <string name="tp_minutes">%1$d phút</string>
-    <string name="tp_book_summary">%1$d chương · %2$d%% đã đọc</string>
+    <string name="tp_book_summary">%1$d chương · %2$s đã đọc</string>
     <string name="tp_version">Truyện+ · Phiên bản %1$s</string>
     <string name="tp_new_version">Có phiên bản %1$s</string>
-    <string name="tp_downloading">Đang tải · %1$d%%</string>
+    <string name="tp_downloading">Đang tải · %1$s</string>
     <string name="tp_source_date">Dữ liệu nguồn: %1$s</string>
     <string name="tp_novels_count">%1$d truyện · qua novel-tracker</string>
     <string name="tp_no_source_data">Chưa có dữ liệu của %1$s.</string>
@@ -284,7 +284,7 @@
     <string name="tp_metadata_online">Tìm trên TruyenFull · Internet</string>
     <string name="tp_metadata_updated">Đã cập nhật thông tin, giữ nguyên tiến độ đọc.</string>
     <string name="tp_metadata_failed">Chưa có thông tin khớp. Kiểm tra tệp EPUB hoặc thử nguồn sau.</string>
-    <string name="tp_metadata_missing">EPUB chưa có giới thiệu. Có thể cập nhật từ tệp EPUB hoặc nguồn khớp.</string>
+    <string name="tp_metadata_missing">Chưa có giới thiệu.</string>
     <string name="tp_metadata_source">Nguồn thông tin</string>
     <string name="tp_metadata_updating">Đang cập nhật thông tin…</string>
     <string name="tp_mode_system">Hệ thống</string>

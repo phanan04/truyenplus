@@ -22,6 +22,9 @@ class AndroidOfflineVoiceStore(context:Context,private val preferences:AppPrefer
     private val mutableState=MutableStateFlow(OfflineVoiceState(installed=installed(),selection=readChoice()))
     override val state=mutableState.asStateFlow()
     init {scope.launch {
+        // The retired engine is never selected or offered again; reclaim only its known model folder.
+        File(root,"sherpa-onnx-supertonic-3-tts-int8-2026-05-11").deleteRecursively()
+        if(preferences.offlineVoiceChoice().get().startsWith("supertonic3-vi-int8|"))preferences.offlineVoiceChoice().set("")
         root.listFiles()?.filter {it.name.startsWith(".install-") && !it.name.endsWith(sessionTag)}?.forEach {it.deleteRecursively()}
     }}
     private fun installed()=OfflineVoiceCatalog.models.filter(::ready).map{it.id}.toSet()
@@ -56,6 +59,35 @@ class AndroidOfflineVoiceStore(context:Context,private val preferences:AppPrefer
             val stage=File(root,".install-${model.id}-$sessionTag").apply {mkdirs()}
             try {
                 mutableState.update {it.copy(errors=it.errors-modelId,downloads=it.downloads+(modelId to VoiceDownload(VoiceDownloadPhase.Downloading,0,model.archiveBytes)))}
+                val extracted=File(stage,"model").apply {mkdirs()}
+                if(model.artifacts.isNotEmpty()) {
+                    var completed=0L
+                    for(asset in model.artifacts) {
+                        require(asset.name.matches(Regex("[a-zA-Z0-9_.-]+")))
+                        val target=File(extracted,asset.name)
+                        val connection=URI(asset.url).toURL().openConnection() as HttpURLConnection
+                        connection.connectTimeout=20_000;connection.readTimeout=30_000
+                        connection.setRequestProperty("User-Agent","TruyenPlus-VoiceModels")
+                        try {
+                            require(connection.responseCode==200 && connection.url.protocol=="https")
+                            val digest=MessageDigest.getInstance("SHA-256");var bytes=0L;var lastUpdate=0L
+                            connection.inputStream.use {input->target.outputStream().use {output->
+                                val buffer=ByteArray(64*1024)
+                                while(true) {
+                                    ensureActive();val count=input.read(buffer);if(count<0)break
+                                    bytes+=count;require(bytes<=asset.bytes);digest.update(buffer,0,count);output.write(buffer,0,count)
+                                    if(bytes-lastUpdate>=512*1024) {
+                                        mutableState.update {it.copy(downloads=it.downloads+(modelId to VoiceDownload(VoiceDownloadPhase.Downloading,completed+bytes,model.archiveBytes)))}
+                                        lastUpdate=bytes
+                                    }
+                                }
+                            }}
+                            require(bytes==asset.bytes && digest.digest().joinToString(""){"%02x".format(it.toInt() and 255)}==asset.sha256)
+                            completed+=bytes
+                        } finally {connection.disconnect()}
+                    }
+                    require(completed==model.archiveBytes)
+                } else {
                 val archive=File(stage,"archive.bz2")
                 val connection=URI(model.url).toURL().openConnection() as HttpURLConnection
                 connection.connectTimeout=20_000;connection.readTimeout=30_000
@@ -80,7 +112,7 @@ class AndroidOfflineVoiceStore(context:Context,private val preferences:AppPrefer
                     require(bytes==model.archiveBytes && sha==model.sha256)
                 } finally {connection.disconnect()}
                 mutableState.update {it.copy(downloads=it.downloads+(modelId to VoiceDownload(VoiceDownloadPhase.Installing,model.archiveBytes,model.archiveBytes)))}
-                val extracted=File(stage,"model").apply {mkdirs()};var expanded=0L
+                var expanded=0L
                 TarArchiveInputStream(BZip2CompressorInputStream(archive.inputStream().buffered())).use {tar ->
                     while(true) {
                         ensureActive();val entry=tar.nextEntry ?: break
@@ -100,6 +132,7 @@ class AndroidOfflineVoiceStore(context:Context,private val preferences:AppPrefer
                             }
                         }
                     }
+                }
                 }
                 require(model.files.all {File(extracted,it).exists()})
                 File(extracted,".verified").writeText(model.sha256)

@@ -21,21 +21,21 @@ private class NativeSpeechProgress(private val context: CoroutineContext) : (Flo
 private object OfflineRuntime {
     private val lock=Mutex()
     private var tts:OfflineTts?=null
+    @Volatile private var nano:VieNeuNanoRuntime?=null
     private var loaded=""
     private val owners=mutableMapOf<Any,String>()
     private fun open(config:OfflineVoiceConfig) {
         val key=config.directory
-        if(tts!=null && loaded==key)return
-        tts?.release();tts=null;loaded=""
+        if((tts!=null || nano!=null) && loaded==key)return
+        tts?.release();tts=null;nano?.close();nano=null;loaded=""
         val path=config.directory+"/"
         val model=OfflineTtsModelConfig(numThreads=2,debug=false,provider="cpu")
         when(config.model.family) {
             OfflineVoiceFamily.Piper -> model.vits=OfflineTtsVitsModelConfig(
                 model=path+config.model.files.first(),tokens=path+"tokens.txt",dataDir=path+"espeak-ng-data")
-            OfflineVoiceFamily.Supertonic -> model.supertonic=OfflineTtsSupertonicModelConfig(
-                durationPredictor=path+"duration_predictor.int8.onnx",textEncoder=path+"text_encoder.int8.onnx",
-                vectorEstimator=path+"vector_estimator.int8.onnx",vocoder=path+"vocoder.int8.onnx",
-                ttsJson=path+"tts.json",unicodeIndexer=path+"unicode_indexer.bin",voiceStyle=path+"voice.bin")
+            OfflineVoiceFamily.VieNeuNano -> {
+                nano=VieNeuNanoRuntime(config.directory);loaded=key;return
+            }
         }
         tts=OfflineTts(assetManager=null,config=OfflineTtsConfig(model=model,maxNumSentences=1))
         loaded=key
@@ -45,15 +45,22 @@ private object OfflineRuntime {
     suspend fun synthesize(config:OfflineVoiceConfig,text:String,speed:Float):GeneratedAudio=lock.withLock {
         currentCoroutineContext().ensureActive();open(config)
         val coroutine=currentCoroutineContext()
+        nano?.let {runtime->
+            val samples=runtime.generate(text,config.speaker,speed)
+            coroutine.ensureActive()
+            check(samples.isNotEmpty() && samples.all {it.isFinite()} && samples.any {abs(it)>.00001f})
+            return@withLock GeneratedAudio(samples=samples,sampleRate=24000)
+        }
         val generation=GenerationConfig(sid=config.speaker,speed=speed.coerceIn(.5f,2f),numSteps=3,extra=mapOf("lang" to "vi"))
         val audio=tts!!.generateWithConfigAndCallback(text,generation,NativeSpeechProgress(coroutine))
         coroutine.ensureActive()
         check(audio.sampleRate>0 && audio.samples.isNotEmpty() && audio.samples.any {abs(it)>.00001f})
         audio
     }
+    fun abortNano(){nano?.abort()}
     suspend fun free(config:OfflineVoiceConfig,owner:Any)=lock.withLock {
         owners.remove(owner)
-        if(loaded==config.directory && loaded !in owners.values) {tts?.release();tts=null;loaded=""}
+        if(loaded==config.directory && loaded !in owners.values) {tts?.release();tts=null;nano?.close();nano=null;loaded=""}
     }
 }
 
@@ -65,7 +72,7 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
     private val generation=AtomicLong()
     private val mutableEvents=ttsEngineEventBuffer(replay=1)
     override val events:Flow<EngineEvent> = mutableEvents
-    override val name get()=fallback?.name ?: config.model.title+if(config.model.speakers>1)" · ${config.speaker+1}" else ""
+    override val name get()=fallback?.name ?: config.model.title+if(config.model.speakers>1)" · "+(config.model.voiceNames.getOrNull(config.speaker) ?: (config.speaker+1).toString()) else ""
     @Volatile private var ready=false
     @Volatile private var speed=1f
     @Volatile private var pitch=1f
@@ -107,7 +114,7 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
         val token=generation.get()
         speechJob=scope.launch {
             try {
-                val chunks=TTSSentenceSplitter.split(text,maxChunkLength=220,speechRate=speed)
+                val chunks=TTSSentenceSplitter.split(text,maxChunkLength=if(config.model.family==OfflineVoiceFamily.VieNeuNano)140 else 220,speechRate=speed)
                 val ranges=speechChunkRanges(text,chunks)
                 if(chunks.isEmpty()){mutableEvents.emit(EngineEvent.Completed(utteranceId));return@launch}
                 for((index,chunk) in chunks.withIndex()) {
@@ -150,11 +157,12 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
     override fun precacheNext(items:List<Pair<String,String>>) {
         if(fallback!=null)return
         // At most one sentence; never pre-synthesize a whole long chapter or ten paragraphs.
-        val next=items.firstOrNull()?.second?.let {TTSSentenceSplitter.split(it,maxChunkLength=220,speechRate=speed).firstOrNull()}
+        val next=items.firstOrNull()?.second?.let {TTSSentenceSplitter.split(it,maxChunkLength=if(config.model.family==OfflineVoiceFamily.VieNeuNano)140 else 220,speechRate=speed).firstOrNull()}
         if(next!=null && speechJob?.isActive!=true)preload(next)
     }
     override fun stop() {
         generation.incrementAndGet();pendingFallback=null
+        if(config.model.family==OfflineVoiceFamily.VieNeuNano)OfflineRuntime.abortNano()
         speechJob?.cancel();speechJob=null;audioBuffer.clear()
         runCatching {track?.pause();track?.flush()}
         fallback?.stop()

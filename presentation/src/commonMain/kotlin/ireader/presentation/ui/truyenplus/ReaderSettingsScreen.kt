@@ -45,7 +45,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
     var appearanceOpen by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max=760.dp),
         contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-        item { Text(strings.localize(Res.string.tp_settings),Modifier.padding(top=24.dp,bottom=8.dp),style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold) }
+        item { Text(strings.localize(Res.string.tp_settings),Modifier.padding(top=24.dp,bottom=8.dp),style=MaterialTheme.typography.headlineLarge,fontFamily=androidx.compose.ui.text.font.FontFamily.Serif,fontWeight=FontWeight.SemiBold) }
         item {
             Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16).testTag("settings-general"),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
                 Column {

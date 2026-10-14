@@ -1,0 +1,6 @@
+VieNeu v3 Nano Android adapter
+Algorithm and voice assets: pnnbao97/VieNeu-TTS, commit bd0f88eb8de7d560753a6172ba9c868f309a101c, Apache-2.0.
+Model: pnnbao-ump/VieNeu-TTS-v3-Nano, revision aba295eb96a6fa6003ebe417cc1f2802a7adc1dc, Apache-2.0.
+Vietnamese normalization and phonemization: pnnbao97/sea-g2p, commit e825173f235d08ea19315b2b279fb11153b44cea, Apache-2.0.
+ONNX Runtime headers: microsoft/onnxruntime v1.23.2, MIT. Runtime supplied by the existing sherpa-onnx Android dependency.
+Android implementation uses preset voices only, with 8 Euler steps, sway -1 and CFG 3. No clone/denoising models are required.

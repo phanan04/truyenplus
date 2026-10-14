@@ -3,6 +3,8 @@ package ireader.presentation.ui.truyenplus
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -156,7 +158,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                         items(OfflineVoiceCatalog.models,key={it.id}) {model ->
                             val installed=model.id in state.installed
                             val downloading=state.downloads[model.id]
-                            val speaker=speakers[model.id] ?: state.selection?.takeIf {it.modelId==model.id}?.speaker ?: 0
+                            val speaker=speakers[model.id] ?: state.selection?.takeIf {it.modelId==model.id}?.speaker ?: model.defaultSpeaker
                             Surface(Modifier.fillMaxWidth().readerGlassCard(18),shape=RoundedCornerShape(18.dp),color=Color.Transparent) {
                                 Column(Modifier.padding(12.dp)) {
                                     Row(verticalAlignment=Alignment.CenterVertically) {
@@ -170,12 +172,16 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                                         }
                                         if(installed)IconButton(onClick={onDelete(model.id)},modifier=Modifier.testTag("voice-delete-${model.id}")){Icon(Icons.Default.DeleteOutline,s.localize(Res.string.delete))}
                                     }
-                                    if(model.speakers>1)Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                                        for(id in 0 until model.speakers)FilterChip(speaker==id,onClick={speakers=speakers+(model.id to id)},
-                                            label={Text(preferredNames["${model.id}:$id"] ?: s.localize(Res.string.tp_voice_number,id+1))},modifier=Modifier.testTag("voice-speaker-${model.id}-$id"))
+                                    if(model.speakers>1) {
+                                        val voiceList=rememberLazyListState(initialFirstVisibleItemIndex=speaker)
+                                        LaunchedEffect(speaker){voiceList.requestScrollToItem(speaker)}
+                                        LazyRow(state=voiceList,modifier=Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                                        items(model.speakers) {id->FilterChip(speaker==id,onClick={speakers=speakers+(model.id to id)},
+                                            label={Text(preferredNames["${model.id}:$id"] ?: model.voiceNames.getOrNull(id) ?: s.localize(Res.string.tp_voice_number,id+1))},modifier=Modifier.testTag("voice-speaker-${model.id}-$id"))}
+                                        }
                                     }
                                     if(model.speakers==1)preferredNames["${model.id}:$speaker"]?.let {Text(it,style=MaterialTheme.typography.bodyMedium)}
-                                    TextButton(onClick={renameModel=model.id;renameSpeaker=speaker;renameText=preferredNames["${model.id}:$speaker"] ?: if(model.speakers>1)s.localize(Res.string.tp_voice_number,speaker+1) else model.title},modifier=Modifier.heightIn(min=48.dp).testTag("voice-rename-${model.id}")){Icon(Icons.Default.Edit,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text(s.localize(Res.string.tp_edit_name))}
+                                    TextButton(onClick={renameModel=model.id;renameSpeaker=speaker;renameText=preferredNames["${model.id}:$speaker"] ?: if(model.speakers>1)(model.voiceNames.getOrNull(speaker) ?: s.localize(Res.string.tp_voice_number,speaker+1)) else model.title},modifier=Modifier.heightIn(min=48.dp).testTag("voice-rename-${model.id}")){Icon(Icons.Default.Edit,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp));Text(s.localize(Res.string.tp_edit_name))}
                                     if(model.id in state.errors)Text(s.localize(Res.string.tp_voice_download_error),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
                                     if(downloading!=null) {
                                         if(downloading.phase==VoiceDownloadPhase.Downloading)LinearProgressIndicator(

@@ -17,5 +17,8 @@ License: espeak-ng.txt
 Voice weights are separate optional downloads from the upstream Sherpa model release.
 Their original notices/model cards are retained in the installed model directories.
 Piper VAIS1000 model: https://huggingface.co/rhasspy/piper-voices/tree/main/vi/vi_VN/vais1000/medium
-Supertonic 3 model: https://huggingface.co/Supertone/supertonic-3
+VieNeu v3 Nano model: https://huggingface.co/pnnbao-ump/VieNeu-TTS-v3-Nano
+VieNeu source: https://github.com/pnnbao97/VieNeu-TTS
+sea-g2p pronunciation frontend: https://github.com/pnnbao97/sea-g2p
+VieNeu/sea-g2p: Apache-2.0; see vieneu.txt and vieneu-notice.txt.
 See docs/vietnamese-offline-tts.md in the TruyenPlus source for model URLs, checksums and verification.
