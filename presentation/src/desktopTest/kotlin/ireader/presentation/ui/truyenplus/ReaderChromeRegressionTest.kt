@@ -51,27 +51,36 @@ class ReaderChromeRegressionTest {
             }
         }
     }
-    @Test fun everySpeedFitsAndTheLastChoiceFillsTheRowWithoutHorizontalScrolling() {
+    @Test fun speedsUseOneRowOrQuarterStepAdjusterWithoutScrolling() {
         for((width,font) in listOf(280 to 2f,360 to 1f,412 to 1f,800 to 1f)) {
-            val chosen=mutableListOf<Float>()
+            var speed by mutableStateOf(1f)
             ImageComposeScene(width,440,Density(1f,font)) {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
-                    MaterialTheme {ReaderFloatingPlayer(false,1f,.2f,{},{},{},{chosen+=it},{},{})}
+                    MaterialTheme {ReaderFloatingPlayer(false,speed,.2f,{},{},{},{speed=it},{},{})}
                 }
             }.use {scene ->
                 scene.render();scene.render()
                 val all=nodes(scene)
-                assertFalse(all.any{it.config.getOrNull(SemanticsProperties.HorizontalScrollAxisRange)!=null},"Speed choices scroll at $width/$font")
-                val speeds=all.filter{it.config.getOrNull(SemanticsProperties.Selected)!=null}
-                assertEquals(7,speeds.size)
-                for(n in speeds) {
-                    val bounds=n.boundsInRoot
-                    assertTrue(bounds.left>=0 && bounds.right<=width,"Speed offscreen $bounds in $width")
-                    assertTrue(bounds.width>=47 && bounds.height>=47,"Speed touch area too small $bounds")
-                    n.config[SemanticsActions.OnClick].action!!.invoke()
+                assertFalse(all.any{it.config.getOrNull(SemanticsProperties.HorizontalScrollAxisRange)!=null})
+                val choices=all.filter{it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("listen-speed-")==true}
+                val decrease=all.firstOrNull{it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speed-decrease"}
+                if(decrease!=null) {
+                    val increase=all.first{it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speed-increase"}
+                    assertEquals(decrease.boundsInRoot.top,increase.boundsInRoot.top)
+                    decrease.config[SemanticsActions.OnClick].action!!.invoke()
+                    assertEquals(.75f,speed)
+                    scene.render();scene.render()
+                    nodes(scene).first{it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speed-increase"}.config[SemanticsActions.OnClick].action!!.invoke()
+                    assertEquals(1f,speed)
+                } else {
+                    assertEquals(7,choices.size)
+                    assertEquals(1,choices.map{it.boundsInRoot.top}.distinct().size,"Speed choices wrap at $width/$font")
+                    assertTrue(choices.last().boundsInRoot.right>=width-25)
                 }
-                assertEquals((2..8).map{it*.25f},chosen)
-                assertTrue(speeds.last().boundsInRoot.right>=width-25,"Last speed leaves unused space at $width")
+                for(n in choices) {
+                    assertTrue(n.boundsInRoot.width>=47 && n.boundsInRoot.height>=47)
+                    assertTrue(n.boundsInRoot.left>=0 && n.boundsInRoot.right<=width)
+                }
             }
         }
     }

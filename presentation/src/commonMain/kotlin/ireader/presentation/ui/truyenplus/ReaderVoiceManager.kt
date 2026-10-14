@@ -103,7 +103,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
     var speakers by remember {mutableStateOf(mapOf<String,Int>())}
     ReaderPaperTheme {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha=.28f)).clickable(onClick=onDismiss))
+            Box(Modifier.fillMaxSize().clickable(remember {androidx.compose.foundation.interaction.MutableInteractionSource()},indication=null,onClick=onDismiss))
             Surface(Modifier.align(Alignment.Center).widthIn(max=720.dp).fillMaxWidth().padding(12.dp)
                 .heightIn(max=(maxHeight-24.dp).coerceAtLeast(160.dp)).readerPanel(28).testTag("voice-manager"),
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent) {

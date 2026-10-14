@@ -1,6 +1,5 @@
 package ireader.presentation.ui.truyenplus
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -30,7 +29,7 @@ fun ReaderAppearanceOverlay(onDismiss: () -> Unit, background: Color = MaterialT
     val strings = requireNotNull(LocalLocalizeHelper.current)
     val playerInset=if(LocalReaderListening.current!=null)LocalReaderListeningDockHeight.current+WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() else 0.dp
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f))
+        Box(Modifier.fillMaxSize()
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
         Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).padding(bottom=playerInset)
             .heightIn(max=(maxHeight-16.dp-playerInset).coerceAtLeast(48.dp)).readerPanel(24,background,ink).testTag("reader-appearance-panel")

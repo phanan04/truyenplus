@@ -36,7 +36,7 @@ fun Modifier.readerPanel(radius: Int = 20, tint: Color = LocalReaderPaper.curren
     ink: Color = LocalReaderPaper.current?.ink ?: MaterialTheme.colorScheme.onSurface): Modifier {
     val shape = RoundedCornerShape(radius.dp)
     return shadow(6.dp, shape).clip(shape)
-        .readerNavigationGlass(tint, fallbackAlpha=.88f, blurTintAlpha=.78f)
+        .readerNavigationGlass(tint, blurTintAlpha=.78f)
         .border(1.dp,ink.copy(alpha=.12f),shape)
 }
 

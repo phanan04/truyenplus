@@ -65,32 +65,43 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
                     Text(s.localize(Res.string.tp_listening_next),style=MaterialTheme.typography.labelSmall,maxLines=1)
                 }
             }
-            BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical=4.dp)) {
-                val fontScale=LocalDensity.current.fontScale.coerceAtLeast(1f)
-                val columns=((maxWidth.value+4f)/(48f*fontScale+4f)).toInt().coerceIn(1,7)
-                val rowCount=(7+columns-1)/columns
-                val values=(2..8).toList()
-                Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                    repeat(rowCount) { row ->
-                        val first=(row*7+rowCount-1)/rowCount
-                        val end=((row+1)*7+rowCount-1)/rowCount
-                        val steps=values.subList(first,end)
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                            steps.forEach { step ->
-                                val value=step*.25f;val selected=kotlin.math.abs(speed-value)<.01f
-                                Surface(onClick={onSpeed(value)},shape=RoundedCornerShape(14.dp),
-                                    color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
-                                    contentColor=if(selected)colors.surface else colors.onSurface,
-                                    modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-$step").semantics {this.selected=selected}) {
-                                    Box(contentAlignment=Alignment.Center) {
-                                        Text(listeningSpeedLabel(value),fontSize=12.sp,maxLines=1,softWrap=false,
-                                            fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)
-                                    }
-                                }
-                            }
+            ReaderListeningSpeed(speed,onSpeed)
+
+        }
+    }
+}
+
+/** Always one row: preserve readable labels and 48dp targets with an adjuster on narrow screens. */
+@Composable
+internal fun ReaderListeningSpeed(speed:Float,onSpeed:(Float)->Unit) {
+    val colors=MaterialTheme.colorScheme
+    val fontScale=LocalDensity.current.fontScale.coerceAtLeast(1f)
+    val step=(speed*4).roundToInt().coerceIn(2,8)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical=4.dp)) {
+        val presetsFit=maxWidth.value>=7*48f*fontScale+6*4f
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(4.dp),verticalAlignment=Alignment.CenterVertically) {
+            if(presetsFit) {
+                for(value in 2..8) {
+                    val selected=step==value
+                    Surface(onClick={onSpeed(value*.25f)},shape=RoundedCornerShape(14.dp),
+                        color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
+                        contentColor=if(selected)colors.surface else colors.onSurface,
+                        modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-$value").semantics {this.selected=selected}) {
+                        Box(contentAlignment=Alignment.Center) {
+                            Text(listeningSpeedLabel(value*.25f),fontSize=12.sp,maxLines=1,softWrap=false,
+                                fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)
                         }
                     }
                 }
+            } else {
+                OutlinedButton(onClick={onSpeed((step-1)*.25f)},enabled=step>2,
+                    modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-decrease"),shape=RoundedCornerShape(14.dp)) {Text("−")}
+                Surface(modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-value"),
+                    shape=RoundedCornerShape(14.dp),color=colors.onSurface,contentColor=colors.surface) {
+                    Box(contentAlignment=Alignment.Center) {Text(listeningSpeedLabel(step*.25f),fontSize=12.sp,maxLines=1,softWrap=false,fontWeight=FontWeight.SemiBold)}
+                }
+                OutlinedButton(onClick={onSpeed((step+1)*.25f)},enabled=step<8,
+                    modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-increase"),shape=RoundedCornerShape(14.dp)) {Text("+")}
             }
         }
     }

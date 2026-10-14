@@ -40,7 +40,9 @@ class ReaderControlsV3Test {
    click("listen-compact-previous");click("listen-compact-next");click("listen-compact-toggle");click("listen-expanded-toggle")
    assertEquals(1,previous);assertEquals(1,next);assertEquals(2,toggles)
    val speeds=nodes.flatMap{it.config.getOrNull(SemanticsProperties.Text).orEmpty()}.map{it.text}.filter{it.endsWith("x")}
-   assertFalse("2.25x" in speeds);assertTrue("0.5x" in speeds);assertTrue("2x" in speeds)
+   assertEquals(listOf("1x"),speeds)
+   assertTrue(nodes.any{it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speed-decrease"})
+   assertTrue(nodes.any{it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speed-increase"})
   }
  }
  @Test fun systemFontSurvivesSavingWithoutBecomingAGoogleFont() {

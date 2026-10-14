@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 
@@ -26,28 +28,40 @@ class ReaderNavigationBackdrop(val layer: GraphicsLayer) {
 }
 val LocalReaderNavigationBackdrop = staticCompositionLocalOf<ReaderNavigationBackdrop?> { null }
 
-fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifier =
-    if(backdrop==null) this else onGloballyPositioned { backdrop.position=it.positionInRoot() }.drawWithContent {
+private fun LayoutCoordinates.backdropPosition():Offset {
+    val screen=positionOnScreen()
+    return if(screen.x.isFinite() && screen.y.isFinite())screen else positionInRoot()
+}
+
+@Composable
+fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifier {
+    val paper=LocalReaderPaper.current?.paper ?: androidx.compose.material3.MaterialTheme.colorScheme.background
+    return if(backdrop==null) this else onGloballyPositioned {backdrop.position=it.backdropPosition()}.drawWithContent {
         if(backdrop.samplingEnabled) {
-            backdrop.layer.record { this@drawWithContent.drawContent() }
+            // A transparent source leaves the real, sharp navigation/player visible beneath the blur.
+            backdrop.layer.record {drawRect(paper);this@drawWithContent.drawContent()}
             drawLayer(backdrop.layer)
         } else drawContent()
     }
+}
 
 /** Only the capsule-sized sampled layer gets a blur pass; icons/text are drawn afterwards. */
 @Composable
-fun Modifier.readerNavigationGlass(tint: Color, fallbackAlpha: Float = .94f, blurTintAlpha: Float = .72f): Modifier {
+fun Modifier.readerNavigationGlass(tint: Color, blurTintAlpha: Float = .72f): Modifier {
     val backdrop=LocalReaderNavigationBackdrop.current
-    if(backdrop==null) return this.drawWithContent { drawRect(tint.copy(alpha=fallbackAlpha));drawContent() }
+    if(backdrop==null) return this.drawWithContent { drawRect(tint);drawContent() }
     val sampled=rememberGraphicsLayer()
     val density=androidx.compose.ui.platform.LocalDensity.current
     val blur=remember(density) { with(density) { BlurEffect(10.dp.toPx(),10.dp.toPx(),TileMode.Clamp) } }
     var position by remember { mutableStateOf(Offset.Zero) }
-    return onGloballyPositioned { position=it.positionInRoot() }.drawWithContent {
+    return onGloballyPositioned { position=it.backdropPosition() }.drawWithContent {
         if(!backdrop.samplingEnabled) {
-            drawRect(tint.copy(alpha=fallbackAlpha));drawContent()
+            drawRect(tint);drawContent()
             return@drawWithContent
         }
+        // Opaque base also covers holes outside the recorded viewport and prevents sharp underlays
+        // bleeding through native dialog/sheet windows. Only the sampled content is translucent.
+        drawRect(tint)
         val padding=12.dp.roundToPx()
         val offset=position-backdrop.position
         sampled.renderEffect=blur

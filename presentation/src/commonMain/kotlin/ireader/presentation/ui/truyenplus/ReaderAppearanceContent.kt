@@ -54,7 +54,7 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
     Column(modifier.fillMaxWidth()) {
         ReaderSettingsTabs(listOf(s.localize(Res.string.tp_settings_text),s.localize(Res.string.tp_settings_spacing),s.localize(Res.string.tp_settings_colors),s.localize(Res.string.tp_settings_scroll)),
             listOf("text","spacing","colors","scroll"),page,{page=it},"appearance-page")
-        BoxWithConstraints(Modifier.fillMaxWidth().height(208.dp).padding(horizontal=16.dp,vertical=4.dp)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max=208.dp).padding(horizontal=16.dp,vertical=4.dp)) {
             val shortWide=maxWidth>=440.dp && maxHeight<192.dp
             when(page) {
                 0 -> Column {

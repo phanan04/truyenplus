@@ -36,7 +36,7 @@ class ReaderUiDeviceTest {
             val koin=GlobalContext.get()
             koin.get<UiPreferences>().apply {hasCompletedOnboarding().set(true);hasCompletedFirstLaunch().set(true);language().set("vi")}
             koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true);ttsHighlightWords().set(false)}
-            if(description.methodName=="pageThemeOverridesAppThemeAndChromeDoesNotClipChapter") {
+            if(description.methodName in setOf("pageThemeOverridesAppThemeAndChromeDoesNotClipChapter","readingAppearanceWithoutListeningWrapsAndKeepsPaperUndimmed","voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists")) {
                 koin.get<UiPreferences>().apply {readerAppearance().set("dark");readerFollowsAppearance().set(false)}
                 koin.get<AppPreferences>().apply {
                     backgroundColorReader().set(DomainColor(1f,1f,1f));textColorReader().set(DomainColor(0f,0f,0f))
@@ -69,6 +69,20 @@ class ReaderUiDeviceTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val out=File(context.getExternalFilesDir(null),"qa-screens/$name.png").apply {parentFile!!.mkdirs()}
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(out)
+    }
+    @Test fun readingAppearanceWithoutListeningWrapsAndKeepsPaperUndimmed() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close")
+        val panel=ui.onNodeWithTag("reader-appearance-panel").fetchSemanticsNode().boundsInRoot
+        Assert.assertTrue("Text panel has a large empty area",panel.height<=ui.activity.resources.displayMetrics.density*270)
+        ui.onNodeWithTag("reader-font-picker").assertIsDisplayed()
+        ui.onNodeWithTag("reader-font-increase").assertIsDisplayed()
+        val pixels=ui.onRoot().captureToImage().toPixelMap()
+        Assert.assertTrue("Opening appearance darkens the paper",pixels[8,pixels.height/3].luminance()>.95f)
+        shot("reading-appearance-without-listening")
+        ui.onNodeWithTag("reader-appearance-close").performClick()
+        ui.onNodeWithTag("reader-appearance-panel").assertDoesNotExist()
     }
     @Test fun pageThemeOverridesAppThemeAndChromeDoesNotClipChapter() {
         waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
@@ -105,7 +119,10 @@ class ReaderUiDeviceTest {
         ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
         assertTitleInk(true);shot("chrome-dark-app-light-options")
         ui.onNodeWithTag("listen-options-close").performClick();waitTag("listen-expanded-toggle")
-        for(step in 2..8)ui.onNodeWithTag("listen-speed-$step").assertIsDisplayed()
+        if(ui.onAllNodesWithTag("listen-speed-decrease").fetchSemanticsNodes().isNotEmpty()) {
+            ui.onNodeWithTag("listen-speed-decrease").assertIsDisplayed()
+            ui.onNodeWithTag("listen-speed-increase").assertIsDisplayed()
+        } else for(step in 2..8)ui.onNodeWithTag("listen-speed-$step").assertIsDisplayed()
         shot("chrome-dark-app-light-expanded")
         ui.onNodeWithTag("listen-expanded-toggle").performTouchInput {click(Offset(width/2f,4f))}
         waitTag("listen-compact-previous")
@@ -134,6 +151,8 @@ class ReaderUiDeviceTest {
         Assert.assertTrue("Player jumps above voice panel",player.top>=root.height*.65f)
         Assert.assertTrue("Voice manager overlaps compact player",manager.bottom<=player.top)
         Assert.assertTrue("Status label too near edge",label.left-player.left>=ui.activity.resources.displayMetrics.density*15)
+        val pixels=ui.onRoot().captureToImage().toPixelMap()
+        Assert.assertTrue("Voice selection adds a dark backing",pixels[8,pixels.height/3].luminance()>.95f)
         shot("voice-manager-bottom-player")
         ui.onNodeWithTag("voice-system").performClick()
     }
@@ -142,7 +161,21 @@ class ReaderUiDeviceTest {
         for(mode in listOf("light","dark")) {
             ui.runOnIdle {GlobalContext.get().get<UiPreferences>().readerAppearance().set(mode)}
             waitTag("settings-general");ui.waitForIdle()
+            val search=ui.onNodeWithTag("nav-search").captureToImage().toPixelMap()
+            val probes=listOf(.2f to .5f,.8f to .5f,.5f to .2f,.5f to .8f).map{(x,y)->search[(search.width*x).toInt(),(search.height*y).toInt()]}
+            Assert.assertTrue("White patches inside search capsule in $mode",probes.maxOf{it.red}-probes.minOf{it.red}<.03f)
             shot("outside-settings-$mode")
+            ui.onNodeWithText("Giao diện").performClick()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("Hệ thống").fetchSemanticsNodes().isNotEmpty()}
+            shot("outside-appearance-$mode")
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("Hệ thống").fetchSemanticsNodes().isEmpty()}
+            ui.onNodeWithText("Cài đặt biên tập").performScrollTo().performClick()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("API key").fetchSemanticsNodes().isNotEmpty()}
+            shot("outside-editing-$mode")
+            ui.onNodeWithText("API key").assertIsDisplayed()
+            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+            ui.waitUntil(15_000){ui.onAllNodesWithText("API key").fetchSemanticsNodes().isEmpty()}
             ui.onNodeWithText("Nhập ebook").performClick()
             ui.waitUntil(15_000){ui.onAllNodesWithText("Nhập sách").fetchSemanticsNodes().isNotEmpty()}
             ui.waitUntil(15_000){runCatching {ui.onNodeWithText("Chọn tệp từ thiết bị").isDisplayed()}.getOrDefault(false)}

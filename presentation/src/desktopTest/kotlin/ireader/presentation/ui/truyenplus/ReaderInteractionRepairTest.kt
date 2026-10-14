@@ -14,6 +14,23 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderInteractionRepairTest {
+    @Test fun appearanceWithoutListeningWrapsContentAndDoesNotDimTheChapter() {
+        ImageComposeScene(360,800,Density(1f)) {
+            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+                MaterialTheme(colorScheme=lightColorScheme(background=androidx.compose.ui.graphics.Color.White,surface=androidx.compose.ui.graphics.Color.White)) {
+                    ReaderBackdrop {ReaderAppearanceOverlay({}) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}}
+                }
+            }
+        }.use {scene ->
+            scene.render();scene.render()
+            val panel=nodes(scene).first{it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-panel"}.boundsInRoot
+            assertTrue(panel.height<=240,"Text settings contain an empty fixed-height area: $panel")
+            val png=requireNotNull(scene.render().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)).bytes
+            val image=javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(png))
+            val pixel=image.getRGB(8,200)
+            assertTrue(((pixel shr 16) and 255)>250,"Opening settings dims the whole chapter")
+        }
+    }
     @Test fun voiceOverlayKeepsCompactPlayerAtBottomAndLabelInset() {
         for((width,height) in listOf(360 to 800,800 to 600,640 to 320)) {
             scene(width,height) {
