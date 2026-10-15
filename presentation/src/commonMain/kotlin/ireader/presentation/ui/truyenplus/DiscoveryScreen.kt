@@ -51,7 +51,7 @@ fun DiscoveryScreen(state: DiscoveryState, onRefresh: () -> Unit,
     val genres = remember(feed) { feed?.books.orEmpty().flatMap { it.genres }.distinct().sorted() }
     val books = remember(feed, section, genre, query, translations) { filterDiscoveryBooks(feed, section, genre, query, translations) }
     val listState = rememberLazyGridState()
-    LaunchedEffect(sourceIndex, sectionIndex, genre, query) { listState.scrollToItem(0) }
+    LaunchedEffect(sourceIndex, sectionIndex, genre, query) { listState.requestScrollToItem(0) }
     LaunchedEffect(genres) { if (genre !in genres) genre = "" }
 
     LazyVerticalGrid(columns = GridCells.Adaptive((320f * androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).dp), state = listState,

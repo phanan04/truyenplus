@@ -20,7 +20,7 @@ class DriveShelfUiTest {
      onQuery={},onSource={},onAdd={},onRefresh={},onRemove={},onDownload={downloaded=it},onBook={},onLibrary={},onPrevious={},onNext={},onConnect={},onCancel={},showConnect=false) } }
    }
   }
-  scene("",emptyList()).use { s->s.render();s.render();save(s,"sources");assertTrue(nodes(s).any { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-query" });assertFalse(nodes(s).any { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-download" });assertFalse(nodes(s).any { n->n.config.getOrNull(SemanticsProperties.Text)?.any { "Kết nối Google" in it.text }==true }) }
+  scene("",emptyList()).use { s->s.render();s.render();save(s,"sources");assertTrue(nodes(s).any { it.config.getOrNull(SemanticsProperties.TestTag)=="books-search-field" });assertFalse(nodes(s).any { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-download" });assertFalse(nodes(s).any { n->n.config.getOrNull(SemanticsProperties.Text)?.any { "Kết nối Google" in it.text }==true }) }
   val entry=ShelfEntry("root","a","Vạn Cổ Thần Đế.epub")
   scene("van co",listOf(entry)).use { s->s.render();s.render();save(s,"search");val action=nodes(s).first { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-download" }.config[SemanticsActions.OnClick].action!!;action();assertEquals(entry,downloaded) }
  }

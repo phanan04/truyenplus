@@ -21,9 +21,11 @@ class ReaderOrganizationControlsTest {
         var shelf=false
         scene {ReaderSearchScopePicker(false,{shelf=it})}.use {s ->
             s.render(0);s.render(1_000_000_000)
-            click(s,"search-scope-shelf");assertTrue(shelf)
+            click(s,"search-scope-picker");s.render(2_000_000_000);s.render(3_000_000_000)
+            click(s,"search-scope-shelf");assertTrue(shelf);s.render(4_000_000_000);s.render(5_000_000_000)
+            click(s,"search-scope-picker");s.render(6_000_000_000);s.render(7_000_000_000)
             click(s,"search-scope-library");assertFalse(shelf)
-            assertEquals(3,ReaderDestination.entries.size)
+            assertEquals(3,ReaderAppScope.destinations.size)
         }
     }
     @Test fun sortingDisplaysSelectedTypeAndDirectionAndEmitsTheExactChoice() {

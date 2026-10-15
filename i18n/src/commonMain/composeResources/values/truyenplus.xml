@@ -14,7 +14,7 @@
     <string name="tp_app_update">App updates</string>
     <string name="tp_see_all">See all</string>
     <string name="tp_library_ebook">Ebook in your library</string>
-    <string name="tp_first_story">Your first story</string>
+    <string name="tp_first_story">Library is Empty</string>
     <string name="tp_first_story_hint">Add an EPUB or PDF to start reading and listening.</string>
     <string name="tp_import_book">Import books</string>
     <string name="tp_all">All</string>
@@ -277,7 +277,7 @@
     <string name="tp_reader_default_font">Default</string>
     <string name="tp_reader_more_options">More settings</string>
     <string name="tp_system_voice">System voice</string>
-    <string name="tp_reader_appearance">Reading appearance</string>
+    <string name="tp_reader_appearance">Themes &amp; Settings</string>
     <string name="tp_book_about">About this story</string>
     <string name="tp_book_metadata">Update book information</string>
     <string name="tp_metadata_epub">From the original EPUB</string>
@@ -367,4 +367,14 @@
     <string name="tp_voice_preview_active">Previewing voice…</string>
     <string name="tp_voice_preview_error">Could not preview this voice. Try again.</string>
     <string name="tp_voice_download_error">Could not download the voice. Try again.</string>
+    <string name="tp_select_books">Select books</string>
+    <string name="tp_search_prompt">Find your next read</string>
+    <string name="tp_search_query_hint">Title or author</string>
+    <string name="tp_unread_shelf">Unread</string>
+    <string name="tp_reading_activity">Reading activity</string>
+    <string name="tp_book_details">Book details</string>
+    <string name="tp_settings_general">Application</string>
+    <string name="tp_settings_read_listen">Reading and listening</string>
+    <string name="tp_settings_tools">Tools</string>
+    <string name="tp_reader_customize">Customize</string>
 </resources>

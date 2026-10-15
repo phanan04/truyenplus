@@ -37,8 +37,8 @@ import org.koin.compose.koinInject
         try{block()}catch(e:TimeoutCancellationException){message=failed}catch(e:CancellationException){throw e}catch(e:Exception){message=e.message}finally{busy=false}
     }}}
     ReaderGlassSheet(onDismissRequest={if(!busy)onDismiss()}) {
+        ReaderBooksSheetHeader(localize(Res.string.tp_edit_settings),onDismiss,closeEnabled=!busy)
         LazyColumn(Modifier.fillMaxWidth().imePadding().navigationBarsPadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            item {Text(localize(Res.string.tp_edit_settings),style=MaterialTheme.typography.titleLarge)}
             item {FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {EditingProvider.entries.forEach {provider->
                 FilterChip(config.provider==provider,onClick={config=EditingConfig(provider);key="";message=null;scope.launch {configured=runCatching {settings.credentials(config)}.isSuccess}},enabled=!busy,label={Text(provider.name)},modifier=Modifier.heightIn(min=48.dp))
             }}}

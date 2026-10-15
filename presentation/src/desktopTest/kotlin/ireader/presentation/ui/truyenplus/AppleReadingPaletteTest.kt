@@ -35,8 +35,8 @@ class AppleReadingPaletteTest {
    fun ns()=s.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
    val next=ns().first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-paper-next"}
    assertTrue(next.boundsInRoot.bottom<=208 && next.boundsInRoot.height>=48)
-   next.config[SemanticsActions.OnClick].action!!.invoke();s.render(2_000_000_000)
-   val last=ns().first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-theme-14"}
+   next.config[SemanticsActions.OnClick].action!!.invoke();s.render(2_000_000_000);s.render(3_000_000_000)
+   val last=ns().firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-theme-14"} ?: error("Last paper missing: "+ns().mapNotNull {it.config.getOrNull(SemanticsProperties.TestTag)})
    assertTrue(last.boundsInRoot.height>=48 && last.boundsInRoot.bottom<=208)
    last.config[SemanticsActions.OnClick].action!!.invoke();assertEquals(14,picked)
   }

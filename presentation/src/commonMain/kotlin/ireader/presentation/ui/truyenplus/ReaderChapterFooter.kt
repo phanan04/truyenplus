@@ -26,7 +26,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
     val s = requireNotNull(LocalLocalizeHelper.current)
     Box(modifier.fillMaxWidth(),contentAlignment=Alignment.BottomCenter) {
     BoxWithConstraints(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)) {
-        val fullControls=maxWidth>=296.dp
+        val fullControls=maxWidth>=312.dp
         var moreOpen by remember {mutableStateOf(false)}
         val listen: @Composable () -> Unit = {
             IconButton(onClick=onListen,modifier=Modifier.size(48.dp).testTag("reader-listen")) { Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book),tint=ink) }
@@ -56,19 +56,27 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
         val next: @Composable () -> Unit = {
             IconButton(onClick=onNext,enabled=chapterIndex<totalChapters-1,modifier=Modifier.size(48.dp).testTag("reader-next")) { Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter),tint=ink.copy(alpha=if(chapterIndex<totalChapters-1) 1f else .35f)) }
         }
-        Surface(Modifier.fillMaxWidth().readerPanel(28,backgroundColor,ink).testTag("reader-footer-capsule"),
-            shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
-            Row(Modifier.height(64.dp).padding(horizontal=4.dp),
-                horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
-                if(fullControls) {listen();appearance();mark();previous();contents();next()}
-                else {
-                    listen();appearance();contents()
-                    Box {
-                        IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp).testTag("reader-footer-more")){Icon(Icons.Default.MoreVert,s.localize(Res.string.more))}
-                        DropdownMenu(moreOpen,{moreOpen=false}) {
-                            DropdownMenuItem(text={Text(s.localize(Res.string.tp_previous_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-previous"),enabled=chapterIndex>0,onClick={moreOpen=false;onPrevious()})
-                            DropdownMenuItem(text={Text(s.localize(Res.string.tp_next_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-next"),enabled=chapterIndex<totalChapters-1,onClick={moreOpen=false;onNext()})
-                            DropdownMenuItem(text={Text(s.localize(Res.string.tp_bookmarks))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-bookmark"),onClick={moreOpen=false;onBookmark()})
+        Row(Modifier.fillMaxWidth().heightIn(min=56.dp).testTag("reader-footer-capsule"),
+            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+            Surface(Modifier.readerPanel(28,backgroundColor,ink).testTag("reader-toolbar-reading"),
+                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
+                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
+                    listen();appearance();if(fullControls)mark()
+                }
+            }
+            Surface(Modifier.readerPanel(28,backgroundColor,ink).testTag("reader-toolbar-navigation"),
+                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
+                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
+                    if(fullControls){previous();contents();next()} else {
+                        contents()
+                        Box {
+                            IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp).testTag("reader-footer-more")){Icon(Icons.Default.MoreVert,s.localize(Res.string.more))}
+                            DropdownMenu(moreOpen,{moreOpen=false}) {
+                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_previous_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-previous"),enabled=chapterIndex>0,onClick={moreOpen=false;onPrevious()})
+                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_next_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-next"),enabled=chapterIndex<totalChapters-1,onClick={moreOpen=false;onNext()})
+                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_bookmarks))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-bookmark"),onClick={moreOpen=false;onBookmark()})
+                                DropdownMenuItem(text={Text(s.localize(Res.string.auto_scroll))},onClick={moreOpen=false;onAutoScroll()})
+                            }
                         }
                     }
                 }

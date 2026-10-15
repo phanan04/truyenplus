@@ -3,6 +3,9 @@ package ireader.presentation.ui.truyenplus
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -18,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
 import ireader.domain.models.BookCover
 import ireader.domain.models.entities.Chapter
 import ireader.presentation.core.*
@@ -37,11 +43,30 @@ import ireader.domain.data.repository.BookRepository
 import ireader.domain.preferences.prefs.AppPreferences
 import ireader.presentation.ui.settings.advance.OnShowImportEpub
 
+/** Each inline detail has an isolated store, so opening another book cannot reuse its state. */
 @Composable
-fun ReaderBookRoute(bookId: Long) {
+internal fun ReaderEmbeddedBookDetails(bookId:Long,onDismiss:()->Unit,bottomInset:Dp) {
+    val owner=remember(bookId) {object:ViewModelStoreOwner {override val viewModelStore=ViewModelStore()}}
+    var model by remember(bookId) {mutableStateOf<BookDetailViewModel?>(null)}
+    // Legacy detail initialization mutates snapshot fields. Run it after composition,
+    // as a navigation event, rather than while the new page is being composed.
+    LaunchedEffect(bookId) {
+        val created=org.koin.mp.KoinPlatform.getKoin().get<BookDetailViewModel>(parameters={parametersOf(BookDetailViewModel.Param(bookId))})
+        owner.viewModelStore.put("books-detail-$bookId",created)
+        model=created
+    }
+    DisposableEffect(owner) {onDispose {owner.viewModelStore.clear()}}
+    val current=model
+    if(current==null)Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {CircularProgressIndicator()}
+    else ReaderBookRoute(bookId,onDismiss,bottomInset,current)
+}
+
+@Composable
+fun ReaderBookRoute(bookId: Long,onDismiss:(()->Unit)?=null,bottomInset:Dp=0.dp,detailModel:BookDetailViewModel?=null) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     val nav = requireNotNull(LocalNavigator.current)
-    val vm: BookDetailViewModel = koinViewModel(parameters = { parametersOf(BookDetailViewModel.Param(bookId)) })
+    val vm: BookDetailViewModel = detailModel ?: koinViewModel(parameters={parametersOf(BookDetailViewModel.Param(bookId))})
+    val dismiss=onDismiss ?: {nav.safePopBackStack();Unit}
     val state by vm.state.collectAsState()
     val snackbars = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -79,7 +104,7 @@ fun ReaderBookRoute(bookId: Long) {
             when (event) {
                 is BookDetailEvent.ShowSnackbar -> snackbars.showSnackbar(event.message)
                 is BookDetailEvent.NavigateToReader -> nav.navigateTo(ReaderScreenSpec(event.bookId, event.chapterId))
-                BookDetailEvent.NavigateBack -> nav.safePopBackStack()
+                BookDetailEvent.NavigateBack -> dismiss()
                 else -> Unit // Online-source, migration and recommendation destinations are outside this app.
             }
         }
@@ -120,13 +145,13 @@ fun ReaderBookRoute(bookId: Long) {
                         ?: chapters.firstOrNull { !it.read } ?: chapters.firstOrNull()
                     ReaderBookScreen(
                         book = ReaderBookUi(current.book.id, current.book.title, BookCover.from(current.book), chapters.count { it.read }, chapters.size),
-                        author = current.book.author.orEmpty(), chapters = chapters, onBack = { nav.safePopBackStack() },
+                        author = current.book.author.orEmpty(), chapters = chapters, onBack = dismiss,
                         onRead = { resume?.let { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) } },
                         onListen = { resume?.let { nav.navigateTo(readerListeningDestination(bookId, it.id)) } },
                         onChapter = { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) },
                         onExport = { vm.showEpubExportDialog = true },
                         description = current.book.description, activeChapterId = current.lastReadChapterId,
-                        onMetadata = { showMetadataChoice = true }, metadataUpdating = updatingMetadata,
+                        onMetadata = { showMetadataChoice = true }, metadataUpdating = updatingMetadata,bottomInset=bottomInset,
                         onMetadataSource = if (metadataSource.isNotBlank()) ({ uriHandler.openUri(metadataSource) }) else null)
                     if (vm.showEpubExportDialog) EpubExportDialog(current.book, current.chapters,
                         hasTranslations = false,
@@ -136,7 +161,7 @@ fun ReaderBookRoute(bookId: Long) {
                 BookDetailState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 else -> Column(Modifier.align(Alignment.Center).padding(24.dp)) {
                     Text(strings.localize(Res.string.tp_cannot_open_book))
-                    TextButton(onClick = { nav.safePopBackStack() }) { Text(strings.localize(Res.string.tp_back_library)) }
+                    TextButton(onClick = dismiss) { Text(strings.localize(Res.string.tp_back_library)) }
                 }
             }
             SnackbarHost(snackbars, Modifier.align(Alignment.BottomCenter))
@@ -147,78 +172,80 @@ fun ReaderBookRoute(bookId: Long) {
 }
 
 @Composable
-fun ReaderBookScreen(book: ReaderBookUi, author: String, chapters: List<Chapter>, onBack: () -> Unit,
-    onRead: () -> Unit, onListen: () -> Unit, onChapter: (Chapter) -> Unit, onExport: () -> Unit,
-    description: String = "", activeChapterId: Long? = null, onMetadata: () -> Unit = {},
-    metadataUpdating: Boolean = false, onMetadataSource: (() -> Unit)? = null) {
-    val strings = requireNotNull(LocalLocalizeHelper.current)
-    var expandedSummary by rememberSaveable { mutableStateOf(false) }
+fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBack:()->Unit,
+    onRead:()->Unit,onListen:()->Unit,onChapter:(Chapter)->Unit,onExport:()->Unit,
+    description:String="",activeChapterId:Long?=null,onMetadata:()->Unit={},
+    metadataUpdating:Boolean=false,onMetadataSource:(()->Unit)?=null,artworkColor:Color?=null,bottomInset:Dp=0.dp) {
+    val strings=requireNotNull(LocalLocalizeHelper.current)
+    var expandedSummary by rememberSaveable {mutableStateOf(false)}
     var contentsOpen by rememberSaveable {mutableStateOf(false)}
+    val artwork=rememberReaderBookArtwork(book)
+    val tone=artworkColor ?: artwork ?: MaterialTheme.colorScheme.surfaceContainerHigh
+    val ink=if(artworkColor!=null || artwork!=null)Color.White else MaterialTheme.colorScheme.onSurface
     val summary:LazyListScope.()->Unit={
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Default.ChevronLeft, strings.localize(Res.string.tp_back)) }
-                Text(strings.localize(Res.string.tp_in_library), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                IconButton(onClick = onExport) { Icon(Icons.Outlined.IosShare, strings.localize(Res.string.tp_export_epub)) }
-            }
-        }
-        item {
-            BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-                val wide = maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale >= 520f
-                val details: @Composable () -> Unit = {
-                    Column(Modifier.fillMaxWidth(),horizontalAlignment=if(wide)Alignment.Start else Alignment.CenterHorizontally) {
-                Text(book.title, style = MaterialTheme.typography.headlineSmall, fontFamily=androidx.compose.ui.text.font.FontFamily.Serif, textAlign=if(wide)androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = if(wide) 0.dp else 24.dp))
-                if (author.isNotBlank()) Text(if(author=="Unknown") strings.localize(Res.string.unknown) else author, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
-                if(book.total>0)Text(strings.localize(Res.string.tp_book_summary, book.total, "${book.progress.percent}%"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onRead, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.weight(1f).heightIn(min=52.dp).testTag("book-read")) {
-                        Icon(Icons.Outlined.AutoStories, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(if (book.read > 0) strings.localize(Res.string.tp_continue_reading) else strings.localize(Res.string.tp_start_reading))
+            Column(Modifier.fillMaxWidth().background(tone).testTag("book-artwork-hero"),horizontalAlignment=Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter)) {
+                    Box(Modifier.fillMaxWidth().padding(top=28.dp),contentAlignment=Alignment.Center) {
+                        ReaderCover(book,Modifier.width(198.dp).height(270.dp).shadow(12.dp,androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
                     }
-                    OutlinedButton(onClick = onListen, enabled = chapters.isNotEmpty(), shape = CircleShape, modifier = Modifier.heightIn(min=52.dp).testTag("book-listen")) { Icon(Icons.Outlined.Headphones, strings.localize(Res.string.tp_listen_book)) }
-                }
-                    }
-                }
-                if(wide) Row(horizontalArrangement=Arrangement.spacedBy(28.dp),verticalAlignment=Alignment.CenterVertically) {
-                    ReaderCover(book,Modifier.width(198.dp).height(270.dp))
-                    Box(Modifier.weight(1f)) { details() }
-                } else Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                    ReaderCover(book,Modifier.widthIn(max=198.dp).fillMaxWidth().height(270.dp))
-                    details()
-                }
-            }
-        }
-        item {
-            Surface(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                color=androidx.compose.ui.graphics.Color.Transparent) {
-                Column(Modifier.padding(horizontal=16.dp,vertical=16.dp)) {
-                    Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text(strings.localize(Res.string.tp_book_about),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,fontFamily=androidx.compose.ui.text.font.FontFamily.Serif)
-                        IconButton(onClick=onMetadata,enabled=!metadataUpdating,modifier=Modifier.testTag("book-metadata-refresh")) {
-                            Icon(Icons.Default.Refresh,strings.localize(Res.string.tp_book_metadata))
+                    Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(top=12.dp),horizontalArrangement=Arrangement.SpaceBetween) {
+                        Surface(shape=CircleShape,color=Color.Transparent,contentColor=ink,modifier=Modifier.size(48.dp).readerGlassCard(24,tone,ink)) {
+                            IconButton(onBack,Modifier.fillMaxSize().testTag("book-detail-close")) {Icon(Icons.Default.Close,strings.localize(Res.string.tp_back))}
+                        }
+                        Surface(shape=CircleShape,color=Color.Transparent,contentColor=ink,modifier=Modifier.size(48.dp).readerGlassCard(24,tone,ink)) {
+                            IconButton(onExport,Modifier.fillMaxSize()) {Icon(Icons.Outlined.IosShare,strings.localize(Res.string.tp_export_epub))}
                         }
                     }
-                    Text(description.ifBlank { strings.localize(Res.string.tp_metadata_missing) },
-                        style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines=if(expandedSummary) Int.MAX_VALUE else 5,overflow=TextOverflow.Ellipsis,
-                        modifier=Modifier.clickable(enabled=description.isNotBlank()) { expandedSummary=!expandedSummary })
-                    if(metadataUpdating) Text(strings.localize(Res.string.tp_metadata_updating),Modifier.padding(top=8.dp),style=MaterialTheme.typography.labelSmall)
-                    onMetadataSource?.let { action -> TextButton(onClick=action) { Text(strings.localize(Res.string.tp_metadata_source)+" · TruyenFull") } }
+                }
+                Column(Modifier.widthIn(max=620.dp).fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter).padding(top=28.dp,bottom=28.dp),
+                    horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text(book.title,modifier=Modifier.testTag("book-detail-title"),style=ReaderBooksTokens.section,color=ink,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                    if(author.isNotBlank())Text(if(author=="Unknown")strings.localize(Res.string.unknown) else author,
+                        style=MaterialTheme.typography.bodyLarge,color=ink.copy(alpha=.85f),modifier=Modifier.padding(top=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                    if(book.total>0)Text(strings.localize(Res.string.tp_book_summary,book.total,"${book.progress.percent}%"),
+                        style=MaterialTheme.typography.bodySmall,color=ink.copy(alpha=.75f),modifier=Modifier.padding(top=12.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                    Surface(Modifier.fillMaxWidth().padding(top=24.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=ink.copy(alpha=.08f)) {
+                        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            Button(onRead,enabled=chapters.isNotEmpty(),shape=CircleShape,
+                                colors=ButtonDefaults.buttonColors(containerColor=ink,contentColor=tone),
+                                modifier=Modifier.weight(1f).heightIn(min=52.dp).testTag("book-read")) {
+                                Text(strings.localize(if(book.read>0)Res.string.tp_continue_reading else Res.string.tp_start_reading))
+                            }
+                            IconButton(onListen,enabled=chapters.isNotEmpty(),modifier=Modifier.size(52.dp).testTag("book-listen")) {
+                                Icon(Icons.Outlined.Headphones,strings.localize(Res.string.tp_listen_book),tint=ink)
+                            }
+                        }
+                    }
                 }
             }
         }
         item {
-            OutlinedButton(onClick={contentsOpen=true},enabled=chapters.isNotEmpty(),modifier=Modifier.fillMaxWidth().padding(20.dp).heightIn(min=52.dp).testTag("book-contents")) {
-                Icon(Icons.Default.FormatListBulleted,null);Spacer(Modifier.width(12.dp));Text("${strings.localize(Res.string.tp_chapters)} · ${chapters.size}")
+            Column(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter).padding(top=28.dp,bottom=16.dp)) {
+                Row(verticalAlignment=Alignment.CenterVertically) {
+                    Text(strings.localize(Res.string.tp_book_about),Modifier.weight(1f),style=ReaderBooksTokens.section)
+                    IconButton(onMetadata,enabled=!metadataUpdating,modifier=Modifier.size(48.dp).testTag("book-metadata-refresh")) {Icon(Icons.Default.Refresh,strings.localize(Res.string.tp_book_metadata))}
+                }
+                Text(description.ifBlank {strings.localize(Res.string.tp_metadata_missing)},style=MaterialTheme.typography.bodyLarge.copy(lineHeight=25.sp),
+                    color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=if(expandedSummary)Int.MAX_VALUE else 5,overflow=TextOverflow.Ellipsis,
+                    modifier=Modifier.padding(top=12.dp).clickable(enabled=description.isNotBlank()) {expandedSummary=!expandedSummary})
+                if(metadataUpdating)Text(strings.localize(Res.string.tp_metadata_updating),Modifier.padding(top=8.dp),style=MaterialTheme.typography.bodySmall)
+                onMetadataSource?.let {action->TextButton(action) {Text(strings.localize(Res.string.tp_metadata_source)+" · TruyenFull")}}
+            }
+        }
+        item {
+            Box(Modifier.padding(horizontal=ReaderBooksTokens.gutter,vertical=16.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.04f),ReaderBooksTokens.rowShape)) {
+                ReaderBooksActionRow(strings.localize(Res.string.tp_chapters),chapters.size.toString(),Icons.Default.FormatListBulleted,
+                    onClick={if(chapters.isNotEmpty())contentsOpen=true},modifier=Modifier.testTag("book-contents"),enabled=chapters.isNotEmpty())
             }
         }
     }
-    ReaderContentPane(maxWidth=1120.dp) {
+    ReaderContentPane {
         BoxWithConstraints {
-            val supporting=maxWidth.value / androidx.compose.ui.platform.LocalDensity.current.fontScale>=840f
-            if(supporting)Row(horizontalArrangement=Arrangement.spacedBy(24.dp)) {
-                LazyColumn(Modifier.weight(.46f).fillMaxHeight(),contentPadding=PaddingValues(bottom=24.dp),content=summary)
-                Box(Modifier.weight(.54f).fillMaxHeight().readerAppGlassCard(24)) {ReaderChapterContents(chapters,activeChapterId,onChapter)}
-            } else LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=32.dp),content=summary)
+            if(maxWidth.value/androidx.compose.ui.platform.LocalDensity.current.fontScale>=840f)Row(horizontalArrangement=Arrangement.spacedBy(24.dp)) {
+                LazyColumn(Modifier.weight(.5f).fillMaxHeight(),contentPadding=PaddingValues(bottom=bottomInset+24.dp),content=summary)
+                Box(Modifier.weight(.5f).fillMaxHeight()) {ReaderChapterContents(chapters,activeChapterId,onChapter)}
+            } else LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=bottomInset+24.dp),content=summary)
         }
     }
     if(contentsOpen)ReaderGlassSheet(onDismissRequest={contentsOpen=false}) {

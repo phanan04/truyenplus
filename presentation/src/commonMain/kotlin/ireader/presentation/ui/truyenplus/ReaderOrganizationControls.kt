@@ -10,8 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import ireader.domain.models.library.LibrarySort
@@ -19,17 +25,23 @@ import ireader.i18n.asString
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
+/** Scope is an app-specific extension of the reference search glyph, not another page toolbar. */
 @Composable fun ReaderSearchScopePicker(shelf:Boolean,onScope:(Boolean)->Unit) {
     val s=requireNotNull(LocalLocalizeHelper.current)
-    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-        for(isShelf in listOf(false,true))Surface(onClick={onScope(isShelf)},
-            color=if(shelf==isShelf)MaterialTheme.colorScheme.onSurface.copy(alpha=.1f) else androidx.compose.ui.graphics.Color.Transparent,
-            shape=androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-            modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag(if(isShelf)"search-scope-shelf" else "search-scope-library")
-                .semantics {selected=shelf==isShelf;role=Role.Tab}) {
-            Box(Modifier.padding(8.dp),contentAlignment=Alignment.Center) {
-                Text(s.localize(if(isShelf)Res.string.tp_shelf else Res.string.tp_library),style=MaterialTheme.typography.labelLarge)
+    var open by remember {mutableStateOf(false)}
+    Box {
+        IconButton(onClick={open=true},modifier=Modifier.size(48.dp).testTag("search-scope-picker")) {
+            Box(Modifier.size(28.dp)) {
+                Icon(Icons.Outlined.Search,s.localize(if(shelf)Res.string.tp_shelf else Res.string.tp_library),Modifier.size(24.dp).align(Alignment.TopStart))
+                Icon(Icons.Default.ArrowDropDown,null,Modifier.size(12.dp).align(Alignment.BottomEnd))
             }
+        }
+        DropdownMenu(open,{open=false}) {
+            for(isShelf in listOf(false,true))DropdownMenuItem(
+                text={Text(s.localize(if(isShelf)Res.string.tp_shelf else Res.string.tp_library))},
+                modifier=Modifier.heightIn(min=56.dp).testTag(if(isShelf)"search-scope-shelf" else "search-scope-library").semantics {selected=shelf==isShelf;role=Role.RadioButton},
+                leadingIcon={if(shelf==isShelf)Icon(Icons.Default.Check,null) else Spacer(Modifier.size(24.dp))},
+                onClick={open=false;onScope(isShelf)})
         }
     }
 }
@@ -62,21 +74,43 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 }
 
 /** Apple Books collection flow: the current scope is visible; choosing it is explicit. */
-@Composable fun ReaderCollectionPicker(names:List<String>,selected:Int,onSelect:(Int)->Unit,onManage:()->Unit,manageLabel:String?=null) {
+@Composable fun ReaderCollectionPicker(names:List<String>,selected:Int,onSelect:(Int)->Unit,onManage:()->Unit,manageLabel:String?=null,iconOnly:Boolean=false) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var open by androidx.compose.runtime.remember {androidx.compose.runtime.mutableStateOf(false)}
     Box {
-        TextButton(onClick={open=true},modifier=Modifier.heightIn(min=48.dp).testTag("library-collections")) {
-            Text(names.getOrNull(selected).orEmpty(),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Spacer(Modifier.width(6.dp));Icon(androidx.compose.material.icons.Icons.Default.ExpandMore,null,Modifier.size(18.dp))
+        TextButton(onClick={open=true},modifier=(if(iconOnly)Modifier.size(48.dp).shadow(4.dp,CircleShape).background(MaterialTheme.colorScheme.surface,CircleShape) else Modifier.heightIn(min=48.dp)).testTag("library-collections")) {
+            if(iconOnly)Icon(Icons.Default.Sort,s.localize(Res.string.tp_collections),Modifier.size(24.dp))
+            else {
+                Text(names.getOrNull(selected).orEmpty(),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Spacer(Modifier.width(6.dp));Icon(androidx.compose.material.icons.Icons.Default.ExpandMore,null,Modifier.size(18.dp))
+            }
         }
-        DropdownMenu(open,onDismissRequest={open=false}) {
-            names.forEachIndexed {i,name ->DropdownMenuItem(text={Text(name,maxLines=2)},
-                leadingIcon={Icon(if(i==selected)androidx.compose.material.icons.Icons.Default.Check else androidx.compose.material.icons.Icons.Default.Folder,null)},
-                modifier=Modifier.heightIn(min=56.dp).testTag("collection-choice-$i").semantics {this.selected=i==selected},
-                onClick={open=false;onSelect(i)})}
-            HorizontalDivider()
-            DropdownMenuItem(text={Text(manageLabel ?: s.localize(Res.string.tp_manage_collections))},onClick={open=false;onManage()},modifier=Modifier.heightIn(min=56.dp))
+        if(open)ReaderGlassSheet(onDismissRequest={open=false}) {
+            Column(Modifier.fillMaxWidth().testTag("books-collection-sheet")) {
+                ReaderBooksSheetHeader(manageLabel ?: s.localize(Res.string.tp_collections),{open=false},actions={
+                    TextButton(onClick={open=false;onManage()},modifier=Modifier.heightIn(min=48.dp)) {Text(s.localize(Res.string.edit))}
+                })
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.65f),
+                    contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp)) {
+                    itemsIndexed(names) {i,name->
+                        Surface(color=MaterialTheme.colorScheme.surface,shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+                            Row(Modifier.fillMaxWidth().heightIn(min=56.dp).selectable(i==selected,onClick={open=false;onSelect(i)},role=Role.RadioButton)
+                                .testTag("collection-choice-$i").padding(horizontal=16.dp,vertical=12.dp),
+                                verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+                                Icon(androidx.compose.material.icons.Icons.Default.Folder,null,Modifier.size(22.dp))
+                                Text(name,Modifier.weight(1f),style=MaterialTheme.typography.bodyLarge,maxLines=2)
+                                if(i==selected)Icon(androidx.compose.material.icons.Icons.Default.Check,null,Modifier.size(22.dp))
+                            }
+                        }
+                        if(i<names.lastIndex)HorizontalDivider(Modifier.padding(start=56.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
+                    }
+                    item {
+                        TextButton(onClick={open=false;onManage()},modifier=Modifier.fillMaxWidth().padding(top=20.dp).heightIn(min=56.dp)) {
+                            Text(manageLabel ?: s.localize(Res.string.tp_manage_collections))
+                        }
+                    }
+                }
+            }
         }
     }
 }

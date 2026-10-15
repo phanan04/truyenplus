@@ -16,7 +16,7 @@
 
 Hỗ trợ Android 8.0 trở lên. Cài đè bản cũ để giữ thư viện và tiến độ.
 
-Cập nhật trong app: **Cài đặt → Cập nhật ứng dụng** (bản cũ: **Trang chủ → ⋯**).
+Cập nhật trong app: **biểu tượng tài khoản ở góc trên → Cài đặt → Cập nhật ứng dụng**.
 
 ## Phát triển
 
@@ -24,7 +24,7 @@ Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát
 
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
 
-Chọn Việt/Anh và giao diện Sáng/Tối/Hệ thống trong Cài đặt. Giao diện tham khảo Apple Books, giữ thanh điều hướng nổi và tìm kiếm thư viện riêng.
+Chọn Việt/Anh và giao diện Sáng/Tối/Hệ thống trong Cài đặt. Giao diện theo Apple Books: Trang chủ, Thư viện, Kho truyện và Tìm kiếm riêng; mở Cài đặt từ biểu tượng tài khoản ở góc trên.
 
 Kho truyện Drive: thêm link thư mục, tìm tên truyện và tải EPUB khi cần. Kết nối Android cần cấu hình Google Cloud theo [hướng dẫn](docs/DRIVE_SHELF.md). Có từ bản 2.0.37.
 

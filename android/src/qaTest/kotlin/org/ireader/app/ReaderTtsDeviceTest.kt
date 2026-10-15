@@ -110,6 +110,65 @@ class ReaderTtsDeviceTest {
         } finally { engine.release() }
     }
 
+    @Test fun piperPreparesTheFollowingParagraphBeforeCurrentPlaybackFinishes() = runBlocking<Unit> {
+        requireQa()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        val config=store.config("piper-vi-vais-int8") ?: error("Install Piper in the QA app first")
+        val engine=TTSEngineFactory.createOfflineEngine(config)!!
+        checkParagraphContinuity(engine,"Piper")
+    }
+
+    @Test fun systemParagraphsContinueWithoutAnArtificialSynthesisDelay() = runBlocking<Unit> {
+        requireQa()
+        GlobalContext.get().get<OfflineVoiceStore>().select(null)
+        checkParagraphContinuity(TTSEngineFactory.createNativeEngine(),"Native Android TTS")
+    }
+
+    @Test fun vieneuPreparesTheFollowingParagraphBeforeCurrentPlaybackFinishes() = runBlocking<Unit> {
+        requireQa()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        val config=store.config("vieneu-v3-nano-vi",9) ?: error("Install Nano in the QA app first")
+        checkParagraphContinuity(TTSEngineFactory.createOfflineEngine(config)!!,config.model.title)
+    }
+
+    private suspend fun checkParagraphContinuity(engine:TTSEngine,expectedName:String)=coroutineScope {
+        val texts=listOf(
+            "Gió đêm thổi qua, mang theo hương hoa thoang thoảng. Hoàng Yên Trần khẽ gật đầu, rồi chậm rãi đi về phía ngọn núi xa.",
+            "Trương Nhược Trần nhìn lên bầu trời, lắng nghe tiếng gió và tiếp tục hành trình.",
+            "Chương mới bắt đầu, câu chuyện vẫn tiếp tục.")
+        val gaps=mutableListOf<Long>()
+        val finished=CompletableDeferred<Unit>()
+        var previousCompleted=0L
+        val observer=launch(start=CoroutineStart.UNDISPATCHED) {engine.events.collect {event ->
+            when(event) {
+                is EngineEvent.Started -> if(previousCompleted>0) {
+                    val gap=(System.nanoTime()-previousCompleted)/1_000_000
+                    gaps+=gap;previousCompleted=0L
+                    Log.i("TruyenPlusQA","${engine.name} prepared paragraph playback gapMs=$gap")
+                }
+                is EngineEvent.Completed -> {
+                    val index=event.utteranceId.removePrefix("qa-lookahead-").toInt()
+                    if(index==texts.lastIndex)finished.complete(Unit) else {
+                        previousCompleted=System.nanoTime()
+                        engine.speak(texts[index+1],"qa-lookahead-${index+1}")
+                        engine.precacheNext(texts.getOrNull(index+2)?.let {listOf("next" to it)} ?: emptyList())
+                    }
+                }
+                is EngineEvent.Error -> finished.completeExceptionally(AssertionError(event.toString()))
+                else -> Unit
+            }
+        }}
+        try {
+            ready(engine)
+            engine.speak(texts.first(),"qa-lookahead-0")
+            engine.precacheNext(listOf("next" to texts[1]))
+            withTimeout(120_000){finished.await()}
+            assertTrue("Unexpected fallback: ${engine.name}",engine.name.startsWith(expectedName))
+            assertEquals(2,gaps.size)
+            assertTrue("Unexpected synthesis wait between prepared paragraphs: $gaps",gaps.all {it<750})
+        } finally {observer.cancel();engine.release()}
+    }
+
     @Test fun realControllerAdvancesChaptersAndTimerSurvivesBackgroundAndPause() = runBlocking<Unit> {
         requireQa()
         val store = GlobalContext.get().get<OfflineVoiceStore>()

@@ -132,10 +132,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                 .heightIn(max=(maxHeight-24.dp).coerceAtLeast(160.dp)).readerPanel(28).testTag("voice-manager").semantics {paneTitle=pane;isTraversalGroup=true},
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent) {
                 Column(Modifier.padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(s.localize(Res.string.tp_voice_manager),Modifier.weight(1f),style=MaterialTheme.typography.titleLarge,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        IconButton(onClick=dismiss,modifier=Modifier.size(48.dp)){Icon(Icons.Default.Close,s.localize(Res.string.close))}
-                    }
+                    ReaderBooksSheetHeader(s.localize(Res.string.tp_voice_manager),dismiss)
                     if(renameModel!=null) {
                         Text(OfflineVoiceCatalog.models.firstOrNull {it.id==renameModel}?.title.orEmpty()+" · "+s.localize(Res.string.tp_voice_number,renameSpeaker+1))
                         OutlinedTextField(renameText,{renameText=it.take(120)},label={Text(s.localize(Res.string.tp_edit_name))},modifier=Modifier.fillMaxWidth().testTag("voice-name-input"),singleLine=true)

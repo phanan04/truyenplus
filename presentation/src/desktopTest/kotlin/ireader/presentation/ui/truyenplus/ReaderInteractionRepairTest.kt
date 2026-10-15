@@ -85,7 +85,7 @@ class ReaderInteractionRepairTest {
     }
     @Test fun appearanceHasNoVerticalScrollAndBothSpacingRangesReachTen() {
         var line by mutableIntStateOf(30);var margin by mutableIntStateOf(16)
-        scene(360,640) { ReaderAppearanceContent(ReaderAppearanceUi(lineHeight=line,margin=margin),ReaderAppearanceActions(onLineHeight={line=it},onMargin={margin=it})) }.use { scene ->
+        scene(360,640) { ReaderAppearanceAdvancedContent(ReaderAppearanceUi(lineHeight=line,margin=margin),ReaderAppearanceActions(onLineHeight={line=it},onMargin={margin=it})) }.use { scene ->
             scene.render(0);scene.render(1_000_000_000)
             click(scene,"appearance-page-spacing")
             scene.render(2_000_000_000)
@@ -105,7 +105,7 @@ class ReaderInteractionRepairTest {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),LocalReaderPanels provides panels,
                     LocalReaderListening provides ReaderListeningContext(emptyList(),0,false,{})) {
                     MaterialTheme {ReaderBackdrop {
-                        ReaderAppearanceOverlay({}) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
+                        ReaderAppearanceOverlay({}) {ReaderAppearanceAdvancedContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
                         ReaderCollapsedPlayer(true,{},{},{},{},Modifier.align(Alignment.BottomCenter))
                     }}
                 }

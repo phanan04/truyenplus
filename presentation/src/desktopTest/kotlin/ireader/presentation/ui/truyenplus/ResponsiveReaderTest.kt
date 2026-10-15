@@ -39,7 +39,7 @@ class ResponsiveReaderTest {
         out.parentFile.mkdirs();out.writeBytes(requireNotNull(scene.render(20_000_000_000).encodeToData(EncodedImageFormat.PNG)).bytes)
     }
     @Test fun smallSplitWindowHasFixedSpacingControlsAtLargeFont() {
-        val w=windows.first();val scene=scene(w) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
+        val w=windows.first();val scene=scene(w) {ReaderAppearanceAdvancedContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
         try {
             val initial=rendered(scene)
             click(initial.first {it.config.getOrNull(SemanticsProperties.TestTag)=="appearance-page-spacing"})

@@ -48,7 +48,7 @@ class ReaderReferenceLayoutTest {
         val scene=ImageComposeScene(width=420,height=800,density=Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                 MaterialTheme {
-                    ReaderAppearanceContent(ReaderAppearanceUi(fontSize=20,lineHeight=32,margin=16,scrollSpeed=10,themes=listOf(ReaderColors(7,ColorModel.fromArgb(0xFFFAF4E6.toInt()),ColorModel.fromArgb(0xFF222222.toInt())))),
+                    ReaderAppearanceAdvancedContent(ReaderAppearanceUi(fontSize=20,lineHeight=32,margin=16,scrollSpeed=10,themes=listOf(ReaderColors(7,ColorModel.fromArgb(0xFFFAF4E6.toInt()),ColorModel.fromArgb(0xFF222222.toInt())))),
                         ReaderAppearanceActions(onFontSize={size=it},onLineHeight={height=it},onMargin={margin=it},
                             onScrollSpeed={speed=it},onScrollEnabled={scroll=it},onTheme={theme=it},onAlignment={alignment=it},onMode={mode=it},onFont={family=it}))
                 }
@@ -104,7 +104,7 @@ class ReaderReferenceLayoutTest {
         for ((size,tag) in listOf(8 to "reader-font-decrease",40 to "reader-font-increase")) {
             val scene=ImageComposeScene(width=420,height=800,density=Density(1f)) {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
-                    MaterialTheme { ReaderAppearanceContent(ReaderAppearanceUi(fontSize=size,listening=true),ReaderAppearanceActions()) }
+                    MaterialTheme { ReaderAppearanceAdvancedContent(ReaderAppearanceUi(fontSize=size,listening=true),ReaderAppearanceActions()) }
                 }
             }
             try {

@@ -51,10 +51,10 @@ private data class ReaderTocResult(val source:List<Chapter>,val query:String,val
     val keyboard=LocalSoftwareKeyboardController.current
     val currentIndex=ordered.indexOfFirst {it.id==activeChapterId}
     fun jump() {query="";filter=0;keyboard?.hide();scope.launch {
-        withFrameNanos {};if(currentIndex>=0)listState.scrollToItem(currentIndex)
+        withFrameNanos {};if(currentIndex>=0)listState.requestScrollToItem(currentIndex)
     }}
     LaunchedEffect(ordered,activeChapterId) {
-        if(query.isBlank() && filter==0 && currentIndex>=0)listState.scrollToItem(currentIndex)
+        if(query.isBlank() && filter==0 && currentIndex>=0)listState.requestScrollToItem(currentIndex)
     }
     Column(modifier.fillMaxSize().semantics {paneTitle=title;isTraversalGroup=true}) {
         Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {

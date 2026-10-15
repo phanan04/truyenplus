@@ -34,10 +34,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
                 .clickable(remember {MutableInteractionSource()},indication=null){},
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface) {
                 Column(Modifier.padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(title,Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
-                        IconButton(onClick=onDismiss,modifier=Modifier.size(48.dp).focusRequester(closeFocus)){Icon(Icons.Default.Close,s.localize(Res.string.close))}
-                    }
+                    ReaderBooksSheetHeader(title,onDismiss,closeModifier=Modifier.focusRequester(closeFocus))
                     content()
                 }
             }

@@ -127,6 +127,7 @@ internal fun PagedReaderContent(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onShowComments: (chapter: Chapter) -> Unit,
+    onToggleReaderMode: () -> Unit,
 ) {
     val readerState by vm.state.collectAsState()
     val successState = readerState as? ReaderState.Success
@@ -330,7 +331,7 @@ internal fun PagedReaderContent(
             val now = currentTimeToLong()
             if (now - lastToggleTime > 250L) {
                 lastToggleTime = now
-                vm.toggleReaderMode()
+                onToggleReaderMode()
             }
         }
 

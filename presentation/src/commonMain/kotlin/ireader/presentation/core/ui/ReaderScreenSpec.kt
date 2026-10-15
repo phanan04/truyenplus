@@ -573,7 +573,7 @@ data class ReaderScreenSpec(
                     modifier = androidx.compose.ui.Modifier.fillMaxSize().readerWakeOnTouch {
                         wakingParagraphTap.value=vm.isReaderModeEnable
                         immersive.touch(immersiveEpoch.elapsedNow().inWholeMilliseconds)
-                        if(showListening)vm.toggleReaderMode(false)
+                        if(vm.isReaderModeEnable)vm.toggleReaderMode(false)
                     }
                 ) {
                     // Content first (below the top bar)
@@ -662,9 +662,9 @@ data class ReaderScreenSpec(
                             }
                         },
                         toggleReaderMode = {
-                            // Use toggleReaderMode without parameter to let ViewModel toggle internally
-                            // This avoids stale state capture issues
-                            vm.toggleReaderMode()
+                            // The initial pointer pass already revealed hidden controls.
+                            // Do not let the paragraph's click immediately hide them again.
+                            if (!wakingParagraphTap.value) vm.toggleReaderMode()
                         },
                         readerScreenPreferencesState = vm,
                         onBackgroundColorAndTextColorApply = { bgColor, txtColor ->

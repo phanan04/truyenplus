@@ -59,7 +59,10 @@ class FloatingReaderControlsTest {
                 val tune=all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-settings" }
                 assertTrue(tune.boundsInRoot.width>=48f)
                 tune.config[SemanticsActions.OnClick].action!!.invoke()
-                all.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-next" }.config[SemanticsActions.OnClick].action!!.invoke()
+                all.firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-footer-more"}?.let {more->
+                    more.config[SemanticsActions.OnClick].action!!.invoke();scene.render(2_000_000_000);scene.render(3_000_000_000)
+                }
+                nodes(scene).first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-next" }.config[SemanticsActions.OnClick].action!!.invoke()
                 assertEquals(1,settings);assertEquals(1,next)
                 val file=java.io.File("build/reports/floating-reader/$width-$dark.png");file.parentFile.mkdirs()
                 file.writeBytes(requireNotNull(scene.render().encodeToData(EncodedImageFormat.PNG)).bytes)

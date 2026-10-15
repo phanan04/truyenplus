@@ -13,7 +13,7 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderGlobalGlassTest {
-    @Test fun settingsOutsideReaderUseTranslucentGlassInBothAppearances() {
+    @Test fun settingsGroupsRemainLegibleWithoutContentBleedingThroughInBothAppearances() {
         for(dark in listOf(false,true)) {
             ImageComposeScene(360,800) {
                 val colors=if(dark)darkColorScheme(surface=Color.Black,background=Color.Black) else lightColorScheme(surface=Color.White,background=Color.White)
@@ -36,8 +36,8 @@ class ReaderGlobalGlassTest {
                 val color=bitmap.getRGB(panel.left.toInt()+8,panel.top.toInt()+18)
                 val blue=(color and 255)/255f
                 val red=((color shr 16) and 255)/255f
-                if(dark)assertTrue(blue in .10f.. .24f,"Glass became opaque: $blue")
-                else assertTrue(red in .77f.. .89f,"Glass became opaque: $red")
+                assertTrue(kotlin.math.abs(blue-red)<.03f,"Background bleeds through grouped settings rows")
+                if(dark)assertTrue(red<.04f,"Dark group loses its readable canvas") else assertTrue(red>.96f,"Light group loses its readable canvas")
             }
         }
     }

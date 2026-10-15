@@ -87,7 +87,7 @@ class MinimalistNavigationTest {
                 assertNull(search.config.getOrNull(SemanticsProperties.Selected))
                 requireNotNull(search.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
                 assertEquals(1,searched)
-                assertEquals(ReaderDestination.Settings,selected.value,"Search must have its own action")
+                assertEquals(ReaderDestination.Shelf,selected.value,"Search must have its own action")
             } finally { scene.close() }
         }
     }

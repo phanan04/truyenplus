@@ -82,7 +82,8 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
     private var fallback:TTSEngine?=null
     private var fallbackEvents:Job?=null
     private var pendingFallback:Pair<String,String>?=null
-    private val audioBuffer=VoiceAudioBuffer(scope) {text,rate -> OfflineRuntime.synthesize(config,text,rate)}
+    @Volatile private var completedNaturally=false
+    private val audioBuffer=VoiceAudioLookahead(scope) {text,rate -> OfflineRuntime.synthesize(config,text,rate)}
 
     init {scope.launch {
         try {OfflineRuntime.warm(config,owner);ready=true;mutableEvents.emit(EngineEvent.Ready)}
@@ -97,7 +98,7 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
         }
         val native=AndroidNativeTTSEngineV2(appContext)
         fallback=native;native.setSpeed(speed);native.setPitch(pitch)
-        audioBuffer.clear()
+        audioBuffer.begin(keepPrepared=false)
         scope.launch {OfflineRuntime.free(config,owner)}
         fallbackEvents=scope.launch {
             native.events.collect {event ->
@@ -109,7 +110,7 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
         }
     }
     override suspend fun speak(text:String,utteranceId:String) {
-        stop()
+        cancelCurrent(keepPrepared=completedNaturally)
         fallback?.let {it.speak(text,utteranceId);return}
         val token=generation.get()
         speechJob=scope.launch {
@@ -122,8 +123,7 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
                     val rate=speed
                     val audio=audioBuffer.takeOrGenerate(chunk,rate)
                     if(token!=generation.get())return@launch
-                    val next=chunks.getOrNull(index+1)
-                    if(next!=null)preload(next)
+                    audioBuffer.currentAudioReady(chunks.getOrNull(index+1),rate)
                     val pcm=normalizedVoicePcm(audio.samples)
                     val minimum=AudioTrack.getMinBufferSize(audio.sampleRate,AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT)
                     check(minimum>0)
@@ -146,27 +146,29 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
                         runCatching {player.stop()};player.release()
                     }
                 }
-                if(token==generation.get())mutableEvents.emit(EngineEvent.Completed(utteranceId))
+                if(token==generation.get()) {
+                    completedNaturally=true
+                    mutableEvents.emit(EngineEvent.Completed(utteranceId))
+                }
             } catch(e:CancellationException){throw e}
             catch(e:Throwable) {if(token==generation.get())activateFallback(text to utteranceId)}
         }
-    }
-    private fun preload(text:String) {
-        audioBuffer.prefetch(text,speed)
     }
     override fun precacheNext(items:List<Pair<String,String>>) {
         if(fallback!=null)return
         // At most one sentence; never pre-synthesize a whole long chapter or ten paragraphs.
         val next=items.firstOrNull()?.second?.let {TTSSentenceSplitter.split(it,maxChunkLength=if(config.model.family==OfflineVoiceFamily.VieNeuNano)140 else 220,speechRate=speed).firstOrNull()}
-        if(next!=null && speechJob?.isActive!=true)preload(next)
+        audioBuffer.announceNextParagraph(next)
     }
-    override fun stop() {
+    private fun cancelCurrent(keepPrepared:Boolean) {
         generation.incrementAndGet();pendingFallback=null
-        if(config.model.family==OfflineVoiceFamily.VieNeuNano)OfflineRuntime.abortNano()
-        speechJob?.cancel();speechJob=null;audioBuffer.clear()
+        if(!keepPrepared && config.model.family==OfflineVoiceFamily.VieNeuNano)OfflineRuntime.abortNano()
+        completedNaturally=false
+        speechJob?.cancel();speechJob=null;audioBuffer.begin(keepPrepared)
         runCatching {track?.pause();track?.flush()}
         fallback?.stop()
     }
+    override fun stop()=cancelCurrent(keepPrepared=false)
     override fun pause()=stop()
     override fun resume() { /* Controller replays the retained paragraph, as with system TTS. */ }
     private fun applyPlaybackParams() {runCatching {track?.playbackParams=PlaybackParams().setSpeed((speed/synthSpeed).coerceIn(.25f,4f)).setPitch(pitch)}}

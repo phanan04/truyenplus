@@ -514,7 +514,8 @@ fun ReaderText(
                                     vm = vm,
                                     onPrev = onPrev,
                                     onNext = onNext,
-                                    onShowComments = onShowComments
+                                    onShowComments = onShowComments,
+                                    onToggleReaderMode = toggleReaderMode
                                 )
                             }
 

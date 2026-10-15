@@ -16,6 +16,26 @@ import java.util.Locale
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ListeningPanelTest {
+    @Test fun voiceTimingHintFollowsControlsWithoutCoveringTheVoiceChoice() {
+        Locale.setDefault(Locale.forLanguageTag("vi"))
+        for(scale in listOf(1f,2f)) {
+            val scene=ImageComposeScene(width=393,height=700,density=Density(1f,scale)) {
+                CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
+                    ReaderFloatingOptions("Giọng hệ thống",1f,true,true,true,false,30,ListeningAudioState(),
+                        {},{},{},{},{},{},{},{},{},{},wordTiming=ReaderWordTiming.Conditional)
+                }}
+            }
+            try {
+                scene.render(0);scene.render(1_000_000_000)
+                fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
+                val nodes=scene.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
+                val hint=nodes.first {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text=="Theo từ tùy khả năng giọng hệ thống"}==true}
+                val volume=nodes.first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-speech-volume"}
+                assertTrue(hint.boundsInRoot.top>=volume.boundsInRoot.bottom,"Timing hint overlaps voice controls at font scale $scale")
+                assertTrue(hint.boundsInRoot.bottom<=700f)
+            } finally {scene.close()}
+        }
+    }
     @Test fun chapterHasCompactSpeedChoicesAndKeepsParagraphSelection() {
         Locale.setDefault(Locale.forLanguageTag("vi"))
         val speeds = mutableListOf<Float>(); val paragraphs = mutableListOf<Int>()

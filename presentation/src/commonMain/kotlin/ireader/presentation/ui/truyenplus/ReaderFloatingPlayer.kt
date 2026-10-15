@@ -137,7 +137,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
                     }
                 }
                 when(page) {
-                    0 -> {
+                    0 -> Column {
                         val voiceControls:@Composable ()->Unit={
                         OutlinedButton(onClick=onVoice,modifier=Modifier.fillMaxWidth().height(48.dp).testTag("listen-voice-choice"),contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp),shape=RoundedCornerShape(12.dp)) {
                             Icon(Icons.Outlined.Mic,null,Modifier.size(18.dp));Spacer(Modifier.width(8.dp))

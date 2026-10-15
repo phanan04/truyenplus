@@ -12,9 +12,9 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ShelfPresentationRepairTest {
-    @Test fun shelfIsSeparateFromExistingBottomNavigation() {
+    @Test fun repositoryIsAContentDestinationAndKeepsItsLegacyRoute() {
         assertTrue(ReaderAppScope.allows("shelf"))
-        assertEquals(listOf(ReaderDestination.Home, ReaderDestination.Library, ReaderDestination.Settings), ReaderAppScope.destinations)
+        assertEquals(listOf(ReaderDestination.Home, ReaderDestination.Library, ReaderDestination.Shelf), ReaderAppScope.destinations)
     }
 
     @Test fun searchKeepsSourcesOutOfResultsAndRemovesImplementationHints() {
@@ -36,7 +36,7 @@ class ShelfPresentationRepairTest {
             assertFalse("Bìa và thông tin" in text)
             assertFalse("Làm mới danh mục" in text)
             assertTrue(nodes.any { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-manage" })
-            nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-back" }.config[SemanticsActions.OnClick].action!!.invoke()
+            nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="books-back" }.config[SemanticsActions.OnClick].action!!.invoke()
             assertTrue(back)
             nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="shelf-manage" }.config[SemanticsActions.OnClick].action!!.invoke()
             scene.render(2_000_000_000);scene.render(3_000_000_000)

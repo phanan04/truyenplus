@@ -36,7 +36,7 @@ class ReaderCoreControlsTest {
         }
     }
     @Test fun paragraphSpacingCanBeAdjustedIndependentlyOfLineHeight() {
-        scene(360,440) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}.use {s ->
+        scene(360,440) {ReaderAppearanceAdvancedContent(ReaderAppearanceUi(),ReaderAppearanceActions())}.use {s ->
             s.render(0);s.render(1_000_000_000)
             click(s,"appearance-page-spacing");s.render(2_000_000_000)
             assertNotNull(nodes(s).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-paragraph-increase"})

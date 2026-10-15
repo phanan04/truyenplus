@@ -47,8 +47,69 @@ data class ReaderAppearanceActions(val onFontSize: (Int) -> Unit = {}, val onLin
     val onMode: (ReadingMode) -> Unit = {}, val onFont: (FontFamilyModel) -> Unit = {}, val onBrightness: (Float) -> Unit = {},
     val onAutoBrightness: (Boolean) -> Unit = {}, val onFollowAppearance: (Boolean) -> Unit = {}, val onParagraphSpacing: (Int) -> Unit = {})
 
+/** The opening surface mirrors Books: quick type, brightness and papers; detailed controls are one step deeper. */
 @Composable
-fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearanceActions, modifier: Modifier = Modifier) {
+fun ReaderAppearanceContent(state:ReaderAppearanceUi,actions:ReaderAppearanceActions,modifier:Modifier=Modifier) {
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    var customizing by remember {mutableStateOf(false)}
+    var options by remember {mutableStateOf(false)}
+    ireader.presentation.core.ui.PlatformBackHandler(customizing || options){customizing=false;options=false}
+    Column(modifier.fillMaxWidth()) {
+        if(customizing) {
+            Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                IconButton({customizing=false},Modifier.size(48.dp).testTag("reader-appearance-home-back")){Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_back))}
+                Text(s.localize(Res.string.tp_reader_customize),style=MaterialTheme.typography.titleMedium)
+            }
+            ReaderAppearanceAdvancedContent(state,actions)
+        } else if(options)Column(Modifier.padding(horizontal=16.dp,vertical=4.dp)) {
+            Row(Modifier.heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {
+                IconButton({options=false},Modifier.size(48.dp).testTag("reader-paper-options-back")){Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_back))}
+                Text(s.localize(Res.string.tp_reader_brightness),style=MaterialTheme.typography.titleMedium)
+            }
+            ReaderSettingSwitch(s.localize(Res.string.tp_follow_appearance),state.followAppearance,actions.onFollowAppearance)
+            ReaderSettingSwitch(s.localize(Res.string.tp_reader_auto_brightness),state.autoBrightness,actions.onAutoBrightness)
+            if(!state.autoBrightness)Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f,modifier=Modifier.height(48.dp))
+        } else BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max=320.dp).padding(horizontal=16.dp).testTag("reader-appearance-home")) {
+            val short=maxHeight<230.dp
+            val smallGallery=maxHeight<184.dp
+            val sizeControls:@Composable ()->Unit={
+                Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                    IconButton({actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,
+                        modifier=Modifier.size(48.dp).testTag("reader-font-decrease").semantics {contentDescription=s.localize(Res.string.decrease_font_size)}) {Text("A−")}
+                    Text(state.fontSize.toString(),style=MaterialTheme.typography.titleMedium)
+                    IconButton({actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,
+                        modifier=Modifier.size(48.dp).testTag("reader-font-increase").semantics {contentDescription=s.localize(Res.string.increase_font_size)}) {Text("A+")}
+                    Spacer(Modifier.weight(1f))
+                    IconButton({options=true},Modifier.size(48.dp).testTag("reader-paper-options")){Icon(Icons.Default.Contrast,s.localize(Res.string.tp_appearance))}
+                }
+            }
+            val brightness:@Composable ()->Unit={
+                Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
+                    Icon(Icons.Default.BrightnessLow,null,Modifier.size(18.dp))
+                    Slider(state.brightness.coerceIn(0f,.5f),{if(state.autoBrightness)actions.onAutoBrightness(false);actions.onBrightness(it)},
+                        valueRange=0f.. .5f,modifier=Modifier.weight(1f).semantics {contentDescription=s.localize(Res.string.tp_reader_brightness)})
+                    Icon(Icons.Default.BrightnessHigh,null,Modifier.size(18.dp))
+                }
+            }
+            val customize:@Composable RowScope.()->Unit={
+                TextButton({customizing=true},modifier=Modifier.heightIn(min=48.dp).testTag("reader-appearance-customize"),contentPadding=PaddingValues(horizontal=8.dp)) {
+                    Icon(Icons.Default.Tune,s.localize(Res.string.tp_reader_customize),Modifier.size(20.dp))
+                    if(androidx.compose.ui.platform.LocalDensity.current.fontScale<1.5f){Spacer(Modifier.width(4.dp));Text(s.localize(Res.string.tp_reader_customize),maxLines=1)}
+                }
+            }
+            if(short && maxWidth>=440.dp)Row(horizontalArrangement=Arrangement.spacedBy(20.dp)) {
+                Column(Modifier.weight(.42f)){sizeControls();brightness();Row {customize()}}
+                Box(Modifier.weight(.58f)){ReaderThemePalette(state.themes,state.themeId,actions.onTheme,pageSize=if(smallGallery)3 else 6,gap=0.dp)}
+            } else Column {
+                sizeControls();if(!short)brightness()
+                ReaderThemePalette(state.themes,state.themeId,actions.onTheme,pageSize=if(short)3 else 6,gap=if(short)0.dp else 8.dp,controls=customize)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions: ReaderAppearanceActions, modifier: Modifier = Modifier) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
     Column(modifier.fillMaxWidth()) {
@@ -148,12 +209,13 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
 
 /** All page papers stay visible, like the Apple Books theme palette, without a horizontal hunt. */
 @Composable internal fun ReaderThemePalette(themes:List<ReaderColors>,selectedId:Long,select:(Long)->Unit,
-    controls:(@Composable RowScope.()->Unit)?=null) {
+    pageSize:Int=8,gap:androidx.compose.ui.unit.Dp=8.dp,controls:(@Composable RowScope.()->Unit)?=null) {
     val s=requireNotNull(LocalLocalizeHelper.current)
-    val pages=themes.chunked(8)
-    var page by remember(themes,selectedId) {mutableIntStateOf((themes.indexOfFirst {it.id==selectedId}.coerceAtLeast(0)/8))}
-    Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        pages.getOrNull(page).orEmpty().chunked(4).forEach {row->
+    val pages=themes.chunked(pageSize)
+    val columns=if(pageSize==8)4 else 3
+    var page by remember(themes,selectedId,pageSize) {mutableIntStateOf((themes.indexOfFirst {it.id==selectedId}.coerceAtLeast(0)/pageSize))}
+    Column(verticalArrangement=Arrangement.spacedBy(gap)) {
+        pages.getOrNull(page).orEmpty().chunked(columns).forEach {row->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 row.forEach {theme->
                     Surface(onClick={select(theme.id)},shape=RoundedCornerShape(14.dp),
@@ -164,7 +226,7 @@ fun ReaderAppearanceContent(state: ReaderAppearanceUi, actions: ReaderAppearance
                         Box(Modifier.padding(8.dp),contentAlignment=Alignment.Center) {Text("Aa",style=MaterialTheme.typography.titleMedium)}
                     }
                 }
-                repeat(4-row.size){Spacer(Modifier.weight(1f))}
+                repeat(columns-row.size){Spacer(Modifier.weight(1f))}
             }
         }
         if(pages.size>1 || controls!=null)Row(Modifier.fillMaxWidth().heightIn(min=48.dp),verticalAlignment=Alignment.CenterVertically) {

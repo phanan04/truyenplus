@@ -29,6 +29,7 @@ fun ReaderDestination.localizedLabel(strings:LocalizeHelper):String = strings.lo
     ReaderDestination.Home -> Res.string.tp_home
     ReaderDestination.Library -> Res.string.tp_library
     ReaderDestination.Settings -> Res.string.tp_settings
+    ReaderDestination.Shelf -> Res.string.tp_shelf
 })
 fun ReaderAppearanceMode.localizedLabel(strings:LocalizeHelper):String = strings.localize(when(this) {
     ReaderAppearanceMode.System -> Res.string.tp_mode_system
@@ -39,40 +40,51 @@ fun ReaderAppearanceMode.localizedLabel(strings:LocalizeHelper):String = strings
 @Composable
 fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)->Unit,
     onProgress:()->Unit,onUpdate:()->Unit,appearance:ReaderAppearanceMode=ReaderAppearanceMode.System,
-    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={},onVoices:(()->Unit)?=null) {
+    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={},onVoices:(()->Unit)?=null,onDismiss:(()->Unit)?=null) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     var languageOpen by remember { mutableStateOf(false) }
     var appearanceOpen by remember { mutableStateOf(false) }
-    LazyColumn(Modifier.fillMaxSize().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max=760.dp),
-        contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=LocalReaderDockInset.current),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-        item { Text(strings.localize(Res.string.tp_settings),Modifier.padding(top=24.dp,bottom=8.dp),style=MaterialTheme.typography.headlineLarge,fontFamily=androidx.compose.ui.text.font.FontFamily.Serif,fontWeight=FontWeight.SemiBold) }
-        item {
-            Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16).testTag("settings-general"),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
-                Column {
-                    SettingsRow(strings.localize(Res.string.tp_language),language.displayName,Icons.Outlined.Language,{languageOpen=true})
-                    HorizontalDivider(Modifier.padding(start=56.dp),color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.5f))
-                    SettingsRow(strings.localize(Res.string.tp_appearance),appearance.localizedLabel(strings),Icons.Outlined.Contrast,{appearanceOpen=true})
+    Column(Modifier.fillMaxSize()) {
+        if(onDismiss!=null)ReaderBooksSheetHeader(strings.localize(Res.string.tp_settings),onDismiss,closeTag="books-account-close")
+        else ReaderBooksHeader(strings.localize(Res.string.tp_settings))
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max=760.dp),
+            contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+            item {
+                Text(strings.localize(Res.string.tp_settings_general),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(Modifier.fillMaxWidth().testTag("settings-general"),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                    Column {
+                        SettingsRow(strings.localize(Res.string.tp_language),language.displayName,Icons.Outlined.Language,{languageOpen=true})
+                        HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
+                        SettingsRow(strings.localize(Res.string.tp_appearance),appearance.localizedLabel(strings),Icons.Outlined.Contrast,{appearanceOpen=true})
+                    }
                 }
             }
-        }
-        item {
-            Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
-                Column {
-                    SettingsRow(strings.localize(Res.string.tp_import_ebook),strings.localize(Res.string.tp_import_formats),Icons.Outlined.FolderOpen,onImport)
-                    HorizontalDivider(Modifier.padding(start=56.dp),color=MaterialTheme.colorScheme.outlineVariant.copy(alpha=.5f))
-                    SettingsRow(strings.localize(Res.string.tp_progress),strings.localize(Res.string.tp_progress_setting_hint),Icons.Outlined.BarChart,onProgress)
+            item {
+                Text(strings.localize(Res.string.tp_settings_read_listen),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                    Column {
+                        SettingsRow(strings.localize(Res.string.tp_progress),"",Icons.Outlined.BarChart,onProgress)
+                        if(onVoices!=null) {
+                            HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
+                            SettingsRow(strings.localize(Res.string.tp_voice_manager),"",Icons.Outlined.Mic,onVoices)
+                        }
+                    }
                 }
             }
+            item {
+                Text(strings.localize(Res.string.tp_settings_tools),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                    Column {
+                        SettingsRow(strings.localize(Res.string.tp_import_ebook),"",Icons.Outlined.FolderOpen,onImport)
+                        HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
+                        SettingsRow(strings.localize(Res.string.tp_edit_settings),"",Icons.Outlined.AutoFixHigh,onEditing)
+                    }
+                }
+            }
+            item {Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                SettingsRow(strings.localize(Res.string.tp_app_update),"Truyện+",Icons.Outlined.SystemUpdate,onUpdate)
+            }}
         }
-        if(onVoices!=null)item {Surface(Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
-            SettingsRow(strings.localize(Res.string.tp_voice_manager),strings.localize(Res.string.tp_voice_settings_hint),Icons.Outlined.Mic,onVoices)
-        }}
-        item { Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
-            SettingsRow(strings.localize(Res.string.tp_edit_settings),strings.localize(Res.string.tp_edit_settings_hint),Icons.Outlined.AutoFixHigh,onEditing)
-        } }
-        item { Surface(modifier=Modifier.fillMaxWidth().readerAppGlassCard(16),shape=RoundedCornerShape(16.dp),color=Color.Transparent) {
-            SettingsRow(strings.localize(Res.string.tp_app_update),"Truyện+",Icons.Outlined.SystemUpdate,onUpdate)
-        } }
     }
     if(languageOpen) ReaderGlassDialog(onDismissRequest={languageOpen=false},title={Text(strings.localize(Res.string.tp_language))},
         text={Column { ReaderUiLanguage.entries.forEach { option ->
@@ -85,17 +97,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
         confirmButton={TextButton(onClick={appearanceOpen=false}) {Text(strings.localize(Res.string.tp_cancel))}})
 }
 
-@Composable private fun SettingsRow(title:String,value:String,icon:ImageVector,onClick:()->Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick=onClick).heightIn(min=68.dp).padding(horizontal=16.dp,vertical=14.dp),
-        verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-        Icon(icon,null,Modifier.size(22.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title,style=MaterialTheme.typography.bodyLarge)
-            Text(value,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant,modifier=Modifier.padding(top=3.dp))
-        }
-        Icon(Icons.Outlined.ChevronRight,null,Modifier.size(18.dp),tint=MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
+@Composable private fun SettingsRow(title:String,value:String,icon:ImageVector,onClick:()->Unit) = ReaderBooksActionRow(title,value,icon,onClick)
 
 @Composable fun ReaderAppearancePicker(selected:ReaderAppearanceMode,onSelect:(ReaderAppearanceMode)->Unit) {
     val strings=requireNotNull(LocalLocalizeHelper.current)

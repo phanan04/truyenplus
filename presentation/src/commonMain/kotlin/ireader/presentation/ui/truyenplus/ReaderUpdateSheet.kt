@@ -21,21 +21,22 @@ fun ReaderUpdateSheet(version: String, endpoint: String, supported: Boolean, sta
     onCheck: (String) -> Unit, onDownload: () -> Unit, onInstall: () -> Unit, onCancel: () -> Unit,
     onDismiss: () -> Unit) {
     ReaderGlassSheet(onDismissRequest=onDismiss) {
-        ReaderUpdateContent(version, endpoint, supported, state, onCheck, onDownload, onInstall, onCancel)
+        ReaderBooksSheetHeader(requireNotNull(LocalLocalizeHelper.current).localize(Res.string.tp_app_update),onDismiss)
+        ReaderUpdateContent(version, endpoint, supported, state, onCheck, onDownload, onInstall, onCancel,showHeading=false)
     }
 }
 
 @Composable
 fun ReaderUpdateContent(version: String, endpoint: String, supported: Boolean, state: ReaderUpdateState,
-    onCheck: (String) -> Unit, onDownload: () -> Unit, onInstall: () -> Unit, onCancel: () -> Unit) {
+    onCheck: (String) -> Unit, onDownload: () -> Unit, onInstall: () -> Unit, onCancel: () -> Unit,showHeading:Boolean=true) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     var address by rememberSaveable(endpoint) { mutableStateOf(endpoint) }
     var showAddress by rememberSaveable {mutableStateOf(endpoint.isBlank())}
     var showNotes by rememberSaveable(state.update?.release?.versionCode) {mutableStateOf(false)}
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Outlined.SystemUpdate, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
-            Text(strings.localize(Res.string.tp_app_update), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            if(showHeading)Icon(Icons.Outlined.SystemUpdate, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(28.dp))
+            if(showHeading)Text(strings.localize(Res.string.tp_app_update), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text(strings.localize(Res.string.tp_version, version), color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!supported) {
                 Text(strings.localize(Res.string.tp_update_android))

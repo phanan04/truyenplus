@@ -14,7 +14,7 @@
     <string name="tp_app_update">Cập nhật ứng dụng</string>
     <string name="tp_see_all">Xem tất cả</string>
     <string name="tp_library_ebook">Ebook trong thư viện</string>
-    <string name="tp_first_story">Câu chuyện đầu tiên của bạn</string>
+    <string name="tp_first_story">Thư viện trống</string>
     <string name="tp_first_story_hint">Thêm EPUB hoặc PDF để bắt đầu đọc và nghe.</string>
     <string name="tp_import_book">Nhập sách</string>
     <string name="tp_all">Tất cả</string>
@@ -277,7 +277,7 @@
     <string name="tp_reader_default_font">Mặc định</string>
     <string name="tp_reader_more_options">Thêm tùy chỉnh</string>
     <string name="tp_system_voice">Giọng hệ thống</string>
-    <string name="tp_reader_appearance">Tùy chỉnh chữ</string>
+    <string name="tp_reader_appearance">Chủ đề và cài đặt</string>
     <string name="tp_book_about">Giới thiệu truyện</string>
     <string name="tp_book_metadata">Cập nhật thông tin</string>
     <string name="tp_metadata_epub">Từ tệp EPUB gốc</string>
@@ -367,4 +367,14 @@
     <string name="tp_voice_preview_active">Đang nghe thử…</string>
     <string name="tp_voice_preview_error">Chưa nghe thử được giọng này. Hãy thử lại.</string>
     <string name="tp_voice_download_error">Chưa tải được giọng. Hãy thử lại.</string>
+    <string name="tp_select_books">Chọn truyện</string>
+    <string name="tp_search_prompt">Tìm truyện bạn muốn đọc</string>
+    <string name="tp_search_query_hint">Tên truyện hoặc tác giả</string>
+    <string name="tp_unread_shelf">Chưa đọc</string>
+    <string name="tp_reading_activity">Hoạt động đọc</string>
+    <string name="tp_book_details">Thông tin truyện</string>
+    <string name="tp_settings_general">Ứng dụng</string>
+    <string name="tp_settings_read_listen">Đọc và nghe</string>
+    <string name="tp_settings_tools">Công cụ</string>
+    <string name="tp_reader_customize">Tùy chỉnh</string>
 </resources>

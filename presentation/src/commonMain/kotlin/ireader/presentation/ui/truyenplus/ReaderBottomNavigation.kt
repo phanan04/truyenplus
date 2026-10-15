@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
@@ -30,10 +31,10 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
     val strings=requireNotNull(LocalLocalizeHelper.current)
     val colors=MaterialTheme.colorScheme
     val compact=LocalReaderViewport.current.width.value/LocalReaderViewport.current.fontScale<340f
-    val tabHeight=if(compact) 56.dp else 64.dp
-    Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),
-        verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-        BoxWithConstraints(Modifier.weight(1f).shadow(8.dp,CircleShape).clip(CircleShape)
+    val tabHeight=56.dp
+    Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp),
+        verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        BoxWithConstraints(Modifier.weight(1f).shadow(4.dp,CircleShape).clip(CircleShape)
             .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape).padding(4.dp).selectableGroup()) {
             val width=maxWidth/ReaderAppScope.destinations.size
             val index=ReaderAppScope.destinations.indexOf(selected).coerceAtLeast(0)
@@ -43,10 +44,11 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
             Row(Modifier.fillMaxWidth()) {
                 ReaderAppScope.destinations.forEach { destination ->
                     val active=destination==selected
-                    val color by animateColorAsState(if(active) colors.onSurface else colors.onSurfaceVariant,label="navigation icon")
+                    val color by animateColorAsState(colors.onSurface,label="navigation icon")
                     val icon=when(destination) {
-                        ReaderDestination.Home -> if(active) Icons.Filled.Home else Icons.Outlined.Home
-                        ReaderDestination.Library -> if(active) Icons.Filled.AutoStories else Icons.Outlined.AutoStories
+                        ReaderDestination.Home -> Icons.Filled.Home
+                        ReaderDestination.Library -> ReaderBooksSymbols.Library
+                        ReaderDestination.Shelf -> Icons.Filled.Cloud
                         ReaderDestination.Settings -> if(active) Icons.Filled.Settings else Icons.Outlined.Settings
                     }
                     val label=destination.localizedLabel(strings)
@@ -54,17 +56,17 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
                         .selectable(active,onClick={onSelect(destination)},role=Role.Tab)
                         .semantics { contentDescription=label;testTag="nav-${destination.name}" },
                         horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                        Icon(icon,null,Modifier.size(24.dp),tint=color)
-                        if(!compact) Text(label,Modifier.padding(top=3.dp),style=MaterialTheme.typography.labelSmall,
-                            fontWeight=if(active) FontWeight.SemiBold else FontWeight.Normal,color=color,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Icon(icon,null,Modifier.size(28.dp),tint=color)
+                        if(!compact) Text(label,Modifier.padding(top=3.dp),style=MaterialTheme.typography.labelSmall.copy(fontSize=13.sp,lineHeight=16.sp),
+                            fontWeight=if(active) FontWeight.SemiBold else FontWeight.Medium,color=color,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                 }
             }
         }
-        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(8.dp,CircleShape).clip(CircleShape)
+        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(4.dp,CircleShape).clip(CircleShape)
             .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape)
             .semantics { testTag="nav-search" }) {
-            Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(26.dp),tint=colors.onSurface)
+            Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(28.dp),tint=colors.onSurface)
         }
     }
 }
