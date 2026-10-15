@@ -82,6 +82,22 @@ class VoiceModelsPanelTest {
    assertTrue(selected.boundsInRoot.left>=0 && selected.boundsInRoot.right<=360 && selected.boundsInRoot.width>=48,"Default voice hidden: ${selected.boundsInRoot}")
   }
  }
+ @Test fun onlineVoicesHaveExplicitPreviewAndUseWithoutAFalseModelDownload() {
+  var selected="";var preview=""
+  ImageComposeScene(412,950,Density(1f)) {
+   CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
+    MaterialTheme {VoiceModelsPanel(OfflineVoiceState(),false,false,{},{},{},{_,_->},{_,_->},{},{},
+      onlineSupported=true,onOnlineSelect={selected=it},onOnlinePreview={preview=it})}
+   }
+  }.use {scene->
+   scene.render(0);scene.render(1_000_000_000)
+   fun node(tag:String)=nodes(scene).first {it.config.getOrNull(SemanticsProperties.TestTag)==tag}
+   val id="BV421_vivn_streaming"
+   node("voice-preview-capcut").config[SemanticsActions.OnClick].action!!.invoke();assertEquals(id,preview)
+   node("voice-use-capcut").config[SemanticsActions.OnClick].action!!.invoke();assertEquals(id,selected)
+   assertFalse(nodes(scene).any {it.config.getOrNull(SemanticsProperties.TestTag)=="voice-download-capcut"})
+  }
+ }
  private fun nodes(scene:ImageComposeScene):List<SemanticsNode> {
   fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
   return scene.semanticsOwners.flatMap{all(it.rootSemanticsNode)}

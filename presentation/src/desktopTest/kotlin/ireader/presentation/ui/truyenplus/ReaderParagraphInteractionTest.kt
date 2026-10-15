@@ -14,29 +14,7 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderParagraphInteractionTest {
-    @Test fun theTapThatWakesControlsDoesNotAlsoOpenParagraphActions() {
-        var allow=false
-        val original="Hoàng Yên Trần khẽ gật đầu."
-        val preferences=ReaderTextPreferencesState(20,30,0,400,0,PreferenceValues.PreferenceTextAlignment.Left,
-            androidx.compose.ui.graphics.Color.Black,null,0,4,0,true,false,false,0,false)
-        ImageComposeScene(360,640) {
-            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),
-                LocalReaderListening provides ReaderListeningContext(listOf(0),0,true,{}).copy(allowInspection={allow})) {
-                MaterialTheme {StyleTextOptimized(Modifier,0,Text(original),false,preferences)}
-            }
-        }.use {scene ->
-            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
-            fun all()=scene.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}
-            fun touch()=all().first {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text==original}==true}
-                .config[SemanticsActions.OnClick].action!!.invoke()
-            scene.render(0);scene.render(1_000_000_000)
-            touch();scene.render(2_000_000_000)
-            assertFalse(all().any {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-listen-from-here"})
-            allow=true;touch();scene.render(3_000_000_000)
-            assertTrue(all().any {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-listen-from-here"})
-        }
-    }
-    @Test fun touchingTextCannotSeekUntilTheExplicitListeningActionIsChosen() {
+    @Test fun touchingListeningTextImmediatelySeeksToTheMappedParagraphWithoutAMenu() {
         var selected:Int?=null
         val original="  Hoàng Yên Trần nói: ‘Đi thôi!’"
         val preferences=ReaderTextPreferencesState(20,30,0,400,12,PreferenceValues.PreferenceTextAlignment.Left,
@@ -52,12 +30,10 @@ class ReaderParagraphInteractionTest {
             scene.render(0);scene.render(1_000_000_000)
             val paragraph=all().first {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text==original}==true}
             paragraph.config.getOrNull(SemanticsActions.OnClick)?.action?.invoke()
-            assertNull(selected,"A tap waking the chrome must not change the spoken paragraph")
+            assertEquals(0,selected,"A single tap must select the mapped speech paragraph, not reader page 7")
             scene.render(2_000_000_000);scene.render(3_000_000_000)
-            val action=all().firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-listen-from-here"}
-            assertNotNull(action,"The paragraph needs an explicit listening action")
-            action.config[SemanticsActions.OnClick].action!!.invoke()
-            assertEquals(0,selected,"The action must select the mapped speech paragraph, not page 7")
+            assertFalse(all().any {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-listen-from-here"},
+                "Listening must seek directly instead of opening a confirmation menu")
         }
     }
 }

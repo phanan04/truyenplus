@@ -313,7 +313,6 @@ internal fun StyleTextOptimized(
     }
 
     if (listening != null) {
-        var actionsOpen by remember(page.text, index) { mutableStateOf(false) }
         val strings = requireNotNull(LocalLocalizeHelper.current)
         val actionLabel = strings.localize(ireader.i18n.resources.Res.string.tp_listen_from_here)
         val positioned = listening.copy(onSentenceBounds = { pageIndex, bounds ->
@@ -321,20 +320,14 @@ internal fun StyleTextOptimized(
         })
         Box {
             val actions = if (speechIndex == null) paragraphModifier else paragraphModifier
-                .clickable { if(listening.allowInspection())actionsOpen = true }
+                .clickable(onClickLabel = actionLabel) { listening.onSelect(speechIndex) }
                 .then(Modifier.semantics {
                     customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction(actionLabel) {
                         listening.onSelect(speechIndex); true
                     })
                 })
             ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,positioned,preferences,actions.fillMaxWidth())
-            androidx.compose.material3.DropdownMenu(actionsOpen, onDismissRequest = { actionsOpen = false }) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text(actionLabel) },
-                    modifier = Modifier.testTag("reader-listen-from-here"), onClick = {
-                        actionsOpen = false
-                        speechIndex?.let(listening.onSelect)
-                    })
-            }
+
         }
         return
     }

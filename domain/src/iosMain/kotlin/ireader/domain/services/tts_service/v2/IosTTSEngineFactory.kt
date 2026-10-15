@@ -13,6 +13,8 @@ import platform.darwin.NSObject
  */
 actual object TTSEngineFactory {
 
+    actual fun createCapCutEngine(voiceId:String):TTSEngine? = null
+
     actual fun createNativeEngine(): TTSEngine {
         return IosTTSEngineV2()
     }

@@ -175,7 +175,8 @@ object NavigationRoutes {
         }.joinToString("&")
         return "webView?$params"
     }
-    fun reader(bookId: Long, chapterId: Long) = "reader/$bookId/$chapterId"
+    fun reader(bookId: Long, chapterId: Long, listenOnOpen:Boolean=false, listeningParagraph:Int=0) =
+        "reader/$bookId/$chapterId"+if(listenOnOpen)"?listen=true&paragraph=${listeningParagraph.coerceAtLeast(0)}" else ""
     fun explore(sourceId: Long) = "explore/$sourceId"
     fun tts(bookId: Long, chapterId: Long, sourceId: Long, readingParagraph: Int) = 
         "tts/$bookId/$chapterId/$sourceId/$readingParagraph"
@@ -187,6 +188,7 @@ object NavigationRoutes {
     const val MAIN = "main"
     const val main = "main"
     const val READER = "reader/{bookId}/{chapterId}"
+    const val READER_LISTENING = "reader/{bookId}/{chapterId}?listen={listen}&paragraph={paragraph}"
     const val BOOK_DETAIL = "bookDetail/{bookId}"
     const val TTS = "tts/{bookId}/{chapterId}/{sourceId}/{readingParagraph}"
     const val TTS_V2 = "ttsV2/{bookId}/{chapterId}/{sourceId}/{readingParagraph}"

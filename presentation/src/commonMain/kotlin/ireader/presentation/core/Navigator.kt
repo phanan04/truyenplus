@@ -16,6 +16,7 @@ import ireader.presentation.core.ui.DeepSeekLoginScreenSpec
 import ireader.presentation.core.ui.ExploreScreenSpec
 import ireader.presentation.core.ui.GlobalSearchScreenSpec
 import ireader.presentation.core.ui.ReaderScreenSpec
+import ireader.presentation.ui.truyenplus.navigationRoute
 import ireader.presentation.core.ui.RepositoryAddScreenSpec
 
 /**
@@ -137,7 +138,7 @@ fun NavHostController.navigateTo(spec: BookDetailScreenSpec) {
 }
 
 fun NavHostController.navigateTo(spec: ReaderScreenSpec) {
-    val route = NavigationRoutes.reader(spec.bookId, spec.chapterId)
+    val route = spec.navigationRoute()
     // Skip if already reading this chapter
     if (isCurrentRoute(route)) return
     navigate(route) {

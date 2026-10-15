@@ -2,6 +2,8 @@ package ireader.presentation.ui.truyenplus
 
 import ireader.domain.services.tts_service.v2.*
 import kotlin.test.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 
 class SmartReaderBehaviourTest {
  @Test fun repeatedSentencesHighlightTheActualOccurrence() {
@@ -45,6 +47,25 @@ class SmartReaderBehaviourTest {
   chrome.touch(15000)
   chrome.update(18000,false,false)
   assertTrue(chrome.visible)
+ }
+ @Test fun onlyManualScrollHidesBothChromeAndPlaybackUntilTheNextTouch() {
+  val chrome=ReaderImmersiveState()
+  val connection=ReaderUserScrollConnection {chrome.onUserScroll()}
+  chrome.touch(0)
+  assertEquals(Offset.Zero,connection.onPreScroll(Offset(0f,-30f),NestedScrollSource.SideEffect))
+  assertTrue(chrome.visible && chrome.playbackVisible,"Smart follow must not hide the controls")
+  connection.onPreScroll(Offset.Zero,NestedScrollSource.UserInput)
+  assertTrue(chrome.visible && chrome.playbackVisible)
+  assertEquals(Offset.Zero,connection.onPreScroll(Offset(-30f,0f),NestedScrollSource.UserInput))
+  assertFalse(chrome.visible);assertFalse(chrome.playbackVisible)
+  chrome.touch(1000)
+  assertTrue(chrome.visible && chrome.playbackVisible)
+  chrome.update(6000,true,false)
+  assertFalse(chrome.visible)
+  assertTrue(chrome.playbackVisible,"Idle listening still keeps its player; a manual swipe hides both")
+  chrome.onUserScroll()
+  chrome.update(6500,true,true)
+  assertTrue(chrome.visible && chrome.playbackVisible,"Open settings must remain reachable")
  }
  @Test fun mergedSpeechPositionMapsBackToTheCorrectParagraphWithoutChangingPlaybackIndex() {
   val paragraphs=listOf("Một câu đầu. Câu thứ hai.","Một đoạn mới. Kết thúc.")

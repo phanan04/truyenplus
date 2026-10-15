@@ -29,6 +29,7 @@ import ireader.domain.monitoring.MemoryTracker
 import org.koin.dsl.module
 
 actual val dataPlatformModule = module {
+    single<ireader.domain.services.tts_service.v2.online.CapCutSpeechSource> {ireader.data.tts.capcut.CapCutSpeechClient(get(),get())}
     single<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore> {
         ireader.data.tts.offline.AndroidOfflineVoiceStore(get(),get())
     }

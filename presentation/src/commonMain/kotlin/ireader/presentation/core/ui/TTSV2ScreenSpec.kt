@@ -163,7 +163,7 @@ class TTSV2ScreenSpec(
     @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
     @Composable
     fun Content(embedded: Boolean = false, onCloseListening: () -> Unit = {}, onPlayerHeightChanged: (Int) -> Unit = {},
-        chapterNavigation: ireader.presentation.ui.truyenplus.ReaderChapterNavigation? = null) {
+        chapterNavigation: ireader.presentation.ui.truyenplus.ReaderChapterNavigation? = null, controlsVisible:Boolean = true) {
         val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
         val navController = requireNotNull(LocalNavigator.current) { "LocalNavigator not provided" }
         val scope = rememberCoroutineScope()
@@ -1205,7 +1205,7 @@ class TTSV2ScreenSpec(
                     ::toggleOptions,onCloseListening,
                     Modifier.onSizeChanged { onPlayerHeightChanged(it.height) },
                     voiceLabel = activeVoiceLabel, isLoading = state.isLoading,
-                    onPrevious = actions::onPreviousChapter,onNext=actions::onNextChapter,canPrevious=previousAvailable,canNext=nextAvailable)
+                    onPrevious = actions::onPreviousChapter,onNext=actions::onNextChapter,canPrevious=previousAvailable,canNext=nextAvailable,hasError=state.error!=null)
                 else ireader.presentation.ui.truyenplus.ReaderFloatingPlayer(
                     isPlaying, state.speed, screenState.progressFraction,
                     actions::onPreviousChapter, { if (isPlaying || state.isLoading) actions.onPause() else actions.onPlay() },
@@ -1216,7 +1216,7 @@ class TTSV2ScreenSpec(
                     modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) }, onMinimize = panels::minimize,
                     voiceLabel = activeVoiceLabel, chapterLabel = state.chapter?.name.orEmpty(),
                     paragraphIndex = screenState.currentReadingParagraph, paragraphCount = screenState.contentSize,
-                    isLoading=state.isLoading,canPrevious=previousAvailable,canNext=nextAvailable)
+                    isLoading=state.isLoading,canPrevious=previousAvailable,canNext=nextAvailable,hasError=state.error!=null)
             }, overlay = when {
                 panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.SystemVoices -> ({
                     TTSVoiceSelectionScreen(isDesktop=isTabletOrDesktop,onDismiss={
@@ -1231,7 +1231,7 @@ class TTSV2ScreenSpec(
                         onDismiss={panels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Voices)})
                 })
                 else -> null
-            })
+            }, visible = controlsVisible)
             if (showVoiceSelection) TTSVoiceSelectionScreen(isDesktop = isTabletOrDesktop, onDismiss = {
                 showVoiceSelection = false
                 val selectedName = runCatching { appPreferences.speechVoice().get().name }.getOrDefault("")

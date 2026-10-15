@@ -12,8 +12,7 @@ data class ReaderListeningContext(val sourceIndices: List<Int>, val currentParag
     val sentence: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null,
     val onSentenceBounds: (Int,androidx.compose.ui.geometry.Rect)->Unit = {_,_->},
     val word: ireader.domain.services.tts_service.v2.SpokenSentencePosition? = null,
-    val wordHighlight:Boolean=false, val chapterIndex:Int=-1, val chapterCount:Int=0,
-    val allowInspection:()->Boolean={true}) {
+    val wordHighlight:Boolean=false, val chapterIndex:Int=-1, val chapterCount:Int=0) {
     constructor(sourceIndices: List<Int>, currentParagraph: Int, highlight: Boolean, onSelect: (Int)->Unit)
         : this(sourceIndices,currentParagraph,highlight,ReaderSpeechIndex(sourceIndices),onSelect)
     fun paragraphForReaderPage(index: Int): Int? = this.index.paragraphForReaderPage(index)

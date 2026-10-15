@@ -352,11 +352,6 @@ class ReaderScreensRenderTest {
                 val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
                 val paragraph=nodes.first { it.config.getOrNull(SemanticsProperties.Text)?.any { it.text.contains(chapterParagraphs.first()) }==true && it.config.getOrNull(SemanticsActions.OnClick)?.action!=null }
                 requireNotNull(paragraph.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
-                assertTrue(selected.isEmpty(),"A text tap must not seek before explicit confirmation")
-                scene.render(2_000_000_000);scene.render(3_000_000_000)
-                val action=scene.semanticsOwners.flatMap {descendants(it.rootSemanticsNode)}
-                    .first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-listen-from-here"}
-                requireNotNull(action.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
                 assertEquals(listOf(0),selected)
                 val out=File("build/reports/truyenplus-v2/floating-listening-$width-${if(expanded) "expanded" else "collapsed"}.png")
                 out.parentFile.mkdirs(); out.writeBytes(requireNotNull(bitmap.encodeToData(EncodedImageFormat.PNG)).bytes)

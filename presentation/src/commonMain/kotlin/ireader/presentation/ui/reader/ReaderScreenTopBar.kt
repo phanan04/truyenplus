@@ -112,11 +112,14 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
             Surface(Modifier.size(52.dp).readerPanel(26,backgroundColor,textColor),shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=textColor) {
                 IconButton(onClick=onBack,modifier=Modifier.fillMaxSize().testTag("reader-close")) {Icon(Icons.Default.Close,localize(Res.string.tp_back))}
             }
-            Column(Modifier.weight(1f).testTag("reader-identity"),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.labelMedium,
-                    color=textColor.copy(alpha=.8f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
-                if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f)Text(bookTitle,style=MaterialTheme.typography.labelSmall,
-                    color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
+            Surface(Modifier.weight(1f).height(56.dp).readerPanel(28,backgroundColor,textColor).testTag("reader-identity"),
+                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
+                Column(Modifier.fillMaxSize().padding(horizontal=12.dp,vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                    Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.labelMedium,
+                        color=textColor.copy(alpha=.8f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
+                    if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f)Text(bookTitle,style=MaterialTheme.typography.labelSmall,
+                        color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
+                }
             }
             Surface(Modifier.readerPanel(28,backgroundColor,textColor),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
                 Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {

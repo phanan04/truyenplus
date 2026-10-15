@@ -43,10 +43,42 @@ class TTSContinuousPlaybackTest {
         override fun pause() {}
         override fun resume() {} // Android native resume is a no-op.
         override fun release() {}
-        override fun setSpeed(speed: Float) {}
-        override fun setPitch(pitch: Float) {}
+        var appliedSpeed=1f
+        var appliedPitch=1f
+        override fun setSpeed(speed: Float) {appliedSpeed=speed}
+        override fun setPitch(pitch: Float) {appliedPitch=pitch}
         suspend fun complete() { events.emit(EngineEvent.Completed(spoken.last().second)) }
         suspend fun fail() { events.emit(EngineEvent.Error(spoken.last().second, "synthesis failure")) }
+    }
+
+    @Test fun replacingAVoiceKeepsTheChosenSpeedAndPitch()=runTest(dispatcher) {
+        val first=Engine();val replacement=Engine();var creations=0
+        val controller=TTSController(Loader(listOf(listOf("A paragraph"))),{if(creations++==0)first else replacement})
+        try {
+            controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.LoadChapter(1,1));testScheduler.advanceUntilIdle()
+            controller.dispatch(TTSCommand.SetSpeed(1.5f));controller.dispatch(TTSCommand.SetPitch(1.25f));testScheduler.advanceUntilIdle()
+            controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE,true));testScheduler.advanceUntilIdle()
+            assertEquals(1.5f,replacement.appliedSpeed,"Changing voice must not silently reset the audible speed")
+            assertEquals(1.25f,replacement.appliedPitch)
+        } finally {controller.destroy()}
+    }
+
+    @Test fun unavailableOnlineAudioStopsAtTheSameParagraphInsteadOfSkippingTheChapter()=runTest(dispatcher) {
+        val engine=Engine()
+        val controller=TTSController(Loader(listOf(listOf("Keep this paragraph","Do not skip here"))),{engine})
+        try {
+            controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.LoadChapter(1,1))
+            testScheduler.advanceUntilIdle()
+            TTSViewModelAdapter(controller,backgroundScope).play();testScheduler.advanceUntilIdle()
+            engine.events.emit(EngineEvent.Error(engine.spoken.last().second,"Network unavailable",retryable=false))
+            testScheduler.advanceUntilIdle()
+            assertEquals(PlaybackState.ERROR,controller.state.value.playbackState)
+            assertEquals(0,controller.state.value.currentParagraphIndex)
+            assertEquals(1,engine.spoken.size)
+            TTSViewModelAdapter(controller,backgroundScope).play();testScheduler.advanceUntilIdle()
+            assertEquals("Keep this paragraph",engine.spoken.last().first)
+            assertNull(controller.state.value.error,"Retry must clear stale error feedback")
+        } finally {controller.destroy()}
     }
 
     @Test fun playFromAppContinuesThroughBlankChapterTail() = runTest(dispatcher) {

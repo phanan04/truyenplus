@@ -1,6 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.LocalDensity
@@ -33,18 +35,22 @@ fun ReaderContentPane(maxWidth: Dp = 1120.dp, content: @Composable () -> Unit) {
 /** Keep playback reachable while fixed settings pages fit the remaining height. */
 @Composable
 fun ReaderListeningDock(optionsOpen: Boolean, options: @Composable () -> Unit, player: @Composable () -> Unit,
-    overlay: (@Composable () -> Unit)? = null) {
+    overlay: (@Composable () -> Unit)? = null, visible:Boolean = true) {
     var playerHeight by remember { mutableStateOf(72.dp) }
     val density=LocalDensity.current
     val dock:@Composable ()->Unit={ Column(Modifier.widthIn(max=760.dp).fillMaxWidth().heightIn(max=(LocalReaderViewport.current.height-32.dp).coerceAtLeast(48.dp))) {
         if(optionsOpen) Box(Modifier.weight(1f,fill=false)) { options() }
         Box(Modifier.onSizeChanged {playerHeight=with(density){it.height.toDp()}}) {player()}
     } }
+    val animatedDock:@Composable ()->Unit={
+        AnimatedVisibility(visible,enter=fadeIn(tween(120))+slideInVertically(tween(120)){it/4},
+            exit=fadeOut(tween(120))+slideOutVertically(tween(120)){it/4}) {dock()}
+    }
     ReaderPaperTheme {
-        if(overlay==null)dock()
+        if(overlay==null)animatedDock()
         else Box(Modifier.fillMaxSize()) {
             Box(Modifier.matchParentSize().padding(bottom=playerHeight)) {overlay()}
-            Box(Modifier.align(Alignment.BottomCenter)) {dock()}
+            Box(Modifier.align(Alignment.BottomCenter)) {animatedDock()}
         }
     }
 }

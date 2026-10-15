@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ireader.domain.preferences.prefs.AppPreferences
 import ireader.domain.services.tts_service.v2.*
+import ireader.domain.services.tts_service.v2.online.*
 import ireader.domain.services.tts_service.v2.offline.*
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
@@ -38,6 +39,8 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
     val controller:TTSController=koinInject()
     val actualEngine by remember(controller){controller.state.map {it.engineName}.distinctUntilChanged()}.collectAsState(initial=controller.state.value.engineName)
     val preferences:AppPreferences=koinInject()
+    val onlineSupported=org.koin.mp.KoinPlatform.getKoin().getOrNull<CapCutSpeechSource>()!=null
+    val selectedOnline by preferences.capCutVoiceId().changes().collectAsState(initial=preferences.capCutVoiceId().get())
     val uiPreferences:ireader.domain.preferences.prefs.UiPreferences=koinInject()
     val namePreference=remember(uiPreferences){uiPreferences.readerVoiceNames()}
     val storedNames by namePreference.changes().collectAsState(namePreference.get())
@@ -52,6 +55,36 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
     fun dismiss() {stopPreview();val resume=resumeOnDismiss;resumeOnDismiss=false;if(resume)controller.dispatch(TTSCommand.Play);onDismiss()}
     ireader.presentation.core.ui.PlatformBackHandler(true,::dismiss)
     DisposableEffect(Unit) {onDispose {previewJob?.cancel();if(resumeOnDismiss){resumeOnDismiss=false;controller.dispatch(TTSCommand.Play)}}}
+    val preview:(String,Int)->Unit = {id,speaker ->
+        stopPreview();failed=false
+        val config=store.config(id,speaker)
+        val previewToken=previewGeneration
+        if(config!=null || CapCutVoices.find(id)!=null)previewJob=scope.launch {
+            var engine:TTSEngine?=null
+            try {
+                previewing=true;preparing=true
+                val old=controller.state.value
+                if(old.isPlaying || old.isLoading) {
+                    resumeOnDismiss=true;controller.dispatch(TTSCommand.Pause)
+                    withTimeout(2000){controller.state.first {!it.isPlaying && !it.isLoading}}
+                }
+                val probe=(if(config!=null)TTSEngineFactory.createOfflineEngine(config) else TTSEngineFactory.createCapCutEngine(id)) ?: error("Unsupported runtime")
+                engine=probe
+                withTimeout(30_000){probe.events.first {it is EngineEvent.Ready}}
+                val done=async(start=CoroutineStart.UNDISPATCHED) {
+                    withTimeout(60_000){probe.events.first {event ->
+                        if(event is EngineEvent.Started && previewToken==previewGeneration)preparing=false
+                        event is EngineEvent.Completed || event is EngineEvent.Error}}
+                }
+                probe.speak("Gió đêm thổi qua, mang theo hương hoa thoang thoảng. Chào bạn, đây là giọng đọc tiếng Việt.","voice-preview")
+                check(done.await() is EngineEvent.Completed)
+                check(probe.name.startsWith(config?.model?.title ?: "CapCut"))
+            } catch(_:TimeoutCancellationException){if(previewToken==previewGeneration)failed=true}
+            catch(e:CancellationException){throw e}
+            catch(_:Exception){if(previewToken==previewGeneration)failed=true}
+            finally {withContext(Dispatchers.IO+NonCancellable){engine?.release()};if(previewToken==previewGeneration){previewing=false;preparing=false}}
+        }
+    }
     VoiceModelsPanel(state,previewing,failed,store::startDownload,store::cancelDownload,
         onDelete={id -> scope.launch {
             stopPreview()
@@ -62,49 +95,29 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
         }},onSelect={id,speaker ->
             stopPreview()
             if(store.select(id,speaker)) {
+                preferences.capCutVoiceId().set("")
                 preferences.useGradioTTS().set(false);preferences.useLocalTTS().set(false)
                 controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE,true))
                 if(resumeOnDismiss)controller.dispatch(TTSCommand.Play)
                 resumeOnDismiss=false;onDismiss()
             }
-        },onPreview={id,speaker ->
-            stopPreview();failed=false
-            val config=store.config(id,speaker)
-            val previewToken=previewGeneration
-            if(config!=null)previewJob=scope.launch {
-                var engine:TTSEngine?=null
-                try {
-                    previewing=true;preparing=true
-                    val old=controller.state.value
-                    if(old.isPlaying || old.isLoading) {
-                        resumeOnDismiss=true;controller.dispatch(TTSCommand.Pause)
-                        withTimeout(2000){controller.state.first {!it.isPlaying && !it.isLoading}}
-                    }
-                    val probe=TTSEngineFactory.createOfflineEngine(config) ?: error("Unsupported runtime")
-                    engine=probe
-                    withTimeout(30_000){probe.events.first {it is EngineEvent.Ready}}
-                    check(probe.name.startsWith(config.model.title))
-                    val done=async(start=CoroutineStart.UNDISPATCHED) {
-                        withTimeout(60_000){probe.events.first {event ->
-                            if(event is EngineEvent.Started && previewToken==previewGeneration)preparing=false
-                            event is EngineEvent.Completed || event is EngineEvent.Error}}
-                    }
-                    probe.speak("Gió đêm thổi qua, mang theo hương hoa thoang thoảng. Chào bạn, đây là giọng đọc tiếng Việt.","voice-preview")
-                    check(done.await() is EngineEvent.Completed)
-                    check(probe.name.startsWith(config.model.title))
-                } catch(_:TimeoutCancellationException){if(previewToken==previewGeneration)failed=true}
-                catch(e:CancellationException){throw e}
-                catch(_:Exception){if(previewToken==previewGeneration)failed=true}
-                finally {withContext(Dispatchers.IO+NonCancellable){engine?.release()};if(previewToken==previewGeneration){previewing=false;preparing=false}}
-            }
-        },onSystem={
-            stopPreview();store.select(null)
+        },onPreview=preview,onSystem={
+            stopPreview();store.select(null);preferences.capCutVoiceId().set("")
             preferences.useGradioTTS().set(false);preferences.useLocalTTS().set(false)
             controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE,true))
             if(resumeOnDismiss)controller.dispatch(TTSCommand.Play)
             resumeOnDismiss=false;onSystem()
         },onDismiss=::dismiss,onStopPreview=::stopPreview,previewPreparing=preparing,actualEngine=actualEngine,preferredNames=preferredNames,
-        onRename={id,speaker,name->
+        onlineSupported=onlineSupported,selectedOnline=selectedOnline,
+        onOnlinePreview={preview(it,0)},onOnlineSelect={id->
+            if(CapCutVoices.find(id)!=null) {
+                stopPreview();store.select(null);preferences.capCutVoiceId().set(id)
+                preferences.useGradioTTS().set(false);preferences.useLocalTTS().set(false)
+                controller.dispatch(TTSCommand.SetEngine(EngineType.NATIVE,true))
+                if(resumeOnDismiss)controller.dispatch(TTSCommand.Play)
+                resumeOnDismiss=false;onDismiss()
+            }
+        },onRename={id,speaker,name->
             val key="$id:$speaker"
             val updated=if(name.isBlank())preferredNames-key else preferredNames+(key to name.trim().take(120))
             namePreference.set(Json.encodeToString(updated))
@@ -116,7 +129,8 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
 fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Boolean,
     onDownload:(String)->Unit,onCancel:(String)->Unit,onDelete:(String)->Unit,
     onSelect:(String,Int)->Unit,onPreview:(String,Int)->Unit,onSystem:()->Unit,onDismiss:()->Unit,
-    onStopPreview:()->Unit={},previewPreparing:Boolean=true,actualEngine:String="",preferredNames:Map<String,String> = emptyMap(),onRename:(String,Int,String)->Unit={_,_,_->}) {
+    onStopPreview:()->Unit={},previewPreparing:Boolean=true,actualEngine:String="",preferredNames:Map<String,String> = emptyMap(),onRename:(String,Int,String)->Unit={_,_,_->},
+    onlineSupported:Boolean=false,selectedOnline:String="",onOnlineSelect:(String)->Unit={},onOnlinePreview:(String)->Unit={}) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var speakers by remember {mutableStateOf(mapOf<String,Int>())}
     var renameModel by rememberSaveable {mutableStateOf<String?>(null)}
@@ -152,6 +166,9 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                     }
                     if(previewFailed)Text(s.localize(Res.string.tp_voice_preview_error),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
                     LazyColumn(Modifier.weight(1f,fill=false),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=16.dp)) {
+                        if(onlineSupported)item(key="capcut-online") {
+                            CapCutVoiceCard(selectedOnline,previewing,onOnlineSelect,onOnlinePreview)
+                        }
                         items(OfflineVoiceCatalog.models,key={it.id}) {model ->
                             val installed=model.id in state.installed
                             val downloading=state.downloads[model.id]
@@ -199,6 +216,26 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                     }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable private fun CapCutVoiceCard(selected:String,previewing:Boolean,onUse:(String)->Unit,onPreview:(String)->Unit) {
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    var voice by rememberSaveable {mutableStateOf(CapCutVoices.find(selected)?.id ?: CapCutVoices.voices.first().id)}
+    Surface(Modifier.fillMaxWidth().readerGlassCard(18),shape=RoundedCornerShape(18.dp),color=Color.Transparent) {
+        Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text("CapCut",style=MaterialTheme.typography.titleMedium)
+            Text(s.localize(Res.string.tp_capcut_online),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                items(CapCutVoices.voices,key={it.id}) {item->
+                    FilterChip(voice==item.id,{voice=item.id},label={Text(item.title)},modifier=Modifier.testTag("voice-capcut-${item.id}"))
+                }
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                OutlinedButton({onPreview(voice)},enabled=!previewing,modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("voice-preview-capcut")){Text(s.localize(Res.string.tp_voice_preview))}
+                Button({onUse(voice)},modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("voice-use-capcut")){Text(s.localize(Res.string.tp_voice_use))}
             }
         }
     }

@@ -3135,4 +3135,7 @@
     <string name="tp_category_rule_count">%1$d rules</string>
     <string name="tp_category_move_up">Move collection up</string>
     <string name="tp_category_move_down">Move collection down</string>
+    <string name="tp_capcut_online">Online · Requires an internet connection</string>
+    <string name="tp_listening_retry">Could not play. Press play to retry or choose another voice.</string>
+    <string name="tp_listening_failed">Unable to play</string>
 </resources>

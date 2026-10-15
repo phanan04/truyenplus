@@ -10,6 +10,6 @@ object ReaderAppScope {
     private val screens = setOf("main", "shelf", "category", "fontSettings", "ttsEngineManager", "textReplacement")
     fun allows(route: String): Boolean = route in screens ||
         Regex("bookDetail/-?\\d+").matches(route) ||
-        Regex("reader/-?\\d+/-?\\d+").matches(route) ||
+        Regex("reader/-?\\d+/-?\\d+(?:\\?listen=true&paragraph=\\d+)?").matches(route) ||
         Regex("ttsV2/-?\\d+/-?\\d+/-?\\d+/-?\\d+").matches(route)
 }

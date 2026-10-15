@@ -30,6 +30,7 @@ import ireader.i18n.resources.*
 
 /** Geometry from the supplied 393pt Apple Books screens; accessibility is never scaled down. */
 internal object ReaderBooksTokens {
+    val bottomDockGap=12.dp
     val title:TextStyle @Composable get()=TextStyle(fontFamily=booksEditorialFamily(),fontSize=34.sp,lineHeight=39.sp,fontWeight=FontWeight.Bold,letterSpacing=(-.7).sp)
     val section:TextStyle @Composable get()=TextStyle(fontFamily=booksEditorialFamily(),fontSize=24.sp,lineHeight=29.sp,fontWeight=FontWeight.Bold,letterSpacing=(-.3).sp)
     val gutter:Dp @Composable get()=if(LocalReaderViewport.current.width<360.dp)20.dp else 32.dp
@@ -105,7 +106,7 @@ internal object ReaderBooksTokens {
 /** Search is its own bottom-reachable workspace, matching screenshots 74–83. */
 @Composable internal fun ReaderSearchDock(query:String,onQuery:(String)->Unit,onReturn:()->Unit,
     focus:FocusRequester=remember {FocusRequester()},onSubmit:(String)->Unit={},onFocus:()->Unit={},onCloseBook:(()->Unit)?=null,origin:ReaderDestination=ReaderDestination.Home,shelf:Boolean?=null,onScope:((Boolean)->Unit)?=null) {
-    Row(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(start=28.dp,end=28.dp,top=10.dp,bottom=2.dp).imePadding(),
+    Row(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(start=28.dp,end=28.dp,top=10.dp,bottom=ReaderBooksTokens.bottomDockGap).imePadding(),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
         Surface(shape=CircleShape,color=Color.Transparent,modifier=Modifier.size(48.dp).readerPanel(24)) {
             IconButton(onReturn,Modifier.fillMaxSize().testTag("search-return")) {Icon(when(origin){ReaderDestination.Library->Icons.Outlined.LibraryBooks;ReaderDestination.Shelf->Icons.Outlined.CloudQueue;else->Icons.Outlined.Home},localize(Res.string.tp_back))}

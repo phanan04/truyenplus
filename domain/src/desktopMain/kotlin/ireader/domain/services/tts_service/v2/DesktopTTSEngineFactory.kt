@@ -40,6 +40,8 @@ actual object TTSEngineFactory : KoinComponent {
     }
     
 
+    actual fun createCapCutEngine(voiceId:String):TTSEngine? = null
+
     actual fun createNativeEngine(): TTSEngine {
         return DesktopPiperTTSEngineV2(piperSynthesizer, piperModelManager, appPreferences)
     }

@@ -74,6 +74,7 @@ fun ReaderBookRoute(bookId: Long,onDismiss:(()->Unit)?=null,bottomInset:Dp=0.dp,
     val lookup: BookMetadataLookup = koinInject()
     val books: BookRepository = koinInject()
     val preferences: AppPreferences = koinInject()
+    val playback: ireader.domain.services.tts_service.v2.TTSController = koinInject()
     val sourcePreference = remember(bookId) { preferences.bookMetadataSource(bookId) }
     val metadataSource by sourcePreference.changes().collectAsState(initial = sourcePreference.get())
     val uriHandler = LocalUriHandler.current
@@ -103,7 +104,7 @@ fun ReaderBookRoute(bookId: Long,onDismiss:(()->Unit)?=null,bottomInset:Dp=0.dp,
         vm.events.collectLatest { event ->
             when (event) {
                 is BookDetailEvent.ShowSnackbar -> snackbars.showSnackbar(event.message)
-                is BookDetailEvent.NavigateToReader -> nav.navigateTo(ReaderScreenSpec(event.bookId, event.chapterId))
+                is BookDetailEvent.NavigateToReader -> nav.navigateTo(readerResumeDestination(event.bookId, event.chapterId,playback.state.value))
                 BookDetailEvent.NavigateBack -> dismiss()
                 else -> Unit // Online-source, migration and recommendation destinations are outside this app.
             }
@@ -146,7 +147,7 @@ fun ReaderBookRoute(bookId: Long,onDismiss:(()->Unit)?=null,bottomInset:Dp=0.dp,
                     ReaderBookScreen(
                         book = ReaderBookUi(current.book.id, current.book.title, BookCover.from(current.book), chapters.count { it.read }, chapters.size),
                         author = current.book.author.orEmpty(), chapters = chapters, onBack = dismiss,
-                        onRead = { resume?.let { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) } },
+                        onRead = { resume?.let { nav.navigateTo(readerResumeDestination(bookId, it.id,playback.state.value)) } },
                         onListen = { resume?.let { nav.navigateTo(readerListeningDestination(bookId, it.id)) } },
                         onChapter = { nav.navigateTo(ReaderScreenSpec(bookId, it.id)) },
                         onExport = { vm.showEpubExportDialog = true },

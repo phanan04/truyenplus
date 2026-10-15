@@ -201,3 +201,19 @@ QA covers/metadata come from the user's existing EPUBs and stay in the isolated
 QA package; production contains no test library, copied Apple content, or voice
 models. No physical Samsung A9/Redmi, TalkBack session, battery benchmark or
 claim of exact iOS rendering on Android is implied by these checks.
+
+## Reader correction after device feedback — 15 October 2026
+
+- The centered chapter/book identity has its own paper-aware frosted capsule,
+  matching the existing close/actions material. Scrolling text can pass behind the
+  floating header without remaining sharp underneath the identity.
+- While listening, one tap on a mapped paragraph immediately calls the existing
+  IReader paragraph seek. There is no confirmation menu, including on the first
+  tap that wakes hidden controls. Chunk mode is disabled before seeking, and smart
+  follow resumes for the chosen paragraph. Normal reading retains text selection;
+  listening prioritizes the direct playback gesture.
+- Manual chapter scrolling hides the header, reading footer and listening dock.
+  The TTS screen/controller remain mounted; only the dock presentation disappears.
+  A touch restores controls. Programmatic smart follow does not trigger this mode,
+  and open settings are protected from being hidden by scroll. The idle timer still
+  hides only the header so the listening player remains available without a swipe.

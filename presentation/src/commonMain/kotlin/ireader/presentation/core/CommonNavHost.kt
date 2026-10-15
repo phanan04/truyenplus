@@ -22,10 +22,22 @@ fun CommonNavHost(navController: NavHostController, startDestination: String = "
         composable("bookDetail/{bookId}", arguments = listOf(navArgument("bookId") { type = NavType.StringType })) { entry ->
             entry.stringArg("bookId")?.toLongOrNull()?.let { BookDetailScreenSpec(it).Content() }
         }
-        composable("reader/{bookId}/{chapterId}", arguments = listOf(navArgument("bookId") { type = NavType.StringType }, navArgument("chapterId") { type = NavType.StringType })) { entry ->
+        // Keep the original destination ID so saved reading stacks survive updates.
+        composable(NavigationRoutes.READER, arguments = listOf(navArgument("bookId") { type=NavType.StringType },navArgument("chapterId") { type=NavType.StringType })) {entry->
+            val book=entry.stringArg("bookId")?.toLongOrNull()
+            val chapter=entry.stringArg("chapterId")?.toLongOrNull()
+            if(book!=null && chapter!=null)ModuleLoadingGuard(loadingMessage="Đang mở sách…") {ReaderScreenSpec(book,chapter).Content()}
+        }
+        composable(NavigationRoutes.READER_LISTENING, arguments = listOf(
+            navArgument("bookId") { type = NavType.StringType }, navArgument("chapterId") { type = NavType.StringType },
+            navArgument("listen") { type=NavType.StringType },
+            navArgument("paragraph") { type=NavType.StringType })) { entry ->
             val book = entry.stringArg("bookId")?.toLongOrNull()
             val chapter = entry.stringArg("chapterId")?.toLongOrNull()
-            if (book != null && chapter != null) ModuleLoadingGuard(loadingMessage = "Đang mở sách…") { ReaderScreenSpec(book, chapter).Content() }
+            if (book != null && chapter != null) ModuleLoadingGuard(loadingMessage = "Đang mở sách…") {
+                ReaderScreenSpec(book, chapter,listenOnOpen=entry.stringArg("listen")=="true",
+                    listeningParagraph=(entry.stringArg("paragraph")?.toIntOrNull() ?: 0).coerceAtLeast(0)).Content()
+            }
         }
         composable(NavigationRoutes.TTS_V2, arguments = listOf("bookId", "chapterId", "sourceId", "readingParagraph").map { key -> navArgument(key) { type = NavType.StringType } }) { entry ->
             val book = entry.stringArg("bookId")?.toLongOrNull()

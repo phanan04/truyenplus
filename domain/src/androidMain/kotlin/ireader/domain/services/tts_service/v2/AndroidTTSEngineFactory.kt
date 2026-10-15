@@ -35,7 +35,14 @@ actual object TTSEngineFactory : KoinComponent {
         )
     }
     
+    actual fun createCapCutEngine(voiceId:String):TTSEngine? {
+        val voice=ireader.domain.services.tts_service.v2.online.CapCutVoices.find(voiceId) ?: return null
+        val source=getKoin().getOrNull<ireader.domain.services.tts_service.v2.online.CapCutSpeechSource>() ?: return null
+        return ireader.domain.services.tts_service.v2.online.AndroidCapCutTtsEngine(context,source,voice)
+    }
     actual fun createNativeEngine(): TTSEngine {
+        val online=getKoin().get<ireader.domain.preferences.prefs.AppPreferences>().capCutVoiceId().get()
+        if(online.isNotBlank())createCapCutEngine(online)?.let {return it}
         val voices=getKoin().getOrNull<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>()
         return voices?.selectedConfig()?.let {createOfflineEngine(it)} ?: AndroidNativeTTSEngineV2(context)
     }

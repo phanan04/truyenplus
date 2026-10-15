@@ -507,7 +507,7 @@ fun ReaderText(
                             )
                     ) {
                     // Use copy mode OR selectable mode for text selection
-                    TextSelectionContainer(selectable = vm.copyModeActive || vm.selectableMode.value) {
+                    TextSelectionContainer(selectable = ireader.presentation.ui.truyenplus.LocalReaderListening.current == null && (vm.copyModeActive || vm.selectableMode.value)) {
                         when (mode) {
                             ReadingMode.Page -> {
                                 PagedReaderContent(

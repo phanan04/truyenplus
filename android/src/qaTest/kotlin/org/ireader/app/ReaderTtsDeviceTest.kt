@@ -22,7 +22,10 @@ import org.koin.core.context.GlobalContext
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 class ReaderTtsDeviceTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
-    private fun requireQa() = check(context.packageName.endsWith(".debug.qa"))
+    private fun requireQa() {
+        check(context.packageName.endsWith(".debug.qa"))
+        GlobalContext.get().get<ireader.domain.preferences.prefs.AppPreferences>().capCutVoiceId().set("")
+    }
     private suspend fun ready(engine: TTSEngine) = withTimeout(30_000) {
         while (!engine.isReady()) delay(30)
     }
@@ -167,6 +170,88 @@ class ReaderTtsDeviceTest {
             assertEquals(2,gaps.size)
             assertTrue("Unexpected synthesis wait between prepared paragraphs: $gaps",gaps.all {it<750})
         } finally {observer.cancel();engine.release()}
+    }
+
+    @Test fun capCutTimeoutReportsAnErrorInsteadOfLeavingLoadingForever()=runBlocking<Unit> {
+        requireQa()
+        val voice=ireader.domain.services.tts_service.v2.online.CapCutVoices.voices.first()
+        val source=object:ireader.domain.services.tts_service.v2.online.CapCutSpeechSource {
+            override suspend fun synthesize(text:String,voice:ireader.domain.services.tts_service.v2.online.CapCutVoice):ByteArray = withTimeout(1) {delay(1000);byteArrayOf()}
+        }
+        val engine=ireader.domain.services.tts_service.v2.online.AndroidCapCutTtsEngine(context,source,voice)
+        try {
+            val error=async(start=CoroutineStart.UNDISPATCHED){withTimeout(5000){engine.events.first {it is EngineEvent.Error}}}
+            engine.speak("Một câu kiểm thử.","qa-timeout")
+            assertFalse((error.await() as EngineEvent.Error).retryable)
+        } finally {engine.release()}
+    }
+
+    @Test fun capCutOnlineVoicesReallyDownloadPlayAndCancel()=runBlocking<Unit> {
+        requireQa()
+        for(voice in ireader.domain.services.tts_service.v2.online.CapCutVoices.voices) {
+            val engine=TTSEngineFactory.createCapCutEngine(voice.id) ?: error("CapCut unavailable")
+            try {
+                ready(engine)
+                speakAndCheck(engine,"Chào bạn, đây là giọng đọc tiếng Việt. Gió đêm thổi qua.","qa-capcut-${voice.id}")
+                assertEquals("CapCut · ${voice.title}",engine.name)
+                engine.speak("Đây là đoạn cần hủy ngay.","qa-capcut-cancel");delay(50);engine.stop()
+                engine.setSpeed(1.5f)
+                speakAndCheck(engine,"Tiếp tục nghe sau khi dừng.","qa-capcut-resume-${voice.id}")
+            } finally {engine.release()}
+        }
+    }
+
+    @Test fun allInstalledEnginesMeasureRealControllerParagraphLatencyAtBothSpeeds() = runBlocking<Unit> {
+        requireQa()
+        val store=GlobalContext.get().get<OfflineVoiceStore>()
+        val texts=listOf("Gió đêm thổi qua, mang theo hương hoa thoang thoảng. Hoàng Yên Trần khẽ gật đầu, rồi chậm rãi đi về phía ngọn núi xa.",
+            "Trương Nhược Trần nhìn lên bầu trời, lắng nghe tiếng gió và tiếp tục hành trình.",
+            "Chương mới bắt đầu, câu chuyện vẫn tiếp tục.")
+        val book=Book(id=900090,sourceId=-1,title="QA latency",key="qa-latency")
+        val chapter=Chapter(id=900091,bookId=book.id,key="qa-latency-1",name="Chương 1")
+        val loader=object:TTSContentLoader {
+            override suspend fun loadChapter(bookId:Long,chapterId:Long)=TTSContentLoader.ChapterContent(book,chapter,texts,texts.indices.toList())
+            override suspend fun getNextChapterId(bookId:Long,currentChapterId:Long):Long?=null
+            override suspend fun getPreviousChapterId(bookId:Long,currentChapterId:Long):Long?=null
+            override fun subscribeChapters(bookId:Long)=flowOf(listOf(chapter))
+        }
+        val engines=listOf("system","piper-vi-vais-int8","vieneu-v3-nano-vi","capcut")
+        for(id in engines)for(rate in listOf(1f,2f)) {
+            val config=if(id=="system" || id=="capcut")null else store.config(id,if(id.startsWith("vieneu"))9 else 0) ?: error("Install $id in QA first")
+            store.select(null)
+            val engine=if(id=="capcut")TTSEngineFactory.createCapCutEngine("BV421_vivn_streaming")!! else if(config==null)TTSEngineFactory.createNativeEngine() else TTSEngineFactory.createOfflineEngine(config)!!
+            val controller=TTSController(loader,{engine})
+            val gaps=mutableListOf<Long>();val loads=mutableListOf<Long>()
+            var ended=0L;var preparing=0L;var started=0L
+            val expected=if(id=="capcut")"CapCut" else if(config==null)"Native Android TTS" else config.model.title
+            val observer=launch(start=CoroutineStart.UNDISPATCHED) {engine.events.collect {event->
+                val now=System.nanoTime()
+                when(event) {
+                    is EngineEvent.Started-> {
+                        if(started==0L)started=now
+                        if(ended>0L){gaps+=(now-ended)/1_000_000;ended=0L}
+                    }
+                    is EngineEvent.Completed->ended=now
+                    else->Unit
+                }
+            }}
+            val stateObserver=launch(start=CoroutineStart.UNDISPATCHED) {controller.state.map {it.playbackState}.distinctUntilChanged().collect {state->
+                val now=System.nanoTime()
+                if(state==PlaybackState.LOADING)preparing=now
+                else if(preparing>0L){loads+=(now-preparing)/1_000_000;preparing=0L}
+            }}
+            try {
+                controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.LoadChapter(book.id,chapter.id))
+                withTimeout(60_000){controller.state.first {it.hasContent && it.isEngineReady}}
+                controller.dispatch(TTSCommand.SetSpeed(rate))
+                val requested=System.nanoTime();controller.dispatch(TTSCommand.Play)
+                withTimeout(180_000){controller.state.first {it.playbackState==PlaybackState.STOPPED && it.currentParagraphIndex==texts.lastIndex}}
+                assertTrue("Unexpected fallback: ${engine.name}",engine.name.startsWith(expected))
+                assertEquals(2,gaps.size)
+                Log.i("TruyenPlusQA","LATENCY engine=$id rate=$rate firstAudioMs=${(started-requested)/1_000_000} paragraphGapsMs=$gaps loadingMs=$loads")
+                assertTrue("Unbounded paragraph wait: $gaps",gaps.all {it<15_000})
+            } finally {observer.cancel();stateObserver.cancel();controller.dispatch(TTSCommand.Cleanup)}
+        }
     }
 
     @Test fun realControllerAdvancesChaptersAndTimerSurvivesBackgroundAndPause() = runBlocking<Unit> {

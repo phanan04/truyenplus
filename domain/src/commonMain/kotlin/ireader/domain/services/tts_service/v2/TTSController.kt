@@ -250,6 +250,9 @@ class TTSController(
                     }
                 }
             }
+            // A newly selected voice inherits the audible controls, not only their UI labels.
+            engine?.setSpeed(_state.value.speed)
+            engine?.setPitch(_state.value.pitch)
             observeEngineEvents()
         }
         
@@ -361,6 +364,11 @@ class TTSController(
             is EngineEvent.Error -> commandMutex.withLock {
                 if (!isActiveUtterance(event.utteranceId)) return@withLock
                 currentUtteranceId = null
+                if(!event.retryable) {
+                    engine?.stop()
+                    handleError(TTSError.SpeechFailed(event.message))
+                    return@withLock
+                }
                 if (speechRetryCount == 0) {
                     speechRetryCount++
                     Log.warn { "$TAG: Retrying failed speech: ${event.message}" }
@@ -429,6 +437,7 @@ class TTSController(
         _state.update { 
             it.copy(
                 playbackState = PlaybackState.LOADING,
+                error = null,
                 loadingParagraphs = it.loadingParagraphs + paragraphIndex
             ) 
         }

@@ -30,9 +30,11 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     onSpeed: (Float) -> Unit, onSettings: () -> Unit, onClose: () -> Unit,
     audio: ListeningAudioState = ListeningAudioState(), onVolume: (Float) -> Unit = {},
     onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier, onMinimize: (() -> Unit)? = null,
-    voiceLabel:String="",chapterLabel:String="",paragraphIndex:Int=0,paragraphCount:Int=0,isLoading:Boolean=false,canPrevious:Boolean=true,canNext:Boolean=true) {
+    voiceLabel:String="",chapterLabel:String="",paragraphIndex:Int=0,paragraphCount:Int=0,isLoading:Boolean=false,canPrevious:Boolean=true,canNext:Boolean=true,hasError:Boolean=false) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     val colors=MaterialTheme.colorScheme
+    val preparing=rememberPreparingFeedback(isLoading)
+    val active=isPlaying || isLoading
     Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(26).clickable(enabled=onMinimize!=null,interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() },indication=null) { onMinimize?.invoke() }.testTag("listen-expanded-toggle"),
         shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=colors.onSurface) {
         Column(Modifier.padding(horizontal=12.dp,vertical=4.dp)) {
@@ -56,15 +58,17 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
                     IconButton(onClick=onPrevious,enabled=canPrevious,modifier=Modifier.size(48.dp).testTag("listen-previous-chapter")){Icon(Icons.Default.SkipPrevious,s.localize(Res.string.tp_previous_chapter))}
                     Text(s.localize(Res.string.tp_listening_previous),style=MaterialTheme.typography.labelSmall,maxLines=1)
                 }
-                FilledIconButton(onClick=onPlayPause,modifier=Modifier.size(56.dp).testTag("listen-play").semantics { if(isLoading)contentDescription=s.localize(Res.string.tp_listening_preparing) },colors=IconButtonDefaults.filledIconButtonColors(containerColor=colors.onSurface,contentColor=colors.surface)) {
-                    if(isLoading)CircularProgressIndicator(Modifier.size(24.dp),strokeWidth=2.dp,color=colors.surface)
-                    else Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play),Modifier.size(30.dp))
+                FilledIconButton(onClick=onPlayPause,modifier=Modifier.size(56.dp).testTag("listen-play").semantics { if(preparing)contentDescription=s.localize(Res.string.tp_listening_preparing) },colors=IconButtonDefaults.filledIconButtonColors(containerColor=colors.onSurface,contentColor=colors.surface)) {
+                    if(preparing)CircularProgressIndicator(Modifier.testTag("listen-buffering").size(24.dp),strokeWidth=2.dp,color=colors.surface)
+                    else Icon(if(active)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(active)Res.string.pause else Res.string.play),Modifier.size(30.dp))
                 }
                 Column(horizontalAlignment=Alignment.CenterHorizontally) {
                     IconButton(onClick=onNext,enabled=canNext,modifier=Modifier.size(48.dp).testTag("listen-next-chapter")){Icon(Icons.Default.SkipNext,s.localize(Res.string.tp_next_chapter))}
                     Text(s.localize(Res.string.tp_listening_next),style=MaterialTheme.typography.labelSmall,maxLines=1)
                 }
             }
+            if(hasError)Text(s.localize(Res.string.tp_listening_retry),color=colors.error,style=MaterialTheme.typography.labelSmall,
+                modifier=Modifier.padding(vertical=6.dp).testTag("listen-error"))
             ReaderListeningSpeed(speed,onSpeed)
 
         }
@@ -224,9 +228,11 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
 @Composable
 fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,onSettings:()->Unit,onClose:()->Unit,
     modifier:Modifier=Modifier,voiceLabel:String="",isLoading:Boolean=false,
-    onPrevious:(()->Unit)?=null,onNext:(()->Unit)?=null,canPrevious:Boolean=true,canNext:Boolean=true) {
+    onPrevious:(()->Unit)?=null,onNext:(()->Unit)?=null,canPrevious:Boolean=true,canNext:Boolean=true,hasError:Boolean=false) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     val colors=MaterialTheme.colorScheme
+    val preparing=rememberPreparingFeedback(isLoading)
+    val active=isPlaying || isLoading
     Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(22)
         .clickable(interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() },indication=null,onClick=onExpand)
         .testTag("listen-compact-toggle"),shape=RoundedCornerShape(22.dp),color=Color.Transparent,contentColor=colors.onSurface) {
@@ -235,10 +241,10 @@ fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,on
             val narrow=chapterButtons && maxWidth.value/LocalDensity.current.fontScale<300f
             val play:@Composable ()->Unit={
                 FilledIconButton(onClick=onPlay,modifier=Modifier.size(48.dp).testTag("listen-play")
-                    .semantics {if(isLoading)contentDescription=s.localize(Res.string.tp_listening_preparing)},
+                    .semantics {if(preparing)contentDescription=s.localize(Res.string.tp_listening_preparing)},
                     colors=IconButtonDefaults.filledIconButtonColors(containerColor=colors.onSurface,contentColor=colors.surface)) {
-                    if(isLoading)CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp,color=colors.surface)
-                    else Icon(if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(isPlaying)Res.string.pause else Res.string.play))
+                    if(preparing)CircularProgressIndicator(Modifier.testTag("listen-buffering").size(20.dp),strokeWidth=2.dp,color=colors.surface)
+                    else Icon(if(active)Icons.Default.Pause else Icons.Default.PlayArrow,s.localize(if(active)Res.string.pause else Res.string.play))
                 }
             }
             val previous:@Composable ()->Unit={IconButton(onClick={onPrevious?.invoke()},enabled=canPrevious,modifier=Modifier.size(48.dp).testTag("listen-compact-previous")) {Icon(Icons.Default.SkipPrevious,s.localize(Res.string.tp_previous_chapter))}}
@@ -247,7 +253,7 @@ fun ReaderCollapsedPlayer(isPlaying:Boolean,onPlay:()->Unit,onExpand:()->Unit,on
             val close:@Composable ()->Unit={IconButton(onClick=onClose,modifier=Modifier.size(48.dp).testTag("listen-close")) {Icon(Icons.Default.Close,s.localize(Res.string.tp_close_listening))}}
             val expand:@Composable ()->Unit={IconButton(onClick=onExpand,modifier=Modifier.size(48.dp).testTag("listen-expand")) {Icon(Icons.Default.KeyboardArrowUp,s.localize(Res.string.tp_expand_player))}}
             val label:@Composable ()->Unit={
-                Text(s.localize(if(isLoading)Res.string.tp_listening_preparing else if(isPlaying)Res.string.tp_listening_active else Res.string.tp_listening_paused),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(s.localize(if(hasError)Res.string.tp_listening_failed else if(preparing)Res.string.tp_listening_preparing else if(active)Res.string.tp_listening_active else Res.string.tp_listening_paused),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
                 if(LocalDensity.current.fontScale<1.5f)Text(voiceLabel.ifBlank{s.localize(Res.string.tp_system_voice)},style=MaterialTheme.typography.labelSmall,color=colors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
             if(narrow) Column {

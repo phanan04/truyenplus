@@ -172,7 +172,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                         hasMore=vm.getPaginationState(state.selectedCategory?.id ?: 0L).hasMoreItems,
                         isLoading=state.isLoading,selected=state.selectedBookIds,
                         onQuery={libraryQuery=it;vm.searchInLibrary(it)},onCategory=vm::setSelectedPage,
-                        onBook=if(search)onBook else {id->navigator.navigateTo(ReaderScreenSpec(id,LAST_CHAPTER))},
+                        onBook=if(search)onBook else {id->navigator.navigateTo(readerResumeDestination(id,LAST_CHAPTER,tts.state.value))},
                         onSelect=vm::toggleSelection,onImport={showImport=true},onCollections={navigator.navigate(NavigationRoutes.category)},
                         onSort={showSort=true},onLoadMore={vm.loadMoreBooks(state.selectedCategory?.id ?: 0L)},
                         sort=state.sort,preferList=search || state.layout==ireader.domain.models.DisplayMode.List,
@@ -186,7 +186,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                         onDismiss={navigation=navigation.back()},bottomInset=LocalReaderDockInset.current)
                     page=="Home"->ReaderHomeScreen(homeState.books.map {it.toReaderBookUi()},homeState.isLoading,onBook,
                         onLibrary={navigation=navigation.select(ReaderDestination.Library)},onImport={showImport=true},onSearch=onSearch,
-                        onContinue={navigator.navigateTo(ReaderScreenSpec(it,lastRead?.takeIf {info->info.novelId==it}?.chapterId ?: LAST_CHAPTER))},
+                        onContinue={navigator.navigateTo(readerResumeDestination(it,lastRead?.takeIf {info->info.novelId==it}?.chapterId ?: LAST_CHAPTER,tts.state.value))},
                         resumeBook=resumeBook,onProgress={navigation=navigation.openSettings().copy(progress=true)},onSettings={navigation=navigation.openSettings()})
                     page=="Library"->library(false)
                     page=="Shelf"->ReaderShelfRoute(onLibrary={navigation=navigation.select(ReaderDestination.Library)},onBook=onBook,
@@ -244,7 +244,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                     if (listeningBook != null && listeningChapter != null && ttsState.hasListeningSession) {
                         val openPlayer: () -> Unit = { navigator.navigateTo(readerListeningDestination(listeningBook.id, listeningChapter.id, ttsState.currentParagraphIndex)) }
                         ReaderMiniPlayer(ReaderBookUi(listeningBook.id, listeningBook.title, BookCover.from(listeningBook), chapter = listeningChapter.name),
-                            onRead = openPlayer, onListen = openPlayer, isPlaying = ttsState.isPlaying,
+                            onRead = openPlayer, onListen = openPlayer, isPlaying = ttsState.isPlaying,isLoading=ttsState.isLoading,
                             onTogglePlayback = {
                                 if (tts.state.value.isPlaying || tts.state.value.isLoading) tts.dispatch(ireader.domain.services.tts_service.v2.TTSCommand.Pause)
                                 else {

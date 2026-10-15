@@ -3008,6 +3008,9 @@
     <string name="tp_category_rule_count">%1$d quy tắc</string>
     <string name="tp_category_move_up">Chuyển bộ sưu tập lên</string>
     <string name="tp_category_move_down">Chuyển bộ sưu tập xuống</string>
+    <string name="tp_capcut_online">Online · Cần kết nối mạng</string>
+    <string name="tp_listening_retry">Chưa phát được. Nhấn phát để thử lại hoặc đổi giọng.</string>
+    <string name="tp_listening_failed">Chưa phát được</string>
 </resources>
 
 

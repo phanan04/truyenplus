@@ -135,7 +135,7 @@ sealed class EngineEvent {
     data class RangeStarted(val utteranceId: String, val start: Int, val end: Int,
         val isWordBoundary: Boolean = false) : EngineEvent()
     data class Completed(val utteranceId: String) : EngineEvent()
-    data class Error(val utteranceId: String, val message: String) : EngineEvent()
+    data class Error(val utteranceId: String, val message: String, val retryable:Boolean=true) : EngineEvent()
     object Ready : EngineEvent()
     data class Cached(val utteranceId: String) : EngineEvent()
 }
@@ -145,6 +145,7 @@ sealed class EngineEvent {
  */
 expect object TTSEngineFactory {
     fun createNativeEngine(): TTSEngine
+    fun createCapCutEngine(voiceId:String):TTSEngine?
     fun createGradioEngine(config: GradioConfig): TTSEngine?
     fun createOfflineEngine(config: ireader.domain.services.tts_service.v2.offline.OfflineVoiceConfig): TTSEngine?
 }

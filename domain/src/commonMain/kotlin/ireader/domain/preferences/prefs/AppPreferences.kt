@@ -83,6 +83,8 @@ class AppPreferences(
     fun exploreLayoutType(): Preference<Long> {
         return preferenceStore.getLong(SAVED_BROWSE_LAYOUT_KEY, 0)
     }
+    fun capCutVoiceId(): Preference<String> = preferenceStore.getString("tts_capcut_voice", "")
+
     fun speechVoice(): Preference<IReaderVoice> {
         return preferenceStore.getString(ReaderPreferences.TEXT_READER_SPEECH_VOICE, "").asVoice()
     }

@@ -11,6 +11,14 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderLibraryPolishTest {
+    @Test fun bufferingMiniPlayerStillOffersPauseInsteadOfSwitchingBackToReadOrPlay() {
+        scene(360,160) {ReaderMiniPlayer(ReaderBookUi(1,"Truyện"),{},{},false,{},isLoading=true)}.use {s->
+            s.render(0);s.render(1_000_000_000)
+            val labels=nodes(s).flatMap {it.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()}
+            assertTrue(labels.any {it.lowercase() in setOf("tạm dừng","pause")},labels.toString())
+            assertFalse(labels.any {it.lowercase() in setOf("đọc tiếp","phát tiếp","continue reading","resume")},labels.toString())
+        }
+    }
     @Test fun homeCanResumeAnActualHistoryBookOutsideTheLoadedLibraryPage() {
         val latest=ReaderBookUi(99,"Truyện đang đọc gần nhất",chapter="Chương 273",lastRead=100)
         var resumed=0L;var progress=0

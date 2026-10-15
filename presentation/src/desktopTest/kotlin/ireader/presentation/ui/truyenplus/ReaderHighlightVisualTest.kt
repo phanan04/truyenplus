@@ -26,9 +26,9 @@ class ReaderHighlightVisualTest {
                 SpokenSentencePosition(0,0,firstSentence.length,firstSentence),wordHighlight=true)
             fun render(context:ReaderListeningContext,name:String):java.awt.image.BufferedImage {
                 ImageComposeScene(360,160) {
-                    MaterialTheme {Box(Modifier.fillMaxSize().background(paper).padding(16.dp)) {
+                    MaterialTheme {ReaderPaperTheme(paper,ink) {Box(Modifier.fillMaxSize().background(paper).padding(16.dp)) {
                         ReaderSpokenParagraph(text,0,context,preferences,Modifier.fillMaxWidth())
-                    }}
+                    }}}
                 }.use {scene ->
                     scene.render(0);scene.render(1_000_000_000)
                     val png=requireNotNull(scene.render(2_000_000_000).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)).bytes
@@ -38,6 +38,12 @@ class ReaderHighlightVisualTest {
                 }
             }
             val sentence=render(base,"sentence")
+            var warmPixels=0
+            for(y in 0 until sentence.height)for(x in 0 until sentence.width) {
+                val rgb=sentence.getRGB(x,y)
+                if(((rgb shr 16) and 255)-(rgb and 255)>10)warmPixels++
+            }
+            assertTrue(warmPixels>300,"Spoken sentence needs a warm, legible focus tint on either paper")
             val word=render(base.copy(word=SpokenSentencePosition(0,6,9,"Yên")),"word")
             var changed=0
             for(y in 0 until word.height)for(x in 0 until word.width)if(word.getRGB(x,y)!=sentence.getRGB(x,y))changed++

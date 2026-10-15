@@ -32,7 +32,7 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
     val colors=MaterialTheme.colorScheme
     val compact=LocalReaderViewport.current.width.value/LocalReaderViewport.current.fontScale<340f
     val tabHeight=56.dp
-    Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp),
+    Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp,bottom=ReaderBooksTokens.bottomDockGap),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         BoxWithConstraints(Modifier.weight(1f).shadow(4.dp,CircleShape).clip(CircleShape)
             .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape).padding(4.dp).selectableGroup()) {

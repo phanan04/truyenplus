@@ -35,16 +35,17 @@ class ReaderUiDeviceTest {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
-            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition"))
+            koin.get<AppPreferences>().capCutVoiceId().set("")
+            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession"))
                 koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
             koin.get<UiPreferences>().apply {
                 val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
                 hasCompletedOnboarding().set(complete);hasCompletedFirstLaunch().set(complete);language().set("vi")
             }
             koin.get<ReaderPreferences>().apply {ttsFollowParagraph().set(true);ttsHighlightText().set(true);ttsHighlightWords().set(false)}
-            if(description.methodName=="voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists")
+            if(description.methodName in setOf("voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists","miniPlayerAndContinueReopenTheLiveListeningSession"))
                 koin.get<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>().select(null)
-            if(description.methodName in setOf("pageThemeOverridesAppThemeAndChromeDoesNotClipChapter","readingAppearanceWithoutListeningWrapsAndKeepsPaperUndimmed","voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists")) {
+            if(description.methodName in setOf("pageThemeOverridesAppThemeAndChromeDoesNotClipChapter","readingAppearanceWithoutListeningWrapsAndKeepsPaperUndimmed","voiceManagerKeepsCompactPlayerBelowItAndWordChoicePersists","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback")) {
                 koin.get<UiPreferences>().apply {readerAppearance().set("dark");readerFollowsAppearance().set(false)}
                 koin.get<AppPreferences>().apply {
                     backgroundColorReader().set(DomainColor(1f,1f,1f));textColorReader().set(DomainColor(0f,0f,0f))
@@ -141,6 +142,13 @@ class ReaderUiDeviceTest {
             }
             Assert.assertTrue("Settings title has incorrect ink",ink>8)
         }
+        fun assertIdentityPaper(light:Boolean) {
+            val pixels=ui.onNodeWithTag("reader-identity").captureToImage().toPixelMap()
+            val color=pixels[pixels.width/2,(pixels.height*.06f).toInt()]
+            Assert.assertTrue("Chapter identity has no readable paper backing: $color",
+                if(light)color.luminance()>.65f else color.luminance()<.4f)
+        }
+        assertIdentityPaper(true)
         assertTitleInk(false);shot("chrome-white-app-dark-options")
         ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close");openCustomization()
         ui.onNodeWithTag("listen-options-close").assertDoesNotExist();shot("chrome-white-app-dark-font")
@@ -154,6 +162,7 @@ class ReaderUiDeviceTest {
         }
         ui.waitForIdle()
         ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
+        assertIdentityPaper(false)
         assertTitleInk(true);shot("chrome-dark-app-light-options")
         ui.onNodeWithTag("listen-options-close").performClick();waitTag("listen-expanded-toggle")
         if(ui.onAllNodesWithTag("listen-speed-decrease").fetchSemanticsNodes().isNotEmpty()) {
@@ -334,24 +343,137 @@ class ReaderUiDeviceTest {
     }
 
     @Test fun paragraphListenFromHereChangesTheRealPlaybackPosition() {
+        GlobalContext.get().get<ReaderPreferences>().selectableText().set(true)
         waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
         ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
         wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
         val controller=GlobalContext.get().get<TTSController>()
         ui.waitUntil(30_000){controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
+        ui.onNodeWithTag("listen-play").performClick()
+        ui.waitUntil(30_000){controller.state.value.isPlaying}
+        ui.waitUntil(10_000){ui.onAllNodesWithTag("reader-settings").fetchSemanticsNodes().isEmpty()}
         controller.dispatch(TTSCommand.Pause)
         ui.waitUntil(10_000){!controller.state.value.isPlaying}
         val expected=controller.state.value.paragraphSourceIndices.indexOf(0)
         Assert.assertTrue("First reader paragraph has no speech mapping",expected>=0)
         controller.dispatch(TTSCommand.JumpToParagraph(expected+5))
         ui.waitUntil(10_000){controller.state.value.currentParagraphIndex==expected+5}
-        wakeControls()
-        ui.onAllNodes(hasText("Hoàng Yên Trần khẽ gật đầu.",substring=true) and hasClickAction()).onFirst().performClick()
-        waitTag("reader-listen-from-here")
-        ui.onNodeWithTag("reader-listen-from-here").performClick()
+        // Even the first tap with hidden controls must seek immediately.
+        // Send an actual finger tap: selection containers must not intercept playback seeking.
+        ui.onAllNodes(hasText("Hoàng Yên Trần khẽ gật đầu.",substring=true) and hasClickAction()).onFirst()
+            .performTouchInput {click() }
         ui.waitUntil(10_000){controller.state.value.currentParagraphIndex==expected}
+        waitTag("reader-settings")
         ui.onNodeWithTag("reader-listen-from-here").assertDoesNotExist()
         shot("listening-from-selected-paragraph")
+    }
+
+    @Test fun manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();waitTag("reader-toolbar-reading")
+        fun swipeChapter()=ui.onRoot().performTouchInput {
+            swipe(Offset(width/2f,height*.55f),Offset(width/2f,height*.3f),500)
+        }
+        swipeChapter()
+        ui.waitUntil(10_000){ui.onAllNodesWithTag("reader-settings").fetchSemanticsNodes().isEmpty()}
+        ui.onNodeWithTag("reader-toolbar-reading").assertDoesNotExist()
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+        val controller=GlobalContext.get().get<TTSController>()
+        ui.onNodeWithTag("listen-play").performClick()
+        ui.waitUntil(30_000){controller.state.value.isPlaying && controller.state.value.chapter?.id==888101L}
+        swipeChapter()
+        ui.waitUntil(10_000){ui.onAllNodesWithTag("listen-settings").fetchSemanticsNodes().isEmpty()}
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        Assert.assertTrue("Scrolling the chapter paused the TTS session: ${controller.state.value.playbackState}",
+            controller.state.value.isPlaying || controller.state.value.isLoading)
+        shot("immersive-manual-scroll")
+        // One actual tap restores controls and can seek; no extra confirmation UI.
+        wakeControls();waitTag("listen-settings")
+        ui.onNodeWithTag("reader-listen-from-here").assertDoesNotExist()
+        // The same finger tap may seek, which briefly loads the newly selected paragraph.
+        // Loading is active playback intent; a paused/stopped session is a regression.
+        Assert.assertTrue("Restoring controls paused the TTS session: ${controller.state.value.playbackState}",
+            controller.state.value.isPlaying || controller.state.value.isLoading)
+        ui.waitUntil(10_000){controller.state.value.isPlaying}
+        shot("immersive-controls-restored")
+        val bitmap=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        val insets=ui.activity.window.decorView.rootWindowInsets
+        val status=insets.systemWindowInsetTop
+        val navigation=insets.systemWindowInsetBottom
+        Assert.assertTrue("Status bar must be visible for this check",status>0)
+        fun assertPaper(x0:Int,x1:Int,y0:Int,y1:Int,label:String) {
+            var ink=0
+            for(y in y0 until y1)for(x in x0 until x1) {
+                val pixel=bitmap.getPixel(x,y)
+                // The seeded page has black type. Ignore the floating player's soft
+                // gray shadow; it is not a story glyph overlapping system controls.
+                if(android.graphics.Color.red(pixel)<128 || android.graphics.Color.green(pixel)<128 || android.graphics.Color.blue(pixel)<128)ink++
+            }
+            Assert.assertEquals("Chapter glyphs leak into $label",0,ink)
+        }
+        assertPaper((bitmap.width*.4f).toInt(),(bitmap.width*.6f).toInt(),2,status-2,"Android status bar")
+        if(navigation>4)assertPaper((bitmap.width*.15f).toInt(),(bitmap.width*.25f).toInt(),bitmap.height-navigation+2,bitmap.height-2,"Android gesture area")
+        bitmap.recycle()
+    }
+
+    @Test fun miniPlayerAndContinueReopenTheLiveListeningSession() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-play")
+        ui.onNodeWithTag("listen-play").performClick()
+        val controller=GlobalContext.get().get<TTSController>()
+        ui.waitUntil(30_000){controller.state.value.isPlaying}
+        controller.dispatch(TTSCommand.JumpToParagraph(5))
+        ui.waitUntil(30_000){controller.state.value.isPlaying && controller.state.value.currentParagraphIndex>=5}
+        val chapter=controller.state.value.chapter!!
+        wakeControls();ui.onNodeWithTag("reader-close").performClick();waitTag("nav-Home")
+        val safeBottom=ui.onRoot().fetchSemanticsNode().boundsInRoot.bottom-ui.activity.window.decorView.rootWindowInsets.systemWindowInsetBottom
+        val searchBottom=ui.onNodeWithTag("nav-search").fetchSemanticsNode().boundsInRoot.bottom
+        Assert.assertTrue("Navigation is flush against the system gesture inset",safeBottom-searchBottom>=12*ui.activity.resources.displayMetrics.density-1)
+        val card=ui.onAllNodes(hasText(chapter.name,substring=true) and hasClickAction()).onLast()
+        Assert.assertTrue("Expected the bottom mini player",card.fetchSemanticsNode().boundsInRoot.top>ui.onRoot().fetchSemanticsNode().boundsInRoot.height*.5f)
+        card.performClick();waitTag("listen-settings")
+        Assert.assertEquals(chapter.id,controller.state.value.chapter?.id)
+        Assert.assertTrue("Reopening reset the listening position",controller.state.value.currentParagraphIndex>=5)
+        Assert.assertTrue(controller.state.value.isPlaying || controller.state.value.isLoading)
+        shot("reopened-listening-mini-player")
+        wakeControls();ui.onNodeWithTag("reader-close").performClick();waitTag("home-continue")
+        ui.onNodeWithTag("home-continue").performClick();waitTag("listen-settings")
+        Assert.assertEquals(chapter.id,controller.state.value.chapter?.id)
+        Assert.assertTrue("Continue reset the listening position",controller.state.value.currentParagraphIndex>=5)
+        Assert.assertTrue(controller.state.value.isPlaying || controller.state.value.isLoading)
+        shot("reopened-listening-continue")
+        wakeControls();ui.onNodeWithTag("reader-close").performClick();waitTag("nav-Home")
+        ui.onNodeWithContentDescription("Tạm dừng").performClick()
+        ui.waitUntil(10_000){controller.state.value.isPaused}
+        ui.onAllNodes(hasText(chapter.name,substring=true) and hasClickAction()).onLast().performClick()
+        waitTag("listen-settings")
+        Assert.assertTrue("Reopening a paused mini player must not restart speech",controller.state.value.isPaused)
+        Assert.assertTrue(controller.state.value.currentParagraphIndex>=5)
+        shot("reopened-listening-paused")
+    }
+
+    @Test fun capCutCanBeChosenPreviewedAndUsedInsideTheReader() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+        ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-voice-choice")
+        ui.onNodeWithTag("listen-voice-choice").performClick();waitTag("voice-manager")
+        ui.onNodeWithTag("voice-preview-capcut").performClick()
+        ui.waitUntil(60_000){ui.onAllNodesWithText("Đang nghe thử…").fetchSemanticsNodes().isNotEmpty()}
+        shot("capcut-real-preview")
+        ui.waitUntil(60_000){ui.onAllNodesWithText("Đang nghe thử…").fetchSemanticsNodes().isEmpty()}
+        ui.onNodeWithTag("voice-use-capcut").performClick()
+        ui.onNodeWithTag("voice-manager").assertDoesNotExist()
+        if(ui.onAllNodesWithTag("listen-options-close").fetchSemanticsNodes().isNotEmpty())ui.onNodeWithTag("listen-options-close").performClick()
+        ui.onNodeWithTag("listen-play").performClick()
+        val controller=GlobalContext.get().get<TTSController>()
+        ui.waitUntil(60_000){controller.state.value.isPlaying && controller.state.value.engineName.startsWith("CapCut") && controller.state.value.spokenSentence!=null}
+        Assert.assertEquals("BV421_vivn_streaming",GlobalContext.get().get<AppPreferences>().capCutVoiceId().get())
+        shot("capcut-reader-highlight")
+        ui.onNodeWithTag("listen-play").performClick()
+        ui.waitUntil(10_000){!controller.state.value.isPlaying && !controller.state.value.isLoading}
     }
 
     @Test fun largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader() {

@@ -2,8 +2,9 @@ package ireader.presentation.core.ui
 
 import ireader.presentation.ui.truyenplus.readerWakeOnTouch
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import kotlin.time.TimeSource
 import androidx.compose.foundation.layout.widthIn
 
@@ -212,6 +213,7 @@ data class ReaderScreenSpec(
         val selectSpeech: (Int)->Unit = remember(listeningAdapter) { { index ->
             if(ttsController.state.value.chunkModeEnabled) listeningAdapter.disableChunkMode()
             listeningAdapter.jumpToParagraph(index)
+            followState.resume()
         } }
 
         // Extract values from state
@@ -388,11 +390,14 @@ data class ReaderScreenSpec(
         }
         val spokenParagraph=ttsState.spokenSentence?.paragraphIndex ?: ttsState.currentParagraphIndex
         val listeningSourceIndex=ttsState.paragraphSourceIndices.getOrNull(spokenParagraph)
-        LaunchedEffect(lazyListState) {
-            lazyListState.interactionSource.interactions.collect { interaction ->
-                if(interaction is DragInteraction.Start && showListening)followState.onUserDrag()
+        val onReaderScroll by rememberUpdatedState<()->Unit> {
+            if(readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && !vm.showSettingsBottomSheet) {
+                immersive.onUserScroll()
+                if(!vm.isReaderModeEnable)vm.toggleReaderMode(true)
+                if(showListening)followState.onUserDrag()
             }
         }
+        val userScroll=remember {ireader.presentation.ui.truyenplus.ReaderUserScrollConnection {onReaderScroll()} }
         val playbackActive=ttsState.isPlaying || ttsState.isLoading
         LaunchedEffect(showListening,playbackActive,readerPanels.active,vm.showSettingsBottomSheet) {
             while(true) {
@@ -416,7 +421,7 @@ data class ReaderScreenSpec(
                     val top=item.offset+info.beforeContentPadding+(bounds?.top ?: 0f)
                     val bottom=item.offset+info.beforeContentPadding+(bounds?.bottom ?: minOf(item.size.toFloat(),80f))
                     val topInset=with(readerDensity) {
-                        if(vm.isReaderModeEnable)0f else (statusBarInset+68.dp).toPx()
+                        (if(vm.isReaderModeEnable)statusBarInset else statusBarInset+68.dp).toPx()
                     }
                     val bottomInset=with(readerDensity) {(readerPlayerHeight+navigationInset).toPx()}
                     ireader.presentation.ui.truyenplus.readerFollowScrollDelta(top,bottom,info.viewportSize.height.toFloat(),topInset,bottomInset)
@@ -579,8 +584,8 @@ data class ReaderScreenSpec(
                     // Content first (below the top bar)
                     val headerInset=statusBarInset+68.dp
                     val padding = androidx.compose.foundation.layout.PaddingValues(
-                        top=if(!vm.isReaderModeEnable)headerInset else 0.dp,
-                        bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else 0.dp)
+                        top=if(!vm.isReaderModeEnable)headerInset else statusBarInset,
+                        bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else navigationInset)
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
@@ -592,9 +597,10 @@ data class ReaderScreenSpec(
                                     if(matching)ttsState.spokenSentence else null,reportSentenceBounds,
                                     if(matching)ttsState.spokenWord else null,wordHighlight,
                                     chapterIndex=if(matching)chapters.indexOfFirst {it.id==ttsState.chapter?.id} else -1,
-                                    chapterCount=chapters.size,allowInspection={!wakingParagraphTap.value})
+                                    chapterCount=chapters.size)
                             } else null
                     ) {
+                    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().nestedScroll(userScroll)) {
                     ReadingScreen(
                         drawerState = drawerState,
                         vm = vm,
@@ -757,11 +763,19 @@ data class ReaderScreenSpec(
                         onControlsHeightChanged = { readerFooterHeight = with(readerDensity) { it.toDp() } }
                     )
                     }
+                    }
+
+                    // Scrolling text must stay clear of Android's clock and gesture area.
+                    // Protect only the OS insets; the reader controls remain floating.
+                    androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+                        .fillMaxWidth().height(statusBarInset).background(vm.backgroundColor.value.toComposeColor()))
+                    androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+                        .fillMaxWidth().height(navigationInset).background(vm.backgroundColor.value.toComposeColor()))
 
                     if(showListening && followListening && !followState.following && listeningSourceIndex!=null && readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && !vm.showSettingsBottomSheet) {
                         ireader.presentation.ui.truyenplus.ReaderReturnToSpeech(onClick={followState.resume()},
                             modifier=androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd)
-                                .padding(end=16.dp,bottom=readerPlayerHeight+navigationInset+12.dp))
+                                .padding(end=16.dp,bottom=(if(immersive.playbackVisible)readerPlayerHeight else 0.dp)+navigationInset+12.dp))
                     }
 
                     // Top bar overlay (rendered on top of content)
@@ -831,7 +845,8 @@ data class ReaderScreenSpec(
                         androidx.compose.foundation.layout.Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter).widthIn(max=760.dp).fillMaxWidth()
                             .then(Modifier.navigationBarsPadding())) {
                             TTSV2ScreenSpec(book.id, chapter.id, book.sourceId, listeningParagraph).Content(
-                                embedded = true, onCloseListening = { readerPanels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);listeningAdapter.pause(); showListening = false },
+                                embedded = true, controlsVisible = immersive.playbackVisible || readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet,
+                                onCloseListening = { readerPanels.close(ireader.presentation.ui.truyenplus.ReaderPanel.Listening);listeningAdapter.pause(); showListening = false },
                                 onPlayerHeightChanged = { readerPlayerHeight = with(readerDensity) { it.toDp() } },
                                 chapterNavigation = ireader.presentation.ui.truyenplus.ReaderChapterNavigation(
                                     chapters.indexOfFirst { it.id == (ttsState.chapter?.takeIf { ttsState.book?.id == bookId }?.id ?: chapter.id) },

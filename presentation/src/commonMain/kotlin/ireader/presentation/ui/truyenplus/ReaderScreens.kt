@@ -296,8 +296,9 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
 }
 
 @Composable
-fun ReaderMiniPlayer(book: ReaderBookUi, onRead: () -> Unit, onListen: () -> Unit, isPlaying: Boolean? = null, onTogglePlayback: (() -> Unit)? = null) {
+fun ReaderMiniPlayer(book: ReaderBookUi, onRead: () -> Unit, onListen: () -> Unit, isPlaying: Boolean? = null, onTogglePlayback: (() -> Unit)? = null,isLoading:Boolean=false) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
+    val active=isPlaying==true || isLoading
     Surface(onClick = onRead, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).readerPanel(18)) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReaderCover(book, Modifier.size(width = 38.dp, height = 50.dp))
@@ -306,7 +307,7 @@ fun ReaderMiniPlayer(book: ReaderBookUi, onRead: () -> Unit, onListen: () -> Uni
                 Text(book.chapter.ifBlank { strings.localize(Res.string.tp_continue_story) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if(isPlaying==null)IconButton(onClick=onListen) {Icon(Icons.Outlined.Headphones,strings.localize(Res.string.tp_continue_listening))}
-            IconButton(onClick=if(isPlaying==null)onRead else onTogglePlayback ?: {},enabled=isPlaying==null || onTogglePlayback!=null) { Icon(if(isPlaying==null)Icons.Outlined.MenuBook else if(isPlaying)Icons.Default.Pause else Icons.Default.PlayArrow, if (isPlaying == null) strings.localize(Res.string.tp_continue_reading) else if (isPlaying) strings.localize(Res.string.tp_pause) else strings.localize(Res.string.tp_resume)) }
+            IconButton(onClick=if(isPlaying==null)onRead else onTogglePlayback ?: {},enabled=isPlaying==null || onTogglePlayback!=null) { Icon(if(isPlaying==null)Icons.Outlined.MenuBook else if(active)Icons.Default.Pause else Icons.Default.PlayArrow, if (isPlaying == null) strings.localize(Res.string.tp_continue_reading) else if (active) strings.localize(Res.string.tp_pause) else strings.localize(Res.string.tp_resume)) }
         }
     }
 }

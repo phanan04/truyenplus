@@ -1,6 +1,7 @@
 package ireader.presentation.ui.truyenplus
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.semantics.*
@@ -13,6 +14,17 @@ import kotlin.test.*
 /** Coordinates measured from the supplied 1179px (393pt @3x) screenshots 7 and 32. */
 @OptIn(ExperimentalComposeUiApi::class)
 class BooksMeasuredReferenceTest {
+    @Test fun bottomNavigationAndSearchKeepClearanceAboveTheSystemInset() {
+        for(search in listOf(false,true)) {
+            scene {Box(Modifier.fillMaxSize()) {Box(Modifier.align(Alignment.BottomCenter)) {
+                if(search)ReaderSearchDock("",{},{}) else ReaderBottomNav(ReaderDestination.Home,{},{})
+            }}}.use {s->
+                render(s)
+                val action=tag(s,if(search)"search-return" else "nav-search").boundsInRoot
+                assertTrue(852f-action.bottom>=12f,"Dock is too close to the safe-area edge: ${852f-action.bottom}")
+            }
+        }
+    }
     @Test fun continueHasTheReferenceCompactWidthAndOpeningSectionHeight() {
         scene {ReaderHomeScreen(listOf(ReaderBookUi(1,"Tên truyện",read=1,total=10,author="Tác giả")),false,{},{},{},{})}.use {s->
             render(s)

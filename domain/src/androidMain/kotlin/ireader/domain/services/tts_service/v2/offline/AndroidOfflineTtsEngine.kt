@@ -150,7 +150,8 @@ class AndroidOfflineTtsEngine(context:Context,private val config:OfflineVoiceCon
                     completedNaturally=true
                     mutableEvents.emit(EngineEvent.Completed(utteranceId))
                 }
-            } catch(e:CancellationException){throw e}
+            } catch(e:TimeoutCancellationException){if(token==generation.get())mutableEvents.emit(EngineEvent.Error(utteranceId,"Offline audio playback timed out"))}
+            catch(e:CancellationException){throw e}
             catch(e:Throwable) {if(token==generation.get())activateFallback(text to utteranceId)}
         }
     }
