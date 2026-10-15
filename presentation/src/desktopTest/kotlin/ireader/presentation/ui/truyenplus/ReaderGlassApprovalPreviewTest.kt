@@ -29,7 +29,7 @@ class ReaderGlassApprovalPreviewTest {
     @Test fun exportProductionMaterialPreviewForApproval() {
         Locale.setDefault(Locale.forLanguageTag("vi"))
         SingletonImageLoader.setUnsafe(ImageLoader.Builder(PlatformContext.INSTANCE).components {add(BookCoverMapper())}.build())
-        val cover=File("../.opencode/reports/books-device-reference/reference-cover.jpg").canonicalPath
+        val cover=System.getProperty("truyenplus.preview.cover").orEmpty()
         val book=ReaderBookUi(1,"Vạn Cổ Thần Đế",BookCover(1,-200,cover,true),read=124,total=2295,
             chapter="Chương 124 · Giết người nữ ma đầu",author="Phi Thiên Ngư")
         ImageComposeScene(1572,1010,Density(1f)) {
@@ -79,7 +79,8 @@ class ReaderGlassApprovalPreviewTest {
             }
         }.use {scene->
             repeat(12) {scene.render(it*300_000_000L);Thread.sleep(30)}
-            val path=File("../.opencode/reports/glass-approval.png")
+            val path=File("build/reports/glass-approval/glass-approval.png")
+            path.parentFile.mkdirs()
             path.writeBytes(requireNotNull(scene.render(5_000_000_000L).encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)).bytes)
             assertTrue(path.length()>10000)
         }
