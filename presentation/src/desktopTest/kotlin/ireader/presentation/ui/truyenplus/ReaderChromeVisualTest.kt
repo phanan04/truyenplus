@@ -7,7 +7,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.*
@@ -35,8 +34,7 @@ class ReaderChromeVisualTest {
                     LocalContentColor provides if(appDark)Color.White else Color.Black) {
                     MaterialTheme(colorScheme=if(appDark)darkColorScheme() else lightColorScheme()) {
                         ReaderPaperTheme(paper,ink) {ReaderResponsiveFrame {
-                            val layer=rememberGraphicsLayer()
-                            val backdrop=remember(layer){ReaderNavigationBackdrop(layer)}
+                            val backdrop=remember{ReaderNavigationBackdrop()}
                             CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                                 Box(Modifier.fillMaxSize().background(paper)) {
                                     Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {

@@ -30,7 +30,7 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     onSpeed: (Float) -> Unit, onSettings: () -> Unit, onClose: () -> Unit,
     audio: ListeningAudioState = ListeningAudioState(), onVolume: (Float) -> Unit = {},
     onMusicToggle: () -> Unit = {}, modifier: Modifier = Modifier, onMinimize: (() -> Unit)? = null,
-    voiceLabel:String="",chapterLabel:String="",paragraphIndex:Int=0,paragraphCount:Int=0,isLoading:Boolean=false,canPrevious:Boolean=true,canNext:Boolean=true,hasError:Boolean=false) {
+    voiceLabel:String="",chapterLabel:String="",paragraphIndex:Int=0,paragraphCount:Int=0,isLoading:Boolean=false,canPrevious:Boolean=true,canNext:Boolean=true,hasError:Boolean=false,errorDetail:String?=null) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     val colors=MaterialTheme.colorScheme
     val preparing=rememberPreparingFeedback(isLoading)
@@ -69,6 +69,8 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
             }
             if(hasError)Text(s.localize(Res.string.tp_listening_retry),color=colors.error,style=MaterialTheme.typography.labelSmall,
                 modifier=Modifier.padding(vertical=6.dp).testTag("listen-error"))
+            if(hasError && errorDetail!=null)Text(errorDetail,color=colors.onSurfaceVariant,style=MaterialTheme.typography.labelSmall,
+                maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.testTag("listen-error-detail"))
             ReaderListeningSpeed(speed,onSpeed)
 
         }

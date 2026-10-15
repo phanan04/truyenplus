@@ -151,8 +151,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
     val appearancePref=remember(uiPreferences) { uiPreferences.readerAppearance() }
     val appearanceId by appearancePref.changes().collectAsState(initial=appearancePref.get())
     val blurSupported=rememberReaderBlurSupported()
-    val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
-    val backdrop=remember(sourceLayer,blurSupported) { if(blurSupported) ReaderNavigationBackdrop(sourceLayer) else null }
+    val backdrop=remember(blurSupported) { if(blurSupported) ReaderNavigationBackdrop() else null }
     val onSearch: ()->Unit = {vm.unselectAll();navigation=navigation.openSearch();searchRequested=true}
     var dockHeight by remember { mutableStateOf(100.dp) }
     val viewportDensity = androidx.compose.ui.platform.LocalDensity.current

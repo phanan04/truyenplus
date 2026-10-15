@@ -124,7 +124,6 @@ android {
     buildFeatures {
         // Disable some unused things
         aidl = false
-        renderScript = false
         shaders = false
         buildConfig = true
         compose = true
@@ -290,10 +289,10 @@ android {
         }
     }
     sourceSets {
-        getByName("preview").res.srcDirs("src/debug/res")
+        getByName("preview").res.directories.add("src/debug/res")
         if (truyenPlusQa) getByName("androidTest").apply {
-            java.setSrcDirs(listOf("src/qaTest/kotlin"))
-            kotlin.setSrcDirs(listOf("src/qaTest/kotlin"))
+            java.directories.apply {clear();add("src/qaTest/kotlin")}
+            kotlin.directories.apply {clear();add("src/qaTest/kotlin")}
         }
     }
 
@@ -396,18 +395,16 @@ dependencies {
     androidTestImplementation(libs.test.testRunner)
     androidTestImplementation(libs.uiautomator)
     androidTestImplementation(libs.test.truth)
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.7.5")
-    debugImplementation("androidx.compose.ui:ui-test-manifest:1.7.5")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:${composeLib.versions.ui.get()}")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:${composeLib.versions.ui.get()}")
 }
 composeCompiler {
     // Use stability configuration file for marking external classes as stable
-    stabilityConfigurationFile.set(rootProject.layout.projectDirectory.file("compose_stability_config.conf"))
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability_config.conf"))
     
     // Strong skipping is enabled by default in newer versions
-    enableStrongSkippingMode.set(true)
     
     // Enable live literals for hot reload
-    enableIntrinsicRemember.set(true)
     
     // Generate reports only when explicitly requested
     if (project.findProperty("composeCompilerReports") == "true") {
@@ -428,7 +425,7 @@ if (!taskRequests.contains("Fdroid", ignoreCase = true) &&
 }
 
 // Compile the preset-only VieNeu bridge from pinned native sources before packaging.
-val buildVieNeuNative by tasks.registering(Exec::class) {
+val buildVieNeuNative = tasks.register<Exec>("buildVieNeuNative") {
     workingDir(rootProject.projectDir)
     commandLine("python3",rootProject.file("scripts/build-vieneu-native.py").absolutePath)
     inputs.dir(rootProject.file("native/vieneu"))

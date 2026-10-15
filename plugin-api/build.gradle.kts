@@ -115,7 +115,7 @@ kotlin {
 
 val packageVersion = "1.0.9"
 
-val javadocJar: TaskProvider<Jar> by tasks.registering(Jar::class) {
+val javadocJar: TaskProvider<Jar> = tasks.register<Jar>("javadocJar") {
     archiveClassifier.set("javadoc")
 }
 

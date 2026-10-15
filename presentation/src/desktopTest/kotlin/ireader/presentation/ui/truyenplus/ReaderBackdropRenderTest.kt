@@ -21,8 +21,7 @@ class ReaderBackdropRenderTest {
             val scene=ImageComposeScene(width=390,height=230,density=Density(1f)) {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                     MaterialTheme(colorScheme=if(dark) TruyenPlusDarkColors else TruyenPlusLightColors) {
-                        val layer=rememberGraphicsLayer()
-                        val backdrop=remember(layer) { ReaderNavigationBackdrop(layer) }
+                        val backdrop=remember { ReaderNavigationBackdrop() }
                         CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                                 Row(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {

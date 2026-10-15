@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.unit.dp
 
 /** App surfaces use the app palette. Keep the reader's independently selected paper intact. */
@@ -26,8 +25,7 @@ import androidx.compose.ui.unit.dp
 /** Standalone book/shelf pages have only static cards in the recorded content layer. */
 @Composable fun ReaderAppBackdrop(content:@Composable BoxScope.()->Unit) {
     val supported=rememberReaderBlurSupported()
-    val layer=rememberGraphicsLayer()
-    val backdrop=remember(layer,supported) {if(supported)ReaderNavigationBackdrop(layer) else null}
+    val backdrop=remember(supported) {if(supported)ReaderNavigationBackdrop() else null}
     CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
         ReaderBackdrop {Box(Modifier.fillMaxSize().readerNavigationSource(backdrop),content=content)}
     }

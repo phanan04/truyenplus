@@ -185,9 +185,8 @@ data class ReaderScreenSpec(
         val target by sentenceTarget.collectAsState()
         val readerPanels=remember { ireader.presentation.ui.truyenplus.ReaderPanelState() }
         val blurSupported=ireader.presentation.ui.truyenplus.rememberReaderBlurSupported()
-        val sourceLayer=androidx.compose.ui.graphics.rememberGraphicsLayer()
-        val chapterBackdrop=remember(sourceLayer,blurSupported) {
-            if(blurSupported) ireader.presentation.ui.truyenplus.ReaderNavigationBackdrop(sourceLayer) else null
+        val chapterBackdrop=remember(blurSupported) {
+            if(blurSupported) ireader.presentation.ui.truyenplus.ReaderNavigationBackdrop() else null
         }
         val followListening by listeningPreferences.ttsFollowParagraph().changes().collectAsState(initial = listeningPreferences.ttsFollowParagraph().get())
         val readerDensity = androidx.compose.ui.platform.LocalDensity.current
@@ -589,7 +588,7 @@ data class ReaderScreenSpec(
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
-                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence,ttsState.spokenWord,wordHighlight,chapters) {
+                            remember(ttsState.book?.id,ttsState.chapter?.id,chapter?.id,speechIndex,spokenParagraph,highlightListening,ttsState.spokenSentence,ttsState.spokenWord,wordHighlight,chapters,ttsState.isPlaying,followState.following) {
                                 val matching=ttsState.book?.id==bookId && ttsState.chapter?.id==chapter?.id
                                 ireader.presentation.ui.truyenplus.ReaderListeningContext(
                                     if(matching) ttsState.paragraphSourceIndices else emptyList(),spokenParagraph,
@@ -597,7 +596,7 @@ data class ReaderScreenSpec(
                                     if(matching)ttsState.spokenSentence else null,reportSentenceBounds,
                                     if(matching)ttsState.spokenWord else null,wordHighlight,
                                     chapterIndex=if(matching)chapters.indexOfFirst {it.id==ttsState.chapter?.id} else -1,
-                                    chapterCount=chapters.size)
+                                    chapterCount=chapters.size,focusSurroundings=matching && ttsState.isPlaying && followState.following)
                             } else null
                     ) {
                     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().nestedScroll(userScroll)) {

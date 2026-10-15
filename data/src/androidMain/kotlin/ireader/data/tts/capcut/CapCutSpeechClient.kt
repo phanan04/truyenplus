@@ -3,10 +3,7 @@ package ireader.data.tts.capcut
 import android.content.Context
 import ireader.domain.services.tts_service.v2.online.*
 import io.ktor.client.HttpClient
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import java.security.KeyFactory
@@ -17,7 +14,12 @@ import java.util.UUID
 import javax.crypto.Cipher
 
 /** Direct online adapter; only public protocol constants, no bundled session or captured device ID. */
-class CapCutSpeechClient(context:Context,private val http:HttpClient):CapCutSpeechSource {
+class CapCutSpeechClient(context:Context,http:HttpClient=HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
+ install(io.ktor.client.plugins.HttpTimeout) {
+  connectTimeoutMillis=8_000;socketTimeoutMillis=15_000;requestTimeoutMillis=20_000
+ }
+}):CapCutSpeechSource {
+ private val transport=CapCutHttpTransport(http)
  private val settings=context.getSharedPreferences("capcut_online",Context.MODE_PRIVATE)
  private val identity=settings.getString("identity",null) ?: (7_000_000_000_000_000_000L+(UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)%999_999_999_999_999_999L).toString().also {settings.edit().putString("identity",it).apply()}
  private val version="8.7.0"
@@ -28,20 +30,18 @@ class CapCutSpeechClient(context:Context,private val http:HttpClient):CapCutSpee
  private fun str(value:String)=JsonPrimitive(value)
  private suspend fun post(path:String,body:JsonObject):JsonObject {
   val stamp=(System.currentTimeMillis()/1000).toString();val encoded=body.toString()
-  val response=http.post("https://editor-api-sg.capcutapi.com$path") {
-   url {parameters.appendAll(parametersOf("app_name" to listOf("CapCut"),"device_type" to listOf("MacBookPro17,4"),"os_version" to listOf("15.7.4"),"channel" to listOf("capcutpc_google"),"version_name" to listOf(version),"device_brand" to listOf("MacBookPro17,4"),"device_id" to listOf(identity),"iid" to listOf(identity),"version_code" to listOf(version),"device_platform" to listOf("mac"),"aid" to listOf(app),"region" to listOf("VN")))}
-   contentType(ContentType.Application.Json)
-   headers {
-    append("appvr",version);append("ch","capcutpc_google");append("device-time",stamp);append("lan","vi-VN");append("loc","VN");append("pf","3");append("sign-ver","1");append("tdid",identity)
-    append("x-ss-stub",md5(encoded));append("x-ss-dp",app);append("x-khronos",stamp);append("app-sdk-version",version);append("appid",app);append("store-country-code","vn");append("store-country-code-src","did")
-    append("sign",md5("9e2c|${path.takeLast(7)}|3|$version|$stamp|$identity|11ac"))
-   }
-   setBody(encoded)
+  val url=URLBuilder("https://editor-api-sg.capcutapi.com$path").apply {
+   parameters.appendAll(parametersOf("app_name" to listOf("CapCut"),"device_type" to listOf("MacBookPro17,4"),"os_version" to listOf("15.7.4"),"channel" to listOf("capcutpc_google"),"version_name" to listOf(version),"device_brand" to listOf("MacBookPro17,4"),"device_id" to listOf(identity),"iid" to listOf(identity),"version_code" to listOf(version),"device_platform" to listOf("mac"),"aid" to listOf(app),"region" to listOf("VN")))
+  }.buildString()
+  val headers=mapOf("appvr" to version,"ch" to "capcutpc_google","device-time" to stamp,"lan" to "vi-VN","loc" to "VN","pf" to "3","sign-ver" to "1","tdid" to identity,
+   "x-ss-stub" to md5(encoded),"x-ss-dp" to app,"x-khronos" to stamp,"app-sdk-version" to version,"appid" to app,"store-country-code" to "vn","store-country-code-src" to "did",
+   "sign" to md5("9e2c|${path.takeLast(7)}|3|$version|$stamp|$identity|11ac"))
+  val text=transport.post(url,headers,encoded,query=path.endsWith("/query"))
+  return Json.parseToJsonElement(text).jsonObject.also {
+   if(it["ret"]?.jsonPrimitive?.content!="0")throw CapCutSpeechFailure(if(path.endsWith("/query"))"query rejected" else "submit rejected",it["ret"]?.jsonPrimitive?.intOrNull)
   }
-  check(response.status.isSuccess()) {"CapCut HTTP ${response.status.value}"}
-  val text=response.bodyAsText();check(text.length<1_000_000)
-  return Json.parseToJsonElement(text).jsonObject.also {check(it["ret"]?.jsonPrimitive?.content=="0") {"CapCut request rejected"}}
  }
+
  override suspend fun synthesize(text:String,voice:CapCutVoice):ByteArray=withTimeout(60_000) {
   require(text.isNotBlank() && text.length<=1600)
   val ssml="<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xml:lang=\"vi-VN\"><voice name=\"${voice.id}\" resource_id=\"${voice.resource}\" platform=\"sami\"><prosody rate=\"1.0\">${xml(text)}</prosody></voice></speak>"
@@ -65,12 +65,7 @@ class CapCutSpeechClient(context:Context,private val http:HttpClient):CapCutSpee
     CapCutTaskResult.Pending->delay(400)
    }
   }
-  http.prepareGet(audio).execute {response->
-   check(response.status.isSuccess());require((response.contentLength() ?: 0)<=16*1024*1024)
-   val channel=response.bodyAsChannel();val result=java.io.ByteArrayOutputStream();val buffer=ByteArray(8192)
-   while(true){ensureActive();val n=channel.readAvailable(buffer,0,buffer.size);if(n<0)break;if(n>0){check(result.size()+n<=16*1024*1024);result.write(buffer,0,n)}}
-   result.toByteArray().also {check(it.size>128)}
-  }
+  transport.download(requireNotNull(audio))
  }
  companion object {
   private const val PUBLIC_KEY="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmTd34Lw4b7IuldSXh/zYCMla+ITdGG5TeWz6ad+OySd4r+IrY45AoqrYUxhQ2dl+7z+i7r/5vEa8rr39BYfB8AGMQLmZA8HmgpWBsqrn/V6daUALkKnkLb70Fn32CJigIuGXAYqxUdGuI340aC+0v5Es3puJsHyzf01/AelE4Cdc6bZhQrASJLBh8R3BQToYClmDVSDUQk28o8sl/guAZ4n303Vj+6Siv1HayPCdV6kpVVnMBAG4+umUbwGmn132N3fgpzLarFF3XyWmS1zhD/J07iM/rP8GDO9IskHNHd2phrO0G6KzrcFAnTBHjVv+hCBEfzN/no3FNA9AuC36mwIDAQAB"

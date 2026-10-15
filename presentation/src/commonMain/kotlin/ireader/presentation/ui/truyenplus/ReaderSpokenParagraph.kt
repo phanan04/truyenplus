@@ -2,12 +2,15 @@ package ireader.presentation.ui.truyenplus
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.text.TextLayoutResult
@@ -18,7 +21,7 @@ import ireader.presentation.core.toComposeTextAlign
 import ireader.presentation.ui.reader.ReaderTextPreferencesState
 import ireader.domain.models.prefs.mapTextAlign
 
-/** Draw only the actual spoken sentence's line boxes; timing is supplied by the engine. */
+/** Static paragraph wash and engine-driven marker. Never changes glyph geometry or audio work. */
 @Composable
 internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningContext,
     preferences:ReaderTextPreferencesState,modifier:Modifier) {
@@ -27,8 +30,15 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
     val visibleRange=sentence.takeIf {context.highlight}
     val paper=LocalReaderPaper.current?.paper ?: androidx.compose.material3.MaterialTheme.colorScheme.background
     val dark=paper.luminance()<.4f
-    val accent=if(dark)Color(0xffe8bd68) else Color(0xff99681b)
-    val sentenceFill=lerp(paper,Color(0xffd8a746),if(dark).20f else .22f)
+    val pigment=if(dark)Color(0xffb89add) else Color(0xffe4af45)
+    val accent=if(dark)Color(0xffc1a3e5) else Color(0xffa37423)
+    val active=context.highlight && (context.isHighlighted(page) || sentence!=null)
+    val cardAlpha=animateFloatAsState(if(active)1f else 0f,tween(180),label="spoken paragraph")
+    val dim=context.highlight && context.focusSurroundings && !active && context.paragraphForReaderPage(page)!=null
+    val textAlpha=animateFloatAsState(if(dim).78f else 1f,tween(180),label="reading focus")
+    val wash=remember(paper,pigment,dark) { Brush.linearGradient(listOf(
+        lerp(paper,pigment,if(dark).12f else .14f),lerp(paper,pigment,.045f))) }
+    val sentenceFill=lerp(paper,pigment,if(dark).38f else .36f)
     val wordFill=lerp(sentenceFill,accent,if(dark).28f else .18f)
     var previous by remember { mutableStateOf<IntRange?>(null) }
     var last by remember { mutableStateOf<IntRange?>(null) }
@@ -53,8 +63,20 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
             context.onSentenceBounds(page,Rect(0f,result.getLineTop(first),result.size.width.toFloat(),result.getLineBottom(end)))
         }
     }
-    val decorated=modifier.drawWithContent {
+    val decorated=modifier.graphicsLayer {alpha=textAlpha.value}.drawWithContent {
         val result=layout
+        if(cardAlpha.value>0f) {
+            val inset=7.dp.toPx()
+            val origin=Offset(-inset,-3.dp.toPx())
+            val extent=Size(size.width+inset*2,size.height+6.dp.toPx())
+            val corner=CornerRadius(12.dp.toPx())
+            // A static low-opacity edge suggests paper depth without an offscreen blur/shadow.
+            drawRoundRect(Color.Black.copy(alpha=(if(dark).08f else .035f)*cardAlpha.value),
+                origin+Offset(0f,1.5.dp.toPx()),extent,corner)
+            drawRoundRect(wash,origin,extent,corner,alpha=cardAlpha.value)
+            drawRoundRect(accent.copy(alpha=.72f*cardAlpha.value),
+                Offset(-inset,3.dp.toPx()),Size(2.5.dp.toPx(),(size.height-6.dp.toPx()).coerceAtLeast(1f)),CornerRadius(2.dp.toPx()))
+        }
         fun shade(range:IntRange?,alpha:Float,fill:Color=sentenceFill) {
             if(result==null || range==null || range.isEmpty() || range.last>=text.length || alpha<=0)return
             val first=result.getLineForOffset(range.first);val end=result.getLineForOffset(range.last)
@@ -69,20 +91,11 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
                 val top=result.getLineTop(line)+2.dp.toPx()
                 val bottom=result.getLineBottom(line)-2.dp.toPx()
                 drawRoundRect(fill.copy(alpha=alpha),Offset(left-2.dp.toPx(),top),
-                    Size((right-left).coerceAtLeast(1f)+4.dp.toPx(),(bottom-top).coerceAtLeast(1f)),CornerRadius(4.dp.toPx()))
+                    Size((right-left).coerceAtLeast(1f)+4.dp.toPx(),(bottom-top).coerceAtLeast(1f)),CornerRadius(6.dp.toPx()))
             }
         }
         shade(previous,1f-fade.value);shade(visibleRange,fade.value)
         shade(previousWord,1f-wordFade.value,wordFill);shade(word,wordFade.value,wordFill)
-        if(result!=null && visibleRange!=null && !visibleRange.isEmpty() && visibleRange.last<text.length) {
-            val line=result.getLineForOffset(visibleRange.first)
-            // A small gutter marker never changes glyph positions or paragraph height.
-            drawRoundRect(accent.copy(alpha=.75f*fade.value),Offset(-6.dp.toPx(),result.getLineTop(line)+3.dp.toPx()),
-                Size(2.dp.toPx(),(result.getLineBottom(line)-result.getLineTop(line)-6.dp.toPx()).coerceAtLeast(1f)),CornerRadius(1.dp.toPx()))
-        }
-        if(result!=null && context.isHighlighted(page) && sentence==null) {
-            drawCircle(accent.copy(alpha=.75f),2.dp.toPx(),Offset(-5.dp.toPx(),result.getLineTop(0)+8.dp.toPx()))
-        }
         drawContent()
     }
     val content:@Composable ()->Unit={

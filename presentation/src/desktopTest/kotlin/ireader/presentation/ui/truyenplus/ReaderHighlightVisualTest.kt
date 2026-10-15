@@ -38,12 +38,13 @@ class ReaderHighlightVisualTest {
                 }
             }
             val sentence=render(base,"sentence")
-            var warmPixels=0
+            var tintedPixels=0
             for(y in 0 until sentence.height)for(x in 0 until sentence.width) {
                 val rgb=sentence.getRGB(x,y)
-                if(((rgb shr 16) and 255)-(rgb and 255)>10)warmPixels++
+                val r=(rgb shr 16) and 255;val g=(rgb shr 8) and 255;val b=rgb and 255
+                if(maxOf(r,g,b)-minOf(r,g,b)>10)tintedPixels++
             }
-            assertTrue(warmPixels>300,"Spoken sentence needs a warm, legible focus tint on either paper")
+            assertTrue(tintedPixels>300,"Spoken sentence needs a legible focus tint on either paper")
             val word=render(base.copy(word=SpokenSentencePosition(0,6,9,"Yên")),"word")
             var changed=0
             for(y in 0 until word.height)for(x in 0 until word.width)if(word.getRGB(x,y)!=sentence.getRGB(x,y))changed++

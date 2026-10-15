@@ -12,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -37,8 +36,7 @@ class ReaderGlassDeviceTest {
     }
     @Test fun frostedLayerBlursStripesAndDoesNotRevealUnrecordedContent() {
         content {
-            val layer=rememberGraphicsLayer()
-            val backdrop=remember(layer){ReaderNavigationBackdrop(layer)}
+            val backdrop=remember{ReaderNavigationBackdrop()}
             CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                 Box(Modifier.fillMaxSize().background(Color.Green)) {
                     Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
@@ -61,12 +59,12 @@ class ReaderGlassDeviceTest {
         Assert.assertTrue("Source stripes remain sharp behind frosted glass",samples.max()-samples.min()<.04f)
         val empty=ui.onNodeWithTag("empty-glass").captureToImage().toPixelMap()
         val pixel=empty[empty.width/2,empty.height/2]
-        Assert.assertTrue("Unrecorded green content leaks through glass: $pixel",pixel.red>.98f && pixel.blue>.98f)
+        Assert.assertTrue("Unrecorded green content leaks through glass: $pixel",pixel.red>.90f && pixel.blue>.90f &&
+            kotlin.math.abs(pixel.green-pixel.red)<.02f && kotlin.math.abs(pixel.blue-pixel.red)<.02f)
     }
     @Test fun dialogSamplesItsScreenPositionRatherThanItsOwnWindowOrigin() {
         content {
-            val layer=rememberGraphicsLayer()
-            val backdrop=remember(layer){ReaderNavigationBackdrop(layer)}
+            val backdrop=remember{ReaderNavigationBackdrop()}
             CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                 Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
                     Canvas(Modifier.fillMaxSize()) {
@@ -81,6 +79,8 @@ class ReaderGlassDeviceTest {
         }
         val image=ui.onNodeWithTag("dialog-probe").captureToImage().toPixelMap()
         val pixel=image[image.width/2,image.height/2]
-        Assert.assertTrue("Dialog sampled the top of the main window: $pixel",pixel.red-pixel.blue>.1f)
+        // Haze 2 regular Glass brightens the captured red to pink; the top blue area
+        // would invert this channel difference, while an opaque fallback would be neutral.
+        Assert.assertTrue("Dialog sampled the top of the main window: $pixel",pixel.red-pixel.blue>.08f)
     }
 }

@@ -10,6 +10,6 @@ import androidx.compose.ui.platform.LocalContext
 @Composable actual fun rememberReaderBlurSupported(): Boolean {
     val context=LocalContext.current
     return remember(context) {
-        Build.VERSION.SDK_INT>=31 && (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice==false
+        Build.VERSION.SDK_INT>=32 && (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.isLowRamDevice==false
     }
 }

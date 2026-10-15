@@ -15,7 +15,7 @@ plugins {
 // Reports will be in: build/compose_compiler/
 composeCompiler {
     // Enable stability configuration file for marking external classes as stable
-    stabilityConfigurationFile = rootProject.layout.projectDirectory.file("compose_stability_config.conf")
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability_config.conf"))
     
     // Generate reports only when explicitly requested (to avoid slowing down normal builds)
     if (project.findProperty("composeCompilerReports") == "true") {
@@ -25,10 +25,8 @@ composeCompiler {
     
     // Enable strong skipping mode for better performance (Compose 1.5.4+)
     // This allows more composables to be skipped during recomposition
-    enableStrongSkippingMode = true
     
     // Enable intrinsic remember optimization
-    enableIntrinsicRemember = true
 }
 
 kotlin {
@@ -84,6 +82,9 @@ kotlin {
                 api(compose.animationGraphics)
                 api(compose.materialIconsExtended)
                 api(compose.ui)
+                implementation(libs.haze.core)
+                implementation(libs.haze.glass)
+                implementation(libs.lifecycle.viewmodel)
                 api(compose.components.resources)
                 @OptIn(org.jetbrains.compose.ExperimentalComposeLibrary::class)
                 api(compose.material3)

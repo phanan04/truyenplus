@@ -14,4 +14,9 @@ class CapCutProtocolTest {
   assertFails {parseCapCutTask("""{"ret":0,"data":{"tasks":[{"status":"failed"}]}}""")}
   assertFails {parseCapCutTask("""{"ret":0,"data":{"tasks":[{"status":"success","payload":{"audio_subtitles":[{"speech_url":"http://example.com/a.mp3"}]}}]}}""")}
  }
+ @Test fun successfulTaskWithRejectedOrInvalidSpeechIsNotPlayableAudio() {
+  for(fields in listOf("\"code\":1008", "\"code\":0,\"invalid_input\":true")) {
+   assertFails {parseCapCutTask("""{"ret":0,"data":{"tasks":[{"status":"succeed","payload":{"audio_subtitles":[{$fields,"speech_url":"https://audio.example.com/error.mp3"}]}}]}}""")}
+  }
+ }
 }

@@ -18,9 +18,7 @@ plugins {
 }
 
 composeCompiler {
-    stabilityConfigurationFile.set(rootProject.layout.projectDirectory.file("compose_stability_config.conf"))
-    enableStrongSkippingMode.set(true)
-    enableIntrinsicRemember.set(true)
+    stabilityConfigurationFiles.add(rootProject.layout.projectDirectory.file("compose_stability_config.conf"))
 }
 
 // Load local.properties for local development

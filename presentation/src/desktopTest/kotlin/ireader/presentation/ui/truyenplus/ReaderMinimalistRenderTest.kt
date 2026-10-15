@@ -70,8 +70,7 @@ class ReaderMinimalistRenderTest {
     }
     @Composable private fun PreviewShell(destination:ReaderDestination,content:@Composable ()->Unit) {
         ReaderBackdrop {
-            val layer=androidx.compose.ui.graphics.rememberGraphicsLayer()
-            val backdrop=remember(layer) {ReaderNavigationBackdrop(layer)}
+            val backdrop=remember {ReaderNavigationBackdrop()}
             CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                 Box(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {content()}
                 Column(Modifier.align(Alignment.BottomCenter)) {ReaderMiniPlayer(book,{},{}) ; ReaderBottomNav(destination,{},{})}

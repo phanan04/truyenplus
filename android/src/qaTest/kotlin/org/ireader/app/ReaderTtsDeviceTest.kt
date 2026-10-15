@@ -201,6 +201,40 @@ class ReaderTtsDeviceTest {
         }
     }
 
+    @Test fun capCutReadyAudioSurvivesPauseWithoutAnotherNetworkRequest()=runBlocking<Unit> {
+        requireQa()
+        val real=GlobalContext.get().get<ireader.domain.services.tts_service.v2.online.CapCutSpeechSource>()
+        val calls=java.util.concurrent.atomic.AtomicInteger()
+        val counted=object:ireader.domain.services.tts_service.v2.online.CapCutSpeechSource {
+            override suspend fun synthesize(text:String,voice:ireader.domain.services.tts_service.v2.online.CapCutVoice):ByteArray {
+                calls.incrementAndGet();return real.synthesize(text,voice)
+            }
+        }
+        val engine=ireader.domain.services.tts_service.v2.online.AndroidCapCutTtsEngine(context,counted,
+            ireader.domain.services.tts_service.v2.online.CapCutVoices.voices.first())
+        try {
+            val text="Gió đêm mang theo hương hoa thoang thoảng."
+            engine.setSpeed(2f)
+            for(round in 0..2) {
+                val start=System.nanoTime()
+                val started=async(start=CoroutineStart.UNDISPATCHED) {
+                    withTimeout(60_000) {engine.events.first {it is EngineEvent.Started && it.utteranceId=="cache-$round" || it is EngineEvent.Error}}
+                }
+                val complete=async(start=CoroutineStart.UNDISPATCHED) {
+                    withTimeout(60_000) {engine.events.first {it is EngineEvent.Completed && it.utteranceId=="cache-$round" || it is EngineEvent.Error}}
+                }
+                engine.speak(text,"cache-$round")
+                val event=started.await()
+                assertTrue("Online playback failed: $event",event is EngineEvent.Started)
+                val firstAudioMs=(System.nanoTime()-start)/1_000_000
+                assertTrue(complete.await() is EngineEvent.Completed)
+                engine.pause()
+                Log.i("TruyenPlusQA","CAPCUT_CACHE round=$round firstAudioMs=$firstAudioMs networkCalls=${calls.get()}")
+            }
+            assertEquals("Ready audio must survive pause/replay",1,calls.get())
+        } finally {engine.release()}
+    }
+
     @Test fun allInstalledEnginesMeasureRealControllerParagraphLatencyAtBothSpeeds() = runBlocking<Unit> {
         requireQa()
         val store=GlobalContext.get().get<OfflineVoiceStore>()

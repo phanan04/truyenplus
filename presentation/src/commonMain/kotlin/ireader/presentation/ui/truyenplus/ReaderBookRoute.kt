@@ -24,6 +24,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.CreationExtras
+import kotlin.reflect.KClass
 import ireader.domain.models.BookCover
 import ireader.domain.models.entities.Chapter
 import ireader.presentation.core.*
@@ -51,9 +55,12 @@ internal fun ReaderEmbeddedBookDetails(bookId:Long,onDismiss:()->Unit,bottomInse
     // Legacy detail initialization mutates snapshot fields. Run it after composition,
     // as a navigation event, rather than while the new page is being composed.
     LaunchedEffect(bookId) {
-        val created=org.koin.mp.KoinPlatform.getKoin().get<BookDetailViewModel>(parameters={parametersOf(BookDetailViewModel.Param(bookId))})
-        owner.viewModelStore.put("books-detail-$bookId",created)
-        model=created
+        val provider=ViewModelProvider.create(owner,object:ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T:ViewModel> create(modelClass:KClass<T>,extras:CreationExtras):T =
+                org.koin.mp.KoinPlatform.getKoin().get<BookDetailViewModel>(parameters={parametersOf(BookDetailViewModel.Param(bookId))}) as T
+        })
+        model=provider["books-detail-$bookId",BookDetailViewModel::class]
     }
     DisposableEffect(owner) {onDispose {owner.viewModelStore.clear()}}
     val current=model

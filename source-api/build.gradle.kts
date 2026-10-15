@@ -183,7 +183,7 @@ val packageVersion = "1.5.1"
 
 
 // Create empty javadoc jar for Maven Central requirements
-val javadocJar: TaskProvider<Jar> by tasks.registering(Jar::class) {
+val javadocJar: TaskProvider<Jar> = tasks.register<Jar>("javadocJar") {
     archiveClassifier.set("javadoc")
     // Empty javadoc jar - documentation is in the source code
 }

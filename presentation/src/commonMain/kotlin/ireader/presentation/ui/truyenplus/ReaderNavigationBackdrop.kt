@@ -1,75 +1,54 @@
 package ireader.presentation.ui.truyenplus
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.layout.positionOnScreen
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.*
+import dev.chrisbanes.haze.glass.GlassStyle
+import dev.chrisbanes.haze.glass.hazeGlass
 
 @Composable expect fun rememberReaderBlurSupported(): Boolean
 
-/** A display list, not a screenshot. Navigation is outside this source to avoid feedback. */
+/** Shared chapter/shell source. Floating controls are deliberately outside this capture. */
 @Stable
-class ReaderNavigationBackdrop(val layer: GraphicsLayer) {
+class ReaderNavigationBackdrop {
+    val state = HazeState()
     var samplingEnabled by mutableStateOf(true)
-    var position by mutableStateOf(Offset.Zero)
 }
 val LocalReaderNavigationBackdrop = staticCompositionLocalOf<ReaderNavigationBackdrop?> { null }
-
-private fun LayoutCoordinates.backdropPosition():Offset {
-    val screen=positionOnScreen()
-    return if(screen.x.isFinite() && screen.y.isFinite())screen else positionInRoot()
-}
 
 @Composable
 fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifier {
     val paper=LocalReaderPaper.current?.paper ?: androidx.compose.material3.MaterialTheme.colorScheme.background
-    return if(backdrop==null) this else onGloballyPositioned {backdrop.position=it.backdropPosition()}.drawWithContent {
-        if(backdrop.samplingEnabled) {
-            // A transparent source leaves the real, sharp navigation/player visible beneath the blur.
-            backdrop.layer.record {drawRect(paper);this@drawWithContent.drawContent()}
-            drawLayer(backdrop.layer)
-        } else drawContent()
-    }
+    return if(backdrop==null || !backdrop.samplingEnabled) this else
+        hazeSource(backdrop.state).background(paper)
 }
 
-/** Only the capsule-sized sampled layer gets a blur pass; icons/text are drawn afterwards. */
+/** Glass is limited to floating surfaces. Static list rows and highlight never run a shader. */
+@OptIn(ExperimentalHazeApi::class)
 @Composable
-fun Modifier.readerNavigationGlass(tint: Color, blurTintAlpha: Float = .72f): Modifier {
+fun Modifier.readerNavigationGlass(tint: Color, blurTintAlpha: Float = .72f, radius:Int?=null): Modifier {
     val backdrop=LocalReaderNavigationBackdrop.current
-    if(backdrop==null) return this.drawWithContent { drawRect(tint);drawContent() }
-    val sampled=rememberGraphicsLayer()
-    val density=androidx.compose.ui.platform.LocalDensity.current
-    val blur=remember(density) { with(density) { BlurEffect(10.dp.toPx(),10.dp.toPx(),TileMode.Clamp) } }
-    var position by remember { mutableStateOf(Offset.Zero) }
-    return onGloballyPositioned { position=it.backdropPosition() }.drawWithContent {
-        if(!backdrop.samplingEnabled) {
-            drawRect(tint);drawContent()
-            return@drawWithContent
-        }
-        // Opaque base also covers holes outside the recorded viewport and prevents sharp underlays
-        // bleeding through native dialog/sheet windows. Only the sampled content is translucent.
-        drawRect(tint)
-        val padding=12.dp.roundToPx()
-        val offset=position-backdrop.position
-        sampled.renderEffect=blur
-        sampled.record(size=IntSize(size.width.toInt()+padding*2,size.height.toInt()+padding*2)) {
-            translate(padding-offset.x,padding-offset.y) { drawLayer(backdrop.layer) }
-        }
-        translate(-padding.toFloat(),-padding.toFloat()) { drawLayer(sampled) }
-        drawRect(tint.copy(alpha=blurTintAlpha))
-        drawContent()
+    if(backdrop==null || !backdrop.samplingEnabled) {
+        return drawWithContent {drawRect(tint);drawContent()}
     }
+    val style=remember(tint,blurTintAlpha,radius) {
+        GlassStyle.regular.then {
+            shape(radius?.let {RoundedCornerShape(it.dp)} ?: RoundedCornerShape(50))
+            backgroundColor(tint)
+            tint(tint.copy(alpha=blurTintAlpha))
+            optics(refractionStrength=.25f,refractionDisplacement=5.dp,blurRadius=16.dp)
+            chromaticAberrationStrength(0f)
+            specularIntensity(.2f)
+            edgeShadow(Color.Transparent)
+        }
+    }
+    // Haze may have no retained input during its first frame or a window transition.
+    // Keep sharp controls behind this surface hidden even before Glass has captured its source.
+    return drawWithContent {drawRect(tint);drawContent()}.hazeGlass(HazeInput.Sources(backdrop.state),style,
+        performanceMode=HazePerformanceMode.Performance)
 }

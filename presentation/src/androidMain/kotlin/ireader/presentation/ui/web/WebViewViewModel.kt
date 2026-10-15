@@ -252,7 +252,7 @@ class WebViewPageModel(
         
         // Try to get baseUrl from source
         sourceId?.let { id ->
-            val source = extensions.get(id)
+            val source = extensions.get(id)?.source
             if (source is ireader.core.source.HttpSource) {
                 val baseUrl = source.baseUrl
                 if (baseUrl.isNotBlank() && (baseUrl.startsWith("http://") || baseUrl.startsWith("https://"))) {

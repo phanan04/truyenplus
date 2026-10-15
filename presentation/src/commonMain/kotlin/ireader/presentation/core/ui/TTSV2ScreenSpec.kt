@@ -1216,7 +1216,8 @@ class TTSV2ScreenSpec(
                     modifier = Modifier.onSizeChanged { onPlayerHeightChanged(it.height) }, onMinimize = panels::minimize,
                     voiceLabel = activeVoiceLabel, chapterLabel = state.chapter?.name.orEmpty(),
                     paragraphIndex = screenState.currentReadingParagraph, paragraphCount = screenState.contentSize,
-                    isLoading=state.isLoading,canPrevious=previousAvailable,canNext=nextAvailable,hasError=state.error!=null)
+                    isLoading=state.isLoading,canPrevious=previousAvailable,canNext=nextAvailable,hasError=state.error!=null,
+                    errorDetail=(state.error as? ireader.domain.services.tts_service.v2.TTSError.SpeechFailed)?.message?.takeIf {it.startsWith("CapCut ")})
             }, overlay = when {
                 panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.SystemVoices -> ({
                     TTSVoiceSelectionScreen(isDesktop=isTabletOrDesktop,onDismiss={

@@ -2,7 +2,6 @@ package ireader.presentation.ui.truyenplus
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.material3.*
@@ -29,8 +28,7 @@ class FloatingReaderControlsTest {
             ImageComposeScene(width, 800, Density(1f, if(width==320) 1.5f else 1f)) {
                 CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                     MaterialTheme(colorScheme=if(dark) darkColorScheme() else lightColorScheme()) {
-                        val layer=rememberGraphicsLayer()
-                        val backdrop=remember(layer){ReaderNavigationBackdrop(layer)}
+                        val backdrop=remember{ReaderNavigationBackdrop()}
                         CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
                         Box(Modifier.fillMaxSize().background(paper)) {
                             Box(Modifier.fillMaxSize().readerNavigationSource(backdrop).background(paper)) {

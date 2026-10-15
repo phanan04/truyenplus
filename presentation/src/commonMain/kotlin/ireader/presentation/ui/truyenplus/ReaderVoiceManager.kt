@@ -50,13 +50,14 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
     var preparing by remember {mutableStateOf(false)}
     var previewing by remember {mutableStateOf(false)}
     var failed by remember {mutableStateOf(false)}
+    var previewError by remember {mutableStateOf<String?>(null)}
     var resumeOnDismiss by remember {mutableStateOf(false)}
     fun stopPreview() {previewGeneration++;previewJob?.cancel();previewJob=null;previewing=false;preparing=false}
     fun dismiss() {stopPreview();val resume=resumeOnDismiss;resumeOnDismiss=false;if(resume)controller.dispatch(TTSCommand.Play);onDismiss()}
     ireader.presentation.core.ui.PlatformBackHandler(true,::dismiss)
     DisposableEffect(Unit) {onDispose {previewJob?.cancel();if(resumeOnDismiss){resumeOnDismiss=false;controller.dispatch(TTSCommand.Play)}}}
     val preview:(String,Int)->Unit = {id,speaker ->
-        stopPreview();failed=false
+        stopPreview();failed=false;previewError=null
         val config=store.config(id,speaker)
         val previewToken=previewGeneration
         if(config!=null || CapCutVoices.find(id)!=null)previewJob=scope.launch {
@@ -77,7 +78,10 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
                         event is EngineEvent.Completed || event is EngineEvent.Error}}
                 }
                 probe.speak("Gió đêm thổi qua, mang theo hương hoa thoang thoảng. Chào bạn, đây là giọng đọc tiếng Việt.","voice-preview")
-                check(done.await() is EngineEvent.Completed)
+                val result=done.await()
+                if(result is EngineEvent.Error && previewToken==previewGeneration)
+                    previewError=result.message.takeIf {it.startsWith("CapCut ")}
+                check(result is EngineEvent.Completed)
                 check(probe.name.startsWith(config?.model?.title ?: "CapCut"))
             } catch(_:TimeoutCancellationException){if(previewToken==previewGeneration)failed=true}
             catch(e:CancellationException){throw e}
@@ -108,7 +112,7 @@ fun ReaderVoiceManager(store:OfflineVoiceStore,onSystem:()->Unit,onDismiss:()->U
             if(resumeOnDismiss)controller.dispatch(TTSCommand.Play)
             resumeOnDismiss=false;onSystem()
         },onDismiss=::dismiss,onStopPreview=::stopPreview,previewPreparing=preparing,actualEngine=actualEngine,preferredNames=preferredNames,
-        onlineSupported=onlineSupported,selectedOnline=selectedOnline,
+        onlineSupported=onlineSupported,selectedOnline=selectedOnline,previewError=previewError,
         onOnlinePreview={preview(it,0)},onOnlineSelect={id->
             if(CapCutVoices.find(id)!=null) {
                 stopPreview();store.select(null);preferences.capCutVoiceId().set(id)
@@ -130,7 +134,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
     onDownload:(String)->Unit,onCancel:(String)->Unit,onDelete:(String)->Unit,
     onSelect:(String,Int)->Unit,onPreview:(String,Int)->Unit,onSystem:()->Unit,onDismiss:()->Unit,
     onStopPreview:()->Unit={},previewPreparing:Boolean=true,actualEngine:String="",preferredNames:Map<String,String> = emptyMap(),onRename:(String,Int,String)->Unit={_,_,_->},
-    onlineSupported:Boolean=false,selectedOnline:String="",onOnlineSelect:(String)->Unit={},onOnlinePreview:(String)->Unit={}) {
+    onlineSupported:Boolean=false,selectedOnline:String="",onOnlineSelect:(String)->Unit={},onOnlinePreview:(String)->Unit={},previewError:String?=null) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var speakers by remember {mutableStateOf(mapOf<String,Int>())}
     var renameModel by rememberSaveable {mutableStateOf<String?>(null)}
@@ -165,6 +169,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
                         IconButton(onClick=onStopPreview){Icon(Icons.Default.Stop,s.localize(Res.string.stop))}
                     }
                     if(previewFailed)Text(s.localize(Res.string.tp_voice_preview_error),color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodySmall)
+                    if(previewFailed && previewError!=null)Text(previewError,color=MaterialTheme.colorScheme.onSurfaceVariant,style=MaterialTheme.typography.labelSmall)
                     LazyColumn(Modifier.weight(1f,fill=false),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=16.dp)) {
                         if(onlineSupported)item(key="capcut-online") {
                             CapCutVoiceCard(selectedOnline,previewing,onOnlineSelect,onOnlinePreview)

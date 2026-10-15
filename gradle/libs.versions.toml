@@ -1,7 +1,9 @@
 [versions]
 # Compose
 apkParser = "2.6.10"
-composeGradle = "1.11.1"
+composeGradle = "1.12.1"
+haze = "2.0.1"
+lifecycle = "2.11.0"
 composeHotReload = "1.1.1"
 # Static Analysis
 detekt = "1.23.8"
@@ -48,13 +50,16 @@ jsoup = "1.22.2"
 ksoup = "0.2.6"
 dex2jar = "2.4.36"
 coil = "3.5.0"
-uiText = "1.11.3"
+uiText = "1.12.1"
 workTesting = "2.11.2"
 # Removed readium version - not used
 
 firebase-bom = "34.13.0"
 
 [libraries]
+haze-core = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-glass = { module = "dev.chrisbanes.haze:haze-glass", version.ref = "haze" }
+lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "lifecycle" }
 apk-parser = { module = "net.dongliu:apk-parser", version.ref = "apkParser" }
 core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
 j2v8 = { module = "com.eclipsesource.j2v8:j2v8", version.ref = "j2v8" }
