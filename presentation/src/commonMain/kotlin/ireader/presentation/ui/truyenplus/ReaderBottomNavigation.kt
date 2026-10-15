@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
@@ -34,12 +35,13 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
     val tabHeight=56.dp
     Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp,bottom=ReaderBooksTokens.bottomDockGap),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-        BoxWithConstraints(Modifier.weight(1f).shadow(4.dp,CircleShape).clip(CircleShape)
-            .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape).padding(4.dp).selectableGroup()) {
+        BoxWithConstraints(Modifier.weight(1f).shadow(3.dp,CircleShape).clip(CircleShape)
+            .readerNavigationGlass(colors.surface).border(.5.dp,colors.onSurface.copy(alpha=.08f),CircleShape).padding(4.dp).selectableGroup()) {
             val width=maxWidth/ReaderAppScope.destinations.size
             val index=ReaderAppScope.destinations.indexOf(selected).coerceAtLeast(0)
-            val offset by animateDpAsState(width*index, spring(dampingRatio=.86f,stiffness=500f),label="navigation selection")
-            Box(Modifier.offset(x=offset).width(width).height(tabHeight).clip(CircleShape)
+            val offset = animateDpAsState(width*index, spring(dampingRatio=.86f,stiffness=500f),label="navigation selection")
+            // Animate the marker's placement without recomposing every tab/Glass modifier.
+            Box(Modifier.offset {IntOffset(offset.value.roundToPx(),0)}.width(width).height(tabHeight).clip(CircleShape)
                 .background(colors.onSurface.copy(alpha=.09f)))
             Row(Modifier.fillMaxWidth()) {
                 ReaderAppScope.destinations.forEach { destination ->
@@ -63,8 +65,8 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
                 }
             }
         }
-        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(4.dp,CircleShape).clip(CircleShape)
-            .readerNavigationGlass(colors.surface).border(1.dp,colors.onSurface.copy(alpha=.09f),CircleShape)
+        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(3.dp,CircleShape).clip(CircleShape)
+            .readerNavigationGlass(colors.surface).border(.5.dp,colors.onSurface.copy(alpha=.08f),CircleShape)
             .semantics { testTag="nav-search" }) {
             Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(28.dp),tint=colors.onSurface)
         }

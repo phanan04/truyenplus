@@ -83,6 +83,7 @@ kotlin {
                 api(compose.materialIconsExtended)
                 api(compose.ui)
                 implementation(libs.haze.core)
+                implementation(libs.haze.blur)
                 implementation(libs.haze.glass)
                 implementation(libs.lifecycle.viewmodel)
                 api(compose.components.resources)

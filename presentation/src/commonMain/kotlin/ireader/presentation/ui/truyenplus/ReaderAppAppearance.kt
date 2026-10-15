@@ -33,11 +33,12 @@ enum class ReaderAppearanceMode(val id: String) {
 /** Floating controls sample the chapter/content layer; never record themselves into it. */
 @Composable
 fun Modifier.readerPanel(radius: Int = 20, tint: Color = LocalReaderPaper.current?.paper ?: MaterialTheme.colorScheme.surface,
-    ink: Color = LocalReaderPaper.current?.ink ?: MaterialTheme.colorScheme.onSurface): Modifier {
+    ink: Color = LocalReaderPaper.current?.ink ?: MaterialTheme.colorScheme.onSurface,
+    material:ReaderGlassMaterial=ReaderGlassMaterial.Frosted): Modifier {
     val shape = RoundedCornerShape(radius.dp)
-    return shadow(6.dp, shape).clip(shape)
-        .readerNavigationGlass(tint, blurTintAlpha=.78f,radius=radius)
-        .border(1.dp,ink.copy(alpha=.12f),shape)
+    return shadow(3.dp, shape).clip(shape)
+        .readerNavigationGlass(tint,radius=radius,material=material)
+        .border(.5.dp,ink.copy(alpha=.1f),shape)
 }
 
 /** Scrolling cards use a static translucent treatment to avoid recursive sampling/large blurs. */

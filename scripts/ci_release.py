@@ -57,6 +57,8 @@ def verify_metadata(badging, manifest, cert, name, code):
         raise ValueError("APK package/version/SDK/ABI does not match this release")
     if re.search(r"android:testOnly[^\n]*0xffffffff", manifest):
         raise ValueError("testOnly APK must not be published")
+    if "application-debuggable" in badging or re.search(r"android:debuggable[^\n]*0xffffffff", manifest):
+        raise ValueError("debuggable APK must not be published")
     if "Verified using v2 scheme (APK Signature Scheme v2): true" not in cert or f"Signer #1 certificate SHA-256 digest: {SIGNER}" not in cert:
         raise ValueError("APK signing certificate differs from the installed TruyenPlus app")
 

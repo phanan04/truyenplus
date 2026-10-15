@@ -1,6 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyColumn
+import kotlinx.coroutines.awaitCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -11,7 +14,7 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderHazeIntegrationTest {
-    @Test fun floatingSurfacesUseSharedHazeAndScrollingSwitchesToOpaqueFallback() {
+    @Test fun floatingSurfacesUseSharedHazeAndUnsupportedCaptureHasAnOpaqueFallback() {
         var elements=emptyList<String>()
         var backdropRef:ReaderNavigationBackdrop?=null
         ImageComposeScene(320,240) {
@@ -34,7 +37,27 @@ class ReaderHazeIntegrationTest {
             assertTrue(elements.any {it.contains("ComposedModifier")},"Glass modifier is missing: $elements")
             backdropRef!!.samplingEnabled=false
             scene.render();scene.render()
-            assertFalse(elements.any {it.contains("ComposedModifier")},"No blur work while scrolling")
+            assertFalse(elements.any {it.contains("ComposedModifier")},"No blur work when capture is unavailable")
         }
     }
+    @Test fun activeScrollKeepsTheSameCaptureAndMaterial() {
+        var backdropRef:ReaderNavigationBackdrop?=null
+        var scrolling=false
+        ImageComposeScene(320,240) {
+            val backdrop=remember {ReaderNavigationBackdrop()}
+            backdropRef=backdrop
+            val list=rememberLazyListState()
+            scrolling=list.isScrollInProgress
+            CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
+                LazyColumn(state=list) {items(20) {Box(Modifier.fillMaxWidth().height(64.dp))}}
+                ReaderTrackScroll(list,1L,false) {}
+                LaunchedEffect(list) {list.scroll {awaitCancellation()}}
+            }
+        }.use {scene->
+            repeat(4) {scene.render()}
+            assertTrue(scrolling,"The test must exercise an active scroll")
+            assertTrue(backdropRef!!.samplingEnabled,"Scrolling replaced glass with an opaque fallback")
+        }
+    }
+
 }

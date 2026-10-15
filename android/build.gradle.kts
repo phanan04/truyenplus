@@ -16,6 +16,8 @@ plugins {
 // This significantly reduces APK size as QuickJS includes native libraries for each ABI
 val SUPPORTED_ABIS = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 val truyenPlusQa = providers.gradleProperty("truyenplusQa").map { it.toBoolean() }.orElse(false).get()
+val truyenPlusPerformance = providers.environmentVariable("TRUYENPLUS_CI").orNull == "true" ||
+    providers.gradleProperty("truyenplusPerformance").map { it.toBoolean() }.orElse(false).get()
 // For production, consider only: setOf("arm64-v8a") for modern devices
 // Or: setOf("armeabi-v7a", "arm64-v8a") to support older devices
 
@@ -226,6 +228,10 @@ android {
 
     buildTypes {
         named("debug") {
+            // Preserve the installed package/signature while removing ART's debug runtime cost
+            // from published updates. QA can exercise precisely the same runtime setting.
+            isDebuggable = !truyenPlusPerformance
+            if(truyenPlusPerformance)isJniDebuggable = false
             versionNameSuffix = ""
             applicationIdSuffix = if (truyenPlusQa) ".debug.qa" else ".debug"
             if (providers.environmentVariable("TRUYENPLUS_CI").orNull == "true") {
@@ -396,6 +402,8 @@ dependencies {
     // REMOVED: napier - not used, using custom Log implementation
     implementation(libs.kermit)
     androidTestImplementation(kotlinx.test)
+    androidTestImplementation(libs.haze.core)
+    androidTestImplementation(libs.haze.glass)
     androidTestImplementation(libs.test.extJunit)
     androidTestImplementation(libs.test.espresso)
     androidTestImplementation(libs.test.testRunner)

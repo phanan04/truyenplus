@@ -6,10 +6,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.*
 import dev.chrisbanes.haze.glass.GlassStyle
+import dev.chrisbanes.haze.glass.GlassDefaults
 import dev.chrisbanes.haze.glass.hazeGlass
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 
 @Composable expect fun rememberReaderBlurSupported(): Boolean
 
@@ -21,6 +26,8 @@ class ReaderNavigationBackdrop {
 }
 val LocalReaderNavigationBackdrop = staticCompositionLocalOf<ReaderNavigationBackdrop?> { null }
 
+enum class ReaderGlassMaterial { Compact, Frosted }
+
 @Composable
 fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifier {
     val paper=LocalReaderPaper.current?.paper ?: androidx.compose.material3.MaterialTheme.colorScheme.background
@@ -31,24 +38,47 @@ fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifi
 /** Glass is limited to floating surfaces. Static list rows and highlight never run a shader. */
 @OptIn(ExperimentalHazeApi::class)
 @Composable
-fun Modifier.readerNavigationGlass(tint: Color, blurTintAlpha: Float = .72f, radius:Int?=null): Modifier {
+fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
+    material:ReaderGlassMaterial=ReaderGlassMaterial.Compact): Modifier {
     val backdrop=LocalReaderNavigationBackdrop.current
     if(backdrop==null || !backdrop.samplingEnabled) {
         return drawWithContent {drawRect(tint);drawContent()}
     }
-    val style=remember(tint,blurTintAlpha,radius) {
+    val dark=tint.luminance()<.5f
+    val base=drawWithContent {drawRect(tint);drawContent()}
+    // Large panels need diffusion and readable text, not extra refraction render layers.
+    if(material==ReaderGlassMaterial.Frosted) {
+        val style=remember(tint) {HazeBlurStyle {
+            backgroundColor(tint)
+            blurRadius(12.dp)
+            noiseFactor(0f)
+            colorEffects(listOf(HazeColorEffect.tint(tint.copy(alpha=.62f))))
+            fallbackColorEffect(HazeColorEffect.tint(tint))
+        }}
+        return base.hazeBlur(HazeInput.Sources(backdrop.state),style,
+            performanceMode=HazePerformanceMode.Default)
+    }
+    val style=remember(tint,radius) {
         GlassStyle.regular.then {
             shape(radius?.let {RoundedCornerShape(it.dp)} ?: RoundedCornerShape(50))
             backgroundColor(tint)
-            tint(tint.copy(alpha=blurTintAlpha))
-            optics(refractionStrength=.25f,refractionDisplacement=5.dp,blurRadius=16.dp)
+            tint(tint.copy(alpha=if(dark).22f else .18f))
+            // Keep Haze's size-aware Regular optics, including its curved edge refraction.
+            // The earlier fixed, weak optics made Glass look almost like ordinary blur.
+            optics(GlassDefaults.optics)
+            contentNormalBlend(0f)
             chromaticAberrationStrength(0f)
-            specularIntensity(.2f)
+            // Explicit tone follows app/reader paper, even if the system theme is opposite.
+            ambientResponse(if(dark).08f else .15f)
+            specularIntensity(if(dark).38f else .48f)
+            contrast(0f)
+            whitePoint(0f)
+            chromaMultiplier(1f)
             edgeShadow(Color.Transparent)
         }
     }
     // Haze may have no retained input during its first frame or a window transition.
     // Keep sharp controls behind this surface hidden even before Glass has captured its source.
-    return drawWithContent {drawRect(tint);drawContent()}.hazeGlass(HazeInput.Sources(backdrop.state),style,
-        performanceMode=HazePerformanceMode.Performance)
+    return base.hazeGlass(HazeInput.Sources(backdrop.state),style,
+        performanceMode=HazePerformanceMode.Default)
 }

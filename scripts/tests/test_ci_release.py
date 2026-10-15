@@ -93,6 +93,12 @@ class PublicationSafetyTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ci.verify_metadata(b, manifest, signer, "2.0.47", 101)
 
+    def test_debuggable_runtime_is_not_published_as_an_update(self):
+        badge = "package: name='ir.kazemcodes.infinityreader.debug' versionCode='101' versionName='2.0.47'\nsdkVersion:'26'\nnative-code: 'arm64-v8a'"
+        cert = "Verified using v2 scheme (APK Signature Scheme v2): true\nSigner #1 certificate SHA-256 digest: " + ci.SIGNER
+        with self.assertRaisesRegex(ValueError, "debuggable"):
+            ci.verify_metadata(badge, "android:debuggable(0x0101000f)=(type 0x12)0xffffffff", cert, "2.0.47", 101)
+
 
 if __name__ == "__main__":
     unittest.main()

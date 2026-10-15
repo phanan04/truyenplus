@@ -26,17 +26,30 @@ Pinned upstream release: https://github.com/chrisbanes/haze/releases/tag/2.0.1.
 It feeds the existing floating navigation, reader chrome, audio panels and shared
 sheet/dialog helpers. Layout and business/navigation callbacks are retained.
 
-A source records content only; floating controls stay outside it. Each surface
-has an opaque safety base for first capture / window changes, a paper-aware tint,
-restrained refraction and a shared performance-oriented rendering policy.
-Circles/capsules use percentage rounding; panels use their actual corner radius.
-Noise, chromatic fringing, interaction wobble and progressive full-page effects
-are not added. Dense scrolling cards remain static to avoid shaders on every row.
+A source records content only; floating controls stay outside it. An opaque
+safety base covers first capture and window transitions without allowing sharp,
+unrecorded controls to bleed through. Colors and optical tone explicitly follow
+the app or independently selected reading paper, rather than the host system theme.
 
-The reader disables sampling during active scrolling. Android API 31 and low-RAM
-configurations use the legible solid fallback; supported systems use Haze's own
-capability-dependent Glass rendering. This is not a claim of physical A9 frame
-rate or identical optical fidelity on every GPU.
+Small navigation/search capsules and the shell mini player use Glass, with a light
+18–22% tint, the official size-aware Regular edge optics and no secondary refraction-detail layer,
+content-normal lighting or chromatic dispersion. The previous inline `optics`
+call silently inherited a 0.76 detail intensity; this extra retained layer was
+unnecessary for text controls. Haze's fixed Balanced default is used. No animated
+shader parameter is driven by playback or an idle timer.
+
+Large sheets, dialogs and reader panels use the Haze 2 **Blur** material (12dp,
+62% paper tint, no noise), without refraction. Dense scrolling cards remain static.
+Shadows and borders are restrained; there is no second decorative rim over Glass.
+Scrolling retains the same source and effect nodes instead of detaching them and
+replacing the surface with a solid color on every drag.
+
+Unsupported/low-RAM configurations retain a legible solid fallback. These choices
+must be checked using native Android pixels and frame measurements; desktop
+rendering and successful compilation alone do not establish Android visual quality
+or physical A9 performance. The QA frame test compares both old and new materials
+on the same moving source and surface bounds. Haze is an approximation and does
+not promise native Apple Liquid Glass pixel parity.
 
 ## Required compatibility changes
 
@@ -54,7 +67,7 @@ unwraps the manager's actual result while retaining error recording/fallback.
 ## Verification
 
 Regression tests check static paragraph tint without sentence timing, unchanged
-ink positions, real-word marker fallback, shared Haze state, scroll fallback,
+ink positions, real-word marker fallback, shared Haze state, stable capture during scrolling,
 source holes and theme readability. Neutral Glass shading is permitted, but
 unrecorded green underlays may not leak through. Android tests separately exercise
 native Glass capture/window alignment and actual reader/audio workflows.
@@ -80,3 +93,20 @@ dimensions at reduced render resolution after a cold-boot System UI ANR; that
 system-service startup failure preceded the app tests and was dismissed before
 the passing runs. Model playback and latency trials used production audio
 backends. Physical Tab A9 frame rate and acoustic quality remain unmeasured.
+
+
+## October 16 approval prototype
+
+The first static preview was rejected because it did not make the distinction from
+ordinary blur visible. The revised compact material retains `GlassDefaults.optics`
+(the upstream responsive diffusion and curved edge displacement), while explicitly
+following the app/reader palette. Large text panels retain diffusion rather than
+using decorative refraction. Publication is conditional on the Android performance
+and functional checks recorded in `docs/research/GLASS_PERFORMANCE.md`.
+
+`ReaderGlassComparisonTest` renders the pre-Haze manual blur and the proposed
+material side by side on Android, over the same illustrative moving cover blocks.
+The captures demonstrate material appearance; their export cadence is not an FPS
+measurement. `ReaderGlassFrameTest` separately compares the v49 configuration and
+the prototype with native frame/GPU metrics after warm-up, in both run orders.
+Emulator results must not be presented as a Tab A9 or Redmi measurement.

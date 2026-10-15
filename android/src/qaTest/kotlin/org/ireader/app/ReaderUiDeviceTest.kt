@@ -36,7 +36,7 @@ class ReaderUiDeviceTest {
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
             koin.get<AppPreferences>().capCutVoiceId().set("")
-            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession"))
+            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze"))
                 koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
             koin.get<UiPreferences>().apply {
                 val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
@@ -577,6 +577,94 @@ class ReaderUiDeviceTest {
         ui.onNodeWithTag("listen-options-close").performClick()
         wakeControls();ui.onNodeWithTag("reader-close").performClick();waitTag("book-read");device.pressBack();waitTag("books-search-workspace")
         ui.onNodeWithTag("search-return").performClick();waitTag("nav-Library");ui.onNodeWithTag("nav-Library").assertIsSelected()
+    }
+
+    @Test fun readerPanelsAndScrollingStayResponsiveWhileListening() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        val frames=mutableListOf<org.json.JSONObject>()
+        val actions=mutableListOf<org.json.JSONObject>()
+        var measuredProbe:ReaderUiFrameProbe?=null
+        fun action(label:String,block:()->Unit) {
+            measuredProbe?.actionLabel=label
+            val start=android.os.SystemClock.elapsedRealtime()
+            block();ui.waitForIdle()
+            actions.add(org.json.JSONObject().put("label",label).put("elapsedMs",android.os.SystemClock.elapsedRealtime()-start))
+        }
+        GlobalContext.get().get<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>().select(null)
+        val probe=ReaderUiFrameProbe(ui.activity.window,"reader-panels-scroll-playback")
+        measuredProbe=probe
+        try {
+            // Cold first open is reported separately from warm repeated interactions.
+            wakeControls();action("font-cold-open") {ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close")}
+            action("font-cold-close") {ui.onNodeWithTag("reader-appearance-close").performClick()}
+            repeat(5) {i->
+                wakeControls()
+                action("font-open-$i") {ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close")}
+                action("font-close-$i") {ui.onNodeWithTag("reader-appearance-close").performClick()}
+            }
+            wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+            val controller=GlobalContext.get().get<TTSController>()
+            ui.waitUntil(30_000){controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
+            if(!controller.state.value.isPlaying)ui.onNodeWithTag("listen-play").performClick()
+            ui.waitUntil(30_000){controller.state.value.isPlaying && controller.state.value.spokenSentence!=null}
+            val startParagraph=controller.state.value.currentParagraphIndex
+            repeat(5) {i->
+                wakeControls()
+                action("listen-open-$i") {ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")}
+                action("listen-close-$i") {ui.onNodeWithTag("listen-options-close").performClick()}
+            }
+            repeat(5) {i->
+                action("scroll-$i") {ui.onRoot().performTouchInput {
+                    swipe(Offset(width/2f,height*.55f),Offset(width/2f,height*.3f),400)
+                }}
+            }
+            Assert.assertTrue("Scrolling paused narration",controller.state.value.isPlaying || controller.state.value.isLoading)
+            ui.waitUntil(40_000){controller.state.value.currentParagraphIndex>startParagraph}
+            controller.dispatch(TTSCommand.Pause)
+            ui.waitUntil(10_000){!controller.state.value.isPlaying && !controller.state.value.isLoading}
+            wakeControls();ui.waitForIdle()
+            frames.add(probe.snapshot())
+        } finally {
+            if(frames.isEmpty())frames.add(probe.snapshot())
+            probe.close();ReaderUiFrameProbe.save("reader",frames,actions)
+        }
+        val summary=frames.single()
+        Assert.assertEquals("Reader has frozen frames",0,summary.getInt("frozen700ms"))
+        Assert.assertTrue("Warm settings interaction exceeds 1s: $actions",actions.filter {
+            val label=it.getString("label");label.startsWith("font-open-") || label.startsWith("font-close-") || label.startsWith("listen-open-") || label.startsWith("listen-close-")
+        }.all {it.getLong("elapsedMs")<1000})
+    }
+
+    @Test fun shellPanelsNavigationAndIdleDoNotFreeze() {
+        waitTag("nav-Home");waitTag("home-continue")
+        val frames=mutableListOf<org.json.JSONObject>()
+        val actions=mutableListOf<org.json.JSONObject>()
+        val probe=ReaderUiFrameProbe(ui.activity.window,"shell-navigation-and-settings")
+        try {
+            repeat(5) {i->
+                for(tag in listOf("nav-Library","nav-Shelf","nav-Home")) {
+                    probe.actionLabel="$tag-$i"
+                    val start=android.os.SystemClock.elapsedRealtime()
+                    ui.onNodeWithTag(tag).performClick();ui.onNodeWithTag(tag).assertIsSelected();ui.waitForIdle()
+                    actions.add(org.json.JSONObject().put("label","$tag-$i").put("elapsedMs",android.os.SystemClock.elapsedRealtime()-start))
+                }
+                val start=android.os.SystemClock.elapsedRealtime()
+                probe.actionLabel="account-cycle-$i"
+                ui.onNodeWithTag("books-account").performClick();waitTag("books-account-close")
+                ui.onNodeWithTag("books-account-close").performClick();waitTag("nav-Home");ui.waitForIdle()
+                actions.add(org.json.JSONObject().put("label","account-cycle-$i").put("elapsedMs",android.os.SystemClock.elapsedRealtime()-start))
+            }
+            frames.add(probe.snapshot())
+        } finally {probe.close()}
+        ui.waitForIdle();Thread.sleep(500)
+        val idle=ReaderUiFrameProbe(ui.activity.window,"shell-idle")
+        try {Thread.sleep(3000);frames.add(idle.snapshot())} finally {idle.close();ReaderUiFrameProbe.save("shell",frames,actions)}
+        Assert.assertEquals("Shell has frozen frames",0,frames.first().getInt("frozen700ms"))
+        Assert.assertTrue("Static shell redraws continuously",frames.last().getInt("frames")<=9)
+        Assert.assertTrue("Static shell consumes CPU continuously",frames.last().getLong("cpuTimeMs")<250)
+        Assert.assertTrue("Warm navigation exceeds 1s: $actions",actions.filter {it.getString("label").startsWith("nav-") && !it.getString("label").endsWith("-0")}
+            .all {it.getLong("elapsedMs")<1000})
     }
 
 }

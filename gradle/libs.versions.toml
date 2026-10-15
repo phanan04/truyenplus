@@ -58,6 +58,7 @@ firebase-bom = "34.13.0"
 
 [libraries]
 haze-core = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-blur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
 haze-glass = { module = "dev.chrisbanes.haze:haze-glass", version.ref = "haze" }
 lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "lifecycle" }
 apk-parser = { module = "net.dongliu:apk-parser", version.ref = "apkParser" }

@@ -33,15 +33,8 @@ val LocalReaderPanels=staticCompositionLocalOf<ReaderPanelState?> { null }
 @Composable
 fun ReaderTrackScroll(list: LazyListState, chapterId: Long?, restored: Boolean, onPosition: (Int)->Unit) {
     val callback by rememberUpdatedState(onPosition)
-    val backdrop=LocalReaderNavigationBackdrop.current
-    LaunchedEffect(list,backdrop) {
-        snapshotFlow { list.isScrollInProgress }.distinctUntilChanged().collect { moving ->
-            backdrop?.samplingEnabled = !moving
-        }
-    }
     LaunchedEffect(list,chapterId,restored) {
         if(restored && chapterId!=null) snapshotFlow { list.firstVisibleItemIndex }
             .distinctUntilChanged().collect { callback(it) }
     }
-    DisposableEffect(backdrop) { onDispose { backdrop?.samplingEnabled=true } }
 }

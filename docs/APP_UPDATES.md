@@ -17,7 +17,7 @@ Release [v2.0.32](https://github.com/phanan04/truyenplus/releases/tag/v2.0.32) �
 ### Tự động qua GitHub Actions
 
 Push lên `main` chạy [Build and release Android](https://github.com/phanan04/truyenplus/actions/workflows/android-release.yml).
-Không cần build APK trên máy hoặc tạo tag bằng tay. Có thể chọn **Run workflow** trên nhánh `main` để chạy thủ công.
+Không cần build APK trên máy hoặc tạo tag bằng tay. APK do CI phát hành tắt `debuggable`; hậu tố package `.debug` được giữ để cập nhật đè, không có nghĩa runtime còn bật chế độ debug. Pipeline từ chối APK nếu cờ debug bật lại. Có thể chọn **Run workflow** trên nhánh `main` để chạy thủ công.
 
 - Workflow kiểm thử, build APK ARM64 với package hiện tại `.debug`, xác minh khóa ký cũ và tạo `update.json` bằng script có sẵn.
 - APK, `update.json` và `SHA256SUMS` được tải lên một **draft** trước. Chỉ khi kích thước/hash đã khớp mới công khai và đánh dấu latest; sau đó tải lại APK công khai để kiểm tra toàn vẹn.
@@ -32,7 +32,7 @@ Không cần build APK trên máy hoặc tạo tag bằng tay. Có thể chọn 
 ### Thủ công dự phòng
 
 1. Tăng `versionCode` trong `buildSrc/src/main/kotlin/ProjectConfig.kt` (bản 2.0.32 là 86). Giữ nguyên package và khóa ký của bản đã cài. Không thay debug key giữa các lần phát hành; bản release không thể cập nhật đè bản debug ký bằng khóa khác.
-2. Tạo các APK cho kiến trúc cần hỗ trợ bằng `:android:assembleStandardDebug` với cùng khóa ký. Chọn versionCode cao hơn release tự động mới nhất. Không truyền các tham số `android.injected.*` của Android Studio: chúng có thể gắn `android:testOnly=true`, khiến trình cài đặt Android từ chối APK. Script tạo manifest sẽ chặn APK có cờ này.
+2. Tạo các APK cho kiến trúc cần hỗ trợ bằng `:android:assembleStandardDebug -PtruyenplusPerformance=true` với cùng khóa ký. Chọn versionCode cao hơn release tự động mới nhất. Không truyền các tham số `android.injected.*` của Android Studio: chúng có thể gắn `android:testOnly=true`, khiến trình cài đặt Android từ chối APK. Script tạo manifest sẽ chặn APK có cờ này.
 3. Chạy script dưới đây trên APK đã có. Script đọc package/phiên bản/kiến trúc từ APK và tính kích thước, SHA-256; không build hoặc tải lên mạng.
 
 ```sh
@@ -59,3 +59,5 @@ Có thể truyền nhiều `--apk` (mỗi ABI một file). Dùng URL có tag c�
 - APK cũ đã giao chưa có updater: cần cài thủ công một lần bản có tính năng này, sau đó mới cập nhật qua mạng được.
 
 Tham khảo quyền cài ứng dụng của Android: https://developer.android.com/reference/android/content/pm/PackageManager#canRequestPackageInstalls()
+
+Đo hiệu năng QA bằng `-PtruyenplusQa=true -PtruyenplusPerformance=true` để dùng cùng cờ runtime như bản phát hành; debug thường chỉ dùng phát triển/chức năng. Trình cập nhật manifest Truyện+ tiếp tục thay thế trình kiểm tra release IReader kế thừa.

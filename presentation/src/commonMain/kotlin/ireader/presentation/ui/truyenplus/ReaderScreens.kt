@@ -299,7 +299,7 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
 fun ReaderMiniPlayer(book: ReaderBookUi, onRead: () -> Unit, onListen: () -> Unit, isPlaying: Boolean? = null, onTogglePlayback: (() -> Unit)? = null,isLoading:Boolean=false) {
     val strings = requireNotNull(LocalLocalizeHelper.current)
     val active=isPlaying==true || isLoading
-    Surface(onClick = onRead, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).readerPanel(18)) {
+    Surface(onClick = onRead, shape = RoundedCornerShape(22.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp,vertical=6.dp).readerPanel(22,material=ReaderGlassMaterial.Compact)) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReaderCover(book, Modifier.size(width = 38.dp, height = 50.dp))
             Column(Modifier.weight(1f)) {

@@ -47,7 +47,7 @@ class ReaderGlassDeviceTest {
                     }
                     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(130.dp).background(Color.Green))
                     Box(Modifier.padding(top=20.dp).fillMaxWidth().height(120.dp)
-                        .readerNavigationGlass(Color.White).testTag("striped-glass"))
+                        .readerNavigationGlass(Color.White,material=ReaderGlassMaterial.Frosted).testTag("striped-glass"))
                     Box(Modifier.align(Alignment.BottomCenter).padding(bottom=30.dp).size(220.dp,80.dp)
                         .readerNavigationGlass(Color.White).testTag("empty-glass"))
                 }
@@ -82,5 +82,37 @@ class ReaderGlassDeviceTest {
         // Haze 2 regular Glass brightens the captured red to pink; the top blue area
         // would invert this channel difference, while an opaque fallback would be neutral.
         Assert.assertTrue("Dialog sampled the top of the main window: $pixel",pixel.red-pixel.blue>.08f)
+    }
+    @Test fun compactGlassPreservesBackdropAndDarkPaperHasNoMilkyLift() {
+        for(paper in listOf(Color.White,Color(0xFF1B1B1D))) {
+            content {
+                val backdrop=remember {ReaderNavigationBackdrop()}
+                CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
+                    Box(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().readerNavigationSource(backdrop).background(paper)) {
+                        Row(Modifier.fillMaxWidth().height(100.dp)) {
+                            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Red))
+                            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Blue))
+                        }
+                        }
+                        Box(Modifier.padding(20.dp).fillMaxWidth().height(64.dp)
+                            .readerNavigationGlass(paper).testTag("color-glass"))
+                        Box(Modifier.padding(top=120.dp).fillMaxWidth().height(64.dp)
+                            .readerNavigationGlass(paper).testTag("dark-glass"))
+                    }
+                }
+            }
+            val pixels=ui.onNodeWithTag("color-glass").captureToImage().toPixelMap()
+            val left=pixels[pixels.width/4,pixels.height/2]
+            val right=pixels[pixels.width*3/4,pixels.height/2]
+            Assert.assertTrue("Red backdrop hidden: $left",left.red-left.blue>.35f)
+            Assert.assertTrue("Blue backdrop hidden: $right",right.blue-right.red>.35f)
+            if(paper!=Color.White) {
+                val flat=ui.onNodeWithTag("dark-glass").captureToImage().toPixelMap()
+                val pixel=flat[flat.width/2,flat.height/2]
+                Assert.assertTrue("Dark app inherits milky system-light tone: $pixel",
+                    maxOf(pixel.red,pixel.green,pixel.blue)<.2f)
+            }
+        }
     }
 }
