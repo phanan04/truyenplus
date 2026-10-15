@@ -11,6 +11,31 @@ import kotlin.test.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CapCutHttpTransportTest {
+    @Test fun providerMinusSixStopsQueuedRequestsAndAllowsManualRetryAfterCooldown()=runTest {
+        var now=0L;var calls=0
+        val http=HttpClient(MockEngine {
+            calls++
+            if(calls==1)respond("""{"ret":"-6","errmsg":"shark block only"}""")
+            else respond("""{"ret":"0","data":{}}""")
+        })
+        try {
+            val transport=CapCutHttpTransport(http,nowMillis={now})
+            val error=assertFailsWith<CapCutSpeechFailure> {
+                transport.post("https://example.test/new",emptyMap(),"{}",query=false)
+            }
+            assertEquals(-6,error.code)
+            assertFalse(error.transient,"Do not retry provider blocks automatically")
+            repeat(3) {
+                assertEquals(-6,assertFailsWith<CapCutSpeechFailure> {
+                    transport.post("https://example.test/new",emptyMap(),"{}",query=false)
+                }.code)
+            }
+            assertEquals(1,calls,"Pending lookahead must not keep submitting after a block")
+            now=60_001
+            assertEquals("""{"ret":"0","data":{}}""",transport.post("https://example.test/new",emptyMap(),"{}",query=false))
+            assertEquals(2,calls)
+        } finally {http.close()}
+    }
     @Test fun providerRateLimitBlocksQueuedSubmissionsUntilRetryAfterExpires() = runTest {
         var now=0L;var requests=0
         val http=HttpClient(MockEngine {

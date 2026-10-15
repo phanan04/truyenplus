@@ -580,6 +580,7 @@ data class ReaderScreenSpec(
                         if(vm.isReaderModeEnable)vm.toggleReaderMode(false)
                     }
                 ) {
+                    ireader.presentation.ui.truyenplus.ReaderGlassBackground(androidx.compose.ui.Modifier.matchParentSize())
                     // Content first (below the top bar)
                     val headerInset=statusBarInset+68.dp
                     val padding = androidx.compose.foundation.layout.PaddingValues(

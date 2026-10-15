@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 /** App surfaces use the app palette. Keep the reader's independently selected paper intact. */
 @Composable fun Modifier.readerAppGlassCard(radius:Int=20):Modifier {
     val c=MaterialTheme.colorScheme
+    if(LocalReaderFullGlass.current)return readerGlassCard(radius,c.surface,c.onSurface)
     val shape=RoundedCornerShape(radius.dp)
     // Scrolling lists never sample themselves or run a blur pass for every row.
     return clip(shape)
@@ -22,9 +23,9 @@ import androidx.compose.ui.unit.dp
         .border(1.dp,c.onSurface.copy(alpha=.12f),shape)
 }
 
-/** Standalone book/shelf pages have only static cards in the recorded content layer. */
-@Composable fun ReaderAppBackdrop(content:@Composable BoxScope.()->Unit) {
-    val supported=rememberReaderBlurSupported()
+/** Standalone pages share a page capture and a lower-z paper capture for opt-in Glass cards. */
+@Composable fun ReaderAppBackdrop(enabled:Boolean=true,content:@Composable BoxScope.()->Unit) {
+    val supported=rememberReaderBlurSupported() && enabled
     val backdrop=remember(supported) {if(supported)ReaderNavigationBackdrop() else null}
     CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop) {
         ReaderBackdrop {Box(Modifier.fillMaxSize().readerNavigationSource(backdrop),content=content)}
@@ -42,7 +43,7 @@ import androidx.compose.ui.unit.dp
         // cuts off descendants while the sheet is translated into the window.
         Surface(Modifier.fillMaxWidth().readerPanel(28,c.surface,c.onSurface),shape=RoundedCornerShape(28.dp),
             color=Color.Transparent,contentColor=c.onSurface) {
-            Column {
+            ReaderGlassPanelColumn {
                 BottomSheetDefaults.DragHandle(Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally))
                 content()
             }
@@ -53,7 +54,9 @@ import androidx.compose.ui.unit.dp
 @Composable fun ReaderGlassDialog(onDismissRequest:()->Unit,title:@Composable ()->Unit,
     text:@Composable ()->Unit,confirmButton:@Composable ()->Unit,dismissButton:(@Composable ()->Unit)?=null) {
     val c=MaterialTheme.colorScheme
+    ReaderGlassPanelContent {
     AlertDialog(onDismissRequest=onDismissRequest,title=title,text=text,confirmButton=confirmButton,dismissButton=dismissButton,
         modifier=Modifier.readerPanel(28,c.surface,c.onSurface),shape=RoundedCornerShape(28.dp),
         containerColor=Color.Transparent,titleContentColor=c.onSurface,textContentColor=c.onSurfaceVariant,tonalElevation=0.dp)
+    }
 }

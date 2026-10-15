@@ -46,6 +46,8 @@ fun Modifier.readerPanel(radius: Int = 20, tint: Color = LocalReaderPaper.curren
 fun Modifier.readerGlassCard(radius: Int = 20, tint: Color = LocalReaderPaper.current?.paper ?: MaterialTheme.colorScheme.surface,
     ink: Color = LocalReaderPaper.current?.ink ?: MaterialTheme.colorScheme.onSurface): Modifier {
     val shape=RoundedCornerShape(radius.dp)
+    if(LocalReaderFullGlass.current)return clip(shape).readerCardGlass(tint,radius=radius)
+        .border(.5.dp,ink.copy(alpha=.1f),shape)
     val sheen=Brush.linearGradient(listOf(tint.copy(alpha=.92f),tint.copy(alpha=.78f)))
     return clip(shape).background(sheen).border(1.dp,ink.copy(alpha=.1f),shape)
 }

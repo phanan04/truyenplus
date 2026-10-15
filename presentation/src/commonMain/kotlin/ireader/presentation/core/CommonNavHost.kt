@@ -7,6 +7,8 @@ import androidx.navigation.compose.composable
 import androidx.savedstate.read
 import ireader.presentation.core.ui.*
 import ireader.presentation.ui.truyenplus.ReaderAppScope
+import ireader.presentation.ui.truyenplus.ReaderAppBackdrop
+import ireader.presentation.ui.truyenplus.LocalReaderFullGlass
 
 private fun NavBackStackEntry.stringArg(key: String) = arguments?.read { getStringOrNull(key) } ?: savedStateHandle.get<String>(key)
 
@@ -46,12 +48,12 @@ fun CommonNavHost(navController: NavHostController, startDestination: String = "
             val paragraph = entry.stringArg("readingParagraph")?.toIntOrNull() ?: 0
             if (book != null && chapter != null && source != null) ReaderScreenSpec(book, chapter, listenOnOpen = true, listeningParagraph = paragraph).Content()
         }
-        composable(NavigationRoutes.category) { CategoryScreenSpec().Content() }
-        composable(NavigationRoutes.fontSettings) { FontScreenSpec().Content() }
-        composable(NavigationRoutes.ttsEngineManager) { TTSEngineManagerScreenSpec().Content() }
+        composable(NavigationRoutes.category) { ReaderAppBackdrop(enabled=LocalReaderFullGlass.current) { CategoryScreenSpec().Content() } }
+        composable(NavigationRoutes.fontSettings) { ReaderAppBackdrop(enabled=LocalReaderFullGlass.current) { FontScreenSpec().Content() } }
+        composable(NavigationRoutes.ttsEngineManager) { ReaderAppBackdrop(enabled=LocalReaderFullGlass.current) { TTSEngineManagerScreenSpec().Content() } }
         composable(NavigationRoutes.textReplacement) {
             val vm: ireader.presentation.ui.settings.textreplacement.TextReplacementViewModel = getIViewModel()
-            ireader.presentation.ui.settings.textreplacement.TextReplacementScreen(vm = vm)
+            ReaderAppBackdrop(enabled=LocalReaderFullGlass.current) { ireader.presentation.ui.settings.textreplacement.TextReplacementScreen(vm = vm) }
         }
     }
     }

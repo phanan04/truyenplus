@@ -1,5 +1,8 @@
 package ireader.presentation.ui.settings.font_screens
 
+import ireader.presentation.ui.truyenplus.ReaderOptionalGlassCard as Card
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -233,12 +236,12 @@ private fun FontItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-        color = if (isSelected) {
+            .clickable(onClick = onClick).readerOptionalGlass(8),
+        color = readerOptionalGlassColor(if (isSelected) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
             MaterialTheme.colorScheme.surface
-        },
+        }),
         tonalElevation = if (isSelected) 2.dp else 0.dp
     ) {
         Row(

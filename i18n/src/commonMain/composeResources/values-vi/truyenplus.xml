@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="tp_capcut_temporarily_blocked">CapCut đang từ chối yêu cầu (-6). Chờ ít nhất 1 phút rồi nhấn phát lại, hoặc chọn giọng khác.</string>
     <string name="truyenplus_library_search">Tìm truyện, tác giả…</string>
     <string name="truyenplus_import_title">Nhập sách</string>
     <string name="truyenplus_import_description">Thêm những cuốn sách yêu thích vào thư viện của bạn.</string>
@@ -288,6 +289,8 @@
     <string name="tp_metadata_source">Nguồn thông tin</string>
     <string name="tp_metadata_updating">Đang cập nhật thông tin…</string>
     <string name="tp_mode_system">Hệ thống</string>
+    <string name="tp_full_glass">Glass toàn hệ thống</string>
+    <string name="tp_full_glass_description">Hiệu ứng kính cho các thanh, bảng và thẻ. Tắt để về giao diện tiêu chuẩn.</string>
     <string name="tp_mode_light">Sáng</string>
     <string name="tp_mode_dark">Tối</string>
     <string name="tp_recently_added">Mới thêm</string>

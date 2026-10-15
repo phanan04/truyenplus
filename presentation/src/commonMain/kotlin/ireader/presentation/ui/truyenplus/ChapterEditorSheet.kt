@@ -120,7 +120,7 @@ internal fun changedTextRange(before:String,after:String):IntRange? {
                 item {Text(localize(Res.string.tp_edit_review_hint),style=MaterialTheme.typography.bodySmall)
                     Text(if(changed.isEmpty())localize(Res.string.tp_edit_no_changes) else "${localize(Res.string.tp_edit_change_count)}: ${changed.size}")}
                 items(changed,key={it}) {index->
-                    Surface(shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surfaceContainer) {
+                    Surface(modifier=Modifier.readerOptionalGlass(16),shape=RoundedCornerShape(16.dp),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surfaceContainer)) {
                         Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment=Alignment.CenterVertically) {
                                 Checkbox(index in selected,{onSelect(index,it)},enabled=!state.busy)

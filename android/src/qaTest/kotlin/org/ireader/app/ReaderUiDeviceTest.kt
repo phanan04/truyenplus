@@ -35,8 +35,9 @@ class ReaderUiDeviceTest {
             val context=InstrumentationRegistry.getInstrumentation().targetContext
             check(context.packageName.endsWith(".debug.qa"))
             val koin=GlobalContext.get()
+            koin.get<UiPreferences>().readerFullGlass().set(false)
             koin.get<AppPreferences>().capCutVoiceId().set("")
-            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze"))
+            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze","fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback"))
                 koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
             koin.get<UiPreferences>().apply {
                 val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
@@ -634,6 +635,39 @@ class ReaderUiDeviceTest {
         Assert.assertTrue("Warm settings interaction exceeds 1s: $actions",actions.filter {
             val label=it.getString("label");label.startsWith("font-open-") || label.startsWith("font-close-") || label.startsWith("listen-open-") || label.startsWith("listen-close-")
         }.all {it.getLong("elapsedMs")<1000})
+    }
+
+    @Test fun fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback() {
+        val preferences=GlobalContext.get().get<UiPreferences>()
+        val controller=GlobalContext.get().get<TTSController>()
+        GlobalContext.get().get<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>().select(null)
+        try {
+            waitTag("books-account");ui.onNodeWithTag("books-account").performClick();waitTag("settings-full-glass")
+            ui.onNodeWithTag("settings-full-glass").assertIsOff().performScrollTo().performClick()
+            ui.waitUntil(5000){preferences.readerFullGlass().get()}
+            ui.onNodeWithTag("settings-full-glass").assertIsOn();shot("full-glass-settings")
+            ui.onNodeWithTag("books-account-close").performClick();waitTag("home-continue");shot("full-glass-home")
+            ui.onNodeWithTag("home-continue").performClick()
+            ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+            wakeControls()
+            ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close");shot("full-glass-reading-settings")
+            ui.onNodeWithTag("reader-appearance-close").performClick();wakeControls()
+            ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-settings")
+            ui.waitUntil(30_000){controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
+            if(!controller.state.value.isPlaying)controller.dispatch(TTSCommand.Play)
+            ui.waitUntil(30_000){controller.state.value.isPlaying}
+            wakeControls();ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close");shot("full-glass-listening-settings")
+            ui.onNodeWithTag("listen-options-close").performClick();wakeControls()
+            ui.onNodeWithTag("reader-close").performClick();waitTag("books-account")
+            ui.onNodeWithTag("books-account").performClick();waitTag("settings-full-glass")
+            ui.onNodeWithTag("settings-full-glass").assertIsOn()
+            val book=controller.state.value.book?.id
+            ui.onNodeWithTag("settings-full-glass").performScrollTo().performClick()
+            ui.waitUntil(5000){!preferences.readerFullGlass().get()}
+            ui.onNodeWithTag("settings-full-glass").assertIsOff();shot("standard-glass-restored")
+            Assert.assertEquals(book,controller.state.value.book?.id)
+            Assert.assertTrue("Toggling appearance stopped background narration",controller.state.value.isPlaying || controller.state.value.isLoading)
+        } finally {preferences.readerFullGlass().set(false)}
     }
 
     @Test fun shellPanelsNavigationAndIdleDoNotFreeze() {

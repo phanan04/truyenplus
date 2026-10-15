@@ -1,5 +1,8 @@
 package ireader.presentation.ui.settings.audio
 
+import ireader.presentation.ui.truyenplus.ReaderOptionalGlassCard as Card
+import ireader.presentation.ui.truyenplus.readerOptionalPanelGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
@@ -321,6 +324,8 @@ fun AudioStudioScreen(
     // Piper Catalog Dialog (Desktop)
     if (showPiperCatalogDialog) {
         AlertDialog(
+            modifier = Modifier.readerOptionalPanelGlass(28),
+            containerColor = readerOptionalGlassColor(AlertDialogDefaults.containerColor),
             onDismissRequest = { showPiperCatalogDialog = false },
             title = { Text("Piper Neural Voice Catalog") },
             text = {

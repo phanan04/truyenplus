@@ -36,7 +36,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
                 Icon(Icons.Default.ArrowDropDown,null,Modifier.size(12.dp).align(Alignment.BottomEnd))
             }
         }
-        DropdownMenu(open,{open=false}) {
+        ReaderGlassDropdownMenu(open,{open=false}) {
             for(isShelf in listOf(false,true))DropdownMenuItem(
                 text={Text(s.localize(if(isShelf)Res.string.tp_shelf else Res.string.tp_library))},
                 modifier=Modifier.heightIn(min=56.dp).testTag(if(isShelf)"search-scope-shelf" else "search-scope-library").semantics {selected=shelf==isShelf;role=Role.RadioButton},
@@ -78,7 +78,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
     val s=requireNotNull(LocalLocalizeHelper.current)
     var open by androidx.compose.runtime.remember {androidx.compose.runtime.mutableStateOf(false)}
     Box {
-        TextButton(onClick={open=true},modifier=(if(iconOnly)Modifier.size(48.dp).shadow(4.dp,CircleShape).background(MaterialTheme.colorScheme.surface,CircleShape) else Modifier.heightIn(min=48.dp)).testTag("library-collections")) {
+        TextButton(onClick={open=true},modifier=(if(iconOnly)Modifier.size(48.dp).shadow(4.dp,CircleShape).readerOptionalGlass(24).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape) else Modifier.heightIn(min=48.dp)).testTag("library-collections")) {
             if(iconOnly)Icon(Icons.Default.Sort,s.localize(Res.string.tp_collections),Modifier.size(24.dp))
             else {
                 Text(names.getOrNull(selected).orEmpty(),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
@@ -93,7 +93,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
                 LazyColumn(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.65f),
                     contentPadding=PaddingValues(horizontal=20.dp,vertical=12.dp)) {
                     itemsIndexed(names) {i,name->
-                        Surface(color=MaterialTheme.colorScheme.surface,shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+                        Surface(modifier=Modifier.readerOptionalGlass(12),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surface),shape=androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
                             Row(Modifier.fillMaxWidth().heightIn(min=56.dp).selectable(i==selected,onClick={open=false;onSelect(i)},role=Role.RadioButton)
                                 .testTag("collection-choice-$i").padding(horizontal=16.dp,vertical=12.dp),
                                 verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {

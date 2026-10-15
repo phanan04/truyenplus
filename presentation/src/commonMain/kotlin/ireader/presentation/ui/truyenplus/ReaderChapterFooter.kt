@@ -71,7 +71,7 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
                         contents()
                         Box {
                             IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp).testTag("reader-footer-more")){Icon(Icons.Default.MoreVert,s.localize(Res.string.more))}
-                            DropdownMenu(moreOpen,{moreOpen=false}) {
+                            ReaderGlassDropdownMenu(moreOpen,{moreOpen=false}) {
                                 DropdownMenuItem(text={Text(s.localize(Res.string.tp_previous_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-previous"),enabled=chapterIndex>0,onClick={moreOpen=false;onPrevious()})
                                 DropdownMenuItem(text={Text(s.localize(Res.string.tp_next_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-next"),enabled=chapterIndex<totalChapters-1,onClick={moreOpen=false;onNext()})
                                 DropdownMenuItem(text={Text(s.localize(Res.string.tp_bookmarks))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-bookmark"),onClick={moreOpen=false;onBookmark()})

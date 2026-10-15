@@ -33,7 +33,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
                 .semantics {paneTitle=title;isTraversalGroup=true}.focusGroup()
                 .clickable(remember {MutableInteractionSource()},indication=null){},
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface) {
-                Column(Modifier.padding(16.dp)) {
+                ReaderGlassPanelColumn(Modifier.padding(16.dp)) {
                     ReaderBooksSheetHeader(title,onDismiss,closeModifier=Modifier.focusRequester(closeFocus))
                     content()
                 }

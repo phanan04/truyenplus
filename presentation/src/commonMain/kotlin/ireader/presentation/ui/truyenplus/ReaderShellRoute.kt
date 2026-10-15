@@ -275,7 +275,7 @@ fun ReaderShellRoute(initialIndex: Int = 0) {
                 onImport={accountReturn=true;navigation=navigation.copy(settings=false);showImport=true},
                 onEditing={accountReturn=true;navigation=navigation.copy(settings=false);showEditingSettings=true},
                 onVoices=if(voiceStore!=null){{accountReturn=true;navigation=navigation.copy(settings=false);showVoices=true}} else null,
-                onDismiss={navigation=navigation.back()})
+                onDismiss={navigation=navigation.back()},onFullGlass={uiPreferences.readerFullGlass().set(it)})
             else {
                 val getStats:GetReadingStatisticsUseCase=koinInject()
                 val statsFlow=remember(getStats){getStats()};val stats by statsFlow.collectAsState(ReadingStatisticsType1())

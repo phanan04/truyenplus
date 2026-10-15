@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="tp_capcut_temporarily_blocked">CapCut is rejecting requests (-6). Wait at least 1 minute, then play again, or choose another voice.</string>
     <string name="truyenplus_library_search">Search books, authors…</string>
     <string name="truyenplus_import_title">Import books</string>
     <string name="truyenplus_import_description">Bring your favorite ebooks into your library.</string>
@@ -288,6 +289,8 @@
     <string name="tp_metadata_source">Metadata source</string>
     <string name="tp_metadata_updating">Updating information…</string>
     <string name="tp_mode_system">System</string>
+    <string name="tp_full_glass">Glass across the app</string>
+    <string name="tp_full_glass_description">Glass on bars, panels and cards. Turn off to restore the standard appearance.</string>
     <string name="tp_mode_light">Light</string>
     <string name="tp_mode_dark">Dark</string>
     <string name="tp_recently_added">Recently added</string>

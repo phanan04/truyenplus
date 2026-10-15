@@ -7,6 +7,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.*
+import kotlinx.serialization.json.*
 import okio.Buffer
 import kotlin.time.TimeSource
 
@@ -16,6 +17,7 @@ private val onlineClock=TimeSource.Monotonic.markNow()
 class CapCutHttpTransport(private val http:HttpClient,private val nowMillis:()->Long={onlineClock.elapsedNow().inWholeMilliseconds}) {
     private val lock=Any()
     private var limitedUntil=0L
+    private var limitedCode=429
     suspend fun post(url:String,headers:Map<String,String>,body:String,query:Boolean):String =
         request(if(query)"query" else "submit",retry=query) {
             http.preparePost(url) {
@@ -25,7 +27,14 @@ class CapCutHttpTransport(private val http:HttpClient,private val nowMillis:()->
                 setBody(body)
             }.execute {response ->
                 checkStatus(response,if(query)"query" else "submit")
-                readBounded(response,1_000_000,"response").decodeToString()
+                readBounded(response,1_000_000,"response").decodeToString().also { body ->
+                    // CapCut can reject a task inside an otherwise successful HTTP response.
+                    val code=runCatching {Json.parseToJsonElement(body).jsonObject["ret"]?.jsonPrimitive?.intOrNull}.getOrNull()
+                    if(code!=null && code!=0) {
+                        if(code==-6)coolDown(code,60_000)
+                        throw CapCutSpeechFailure(if(query)"query rejected" else "submit rejected",code)
+                    }
+                }
             }
         }
 
@@ -45,10 +54,14 @@ class CapCutHttpTransport(private val http:HttpClient,private val nowMillis:()->
             val code=response.status.value
             if(code==429) {
                 val seconds=response.headers[HttpHeaders.RetryAfter]?.toLongOrNull()?.coerceIn(1,60) ?: 5L
-                synchronized(lock) {limitedUntil=maxOf(limitedUntil,nowMillis()+seconds*1000)}
+                coolDown(code,seconds*1000)
             }
             throw CapCutSpeechFailure(stage,code,code==408 || code in 500..599)
         }
+    }
+    private fun coolDown(code:Int,millis:Long)=synchronized(lock) {
+        val until=nowMillis()+millis
+        if(until>=limitedUntil){limitedUntil=until;limitedCode=code}
     }
     private suspend fun readBounded(response:HttpResponse,max:Int,stage:String):ByteArray {
         if((response.contentLength() ?: 0)>max)throw CapCutSpeechFailure("$stage too large")
@@ -67,7 +80,8 @@ class CapCutHttpTransport(private val http:HttpClient,private val nowMillis:()->
     private suspend fun <T> request(stage:String,retry:Boolean,block:suspend ()->T):T {
         var attempt=0
         while(true) {
-            if(synchronized(lock) {nowMillis()<limitedUntil})throw CapCutSpeechFailure("rate limited",429)
+            val blockedCode=synchronized(lock) {limitedCode.takeIf {nowMillis()<limitedUntil}}
+            if(blockedCode!=null)throw CapCutSpeechFailure(if(blockedCode==-6)"temporarily unavailable" else "rate limited",blockedCode)
             try {return block()}
             catch(e:CancellationException) {throw e}
             catch(e:Exception) {

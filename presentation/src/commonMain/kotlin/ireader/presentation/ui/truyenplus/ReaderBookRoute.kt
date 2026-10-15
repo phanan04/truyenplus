@@ -213,7 +213,7 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
                         style=MaterialTheme.typography.bodyLarge,color=ink.copy(alpha=.85f),modifier=Modifier.padding(top=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                     if(book.total>0)Text(strings.localize(Res.string.tp_book_summary,book.total,"${book.progress.percent}%"),
                         style=MaterialTheme.typography.bodySmall,color=ink.copy(alpha=.75f),modifier=Modifier.padding(top=12.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
-                    Surface(Modifier.fillMaxWidth().padding(top=24.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=ink.copy(alpha=.08f)) {
+                    Surface(Modifier.fillMaxWidth().padding(top=24.dp).readerOptionalGlass(20,tone),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=readerOptionalGlassColor(ink.copy(alpha=.08f))) {
                         Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             Button(onRead,enabled=chapters.isNotEmpty(),shape=CircleShape,
                                 colors=ButtonDefaults.buttonColors(containerColor=ink,contentColor=tone),

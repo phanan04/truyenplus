@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -40,7 +41,8 @@ fun ReaderAppearanceMode.localizedLabel(strings:LocalizeHelper):String = strings
 @Composable
 fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)->Unit,
     onProgress:()->Unit,onUpdate:()->Unit,appearance:ReaderAppearanceMode=ReaderAppearanceMode.System,
-    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={},onVoices:(()->Unit)?=null,onDismiss:(()->Unit)?=null) {
+    onAppearance:(ReaderAppearanceMode)->Unit={},onImport:()->Unit={},onEditing:()->Unit={},onVoices:(()->Unit)?=null,onDismiss:(()->Unit)?=null,
+    fullGlass:Boolean=LocalReaderFullGlass.current,onFullGlass:(Boolean)->Unit={}) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     var languageOpen by remember { mutableStateOf(false) }
     var appearanceOpen by remember { mutableStateOf(false) }
@@ -51,17 +53,28 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
             contentPadding=PaddingValues(start=20.dp,end=20.dp,bottom=24.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
             item {
                 Text(strings.localize(Res.string.tp_settings_general),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                Surface(Modifier.fillMaxWidth().testTag("settings-general"),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                Surface(Modifier.fillMaxWidth().readerOptionalGlass(14).testTag("settings-general"),shape=RoundedCornerShape(14.dp),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surface)) {
                     Column {
                         SettingsRow(strings.localize(Res.string.tp_language),language.displayName,Icons.Outlined.Language,{languageOpen=true})
                         HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
                         SettingsRow(strings.localize(Res.string.tp_appearance),appearance.localizedLabel(strings),Icons.Outlined.Contrast,{appearanceOpen=true})
+                        HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
+                        Row(Modifier.fillMaxWidth().heightIn(min=72.dp).toggleable(fullGlass,role=Role.Switch,onValueChange=onFullGlass)
+                            .testTag("settings-full-glass").padding(horizontal=16.dp,vertical=12.dp),
+                            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+                            Icon(Icons.Outlined.Layers,null,Modifier.size(22.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(strings.localize(Res.string.tp_full_glass),style=MaterialTheme.typography.bodyLarge)
+                                Text(strings.localize(Res.string.tp_full_glass_description),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(fullGlass,onCheckedChange=null)
+                        }
                     }
                 }
             }
             item {
                 Text(strings.localize(Res.string.tp_settings_read_listen),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                Surface(Modifier.fillMaxWidth().readerOptionalGlass(14),shape=RoundedCornerShape(14.dp),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surface)) {
                     Column {
                         SettingsRow(strings.localize(Res.string.tp_progress),"",Icons.Outlined.BarChart,onProgress)
                         if(onVoices!=null) {
@@ -73,7 +86,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
             }
             item {
                 Text(strings.localize(Res.string.tp_settings_tools),Modifier.padding(bottom=8.dp),style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
-                Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+                Surface(Modifier.fillMaxWidth().readerOptionalGlass(14),shape=RoundedCornerShape(14.dp),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surface)) {
                     Column {
                         SettingsRow(strings.localize(Res.string.tp_import_ebook),"",Icons.Outlined.FolderOpen,onImport)
                         HorizontalDivider(Modifier.padding(start=52.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))
@@ -81,7 +94,7 @@ fun ReaderSettingsScreen(language:ReaderUiLanguage,onLanguage:(ReaderUiLanguage)
                     }
                 }
             }
-            item {Surface(Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),color=MaterialTheme.colorScheme.surface) {
+            item {Surface(Modifier.fillMaxWidth().readerOptionalGlass(14),shape=RoundedCornerShape(14.dp),color=readerOptionalGlassColor(MaterialTheme.colorScheme.surface)) {
                 SettingsRow(strings.localize(Res.string.tp_app_update),"Truyện+",Icons.Outlined.SystemUpdate,onUpdate)
             }}
         }

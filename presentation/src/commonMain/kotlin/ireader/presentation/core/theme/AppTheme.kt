@@ -140,7 +140,7 @@ fun AppTheme(
                 LocalLocalizeHelper provides mainLocalizeHelper,
                 LocalGlobalCoroutineScope provides scope,
                 LocalPerformanceConfig provides performanceConfig,
-                content = content
+                content = {ireader.presentation.ui.truyenplus.ReaderGlassPreferences(preferences,content)}
             )
         }
     }

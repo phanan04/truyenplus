@@ -69,8 +69,10 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
             }
             if(hasError)Text(s.localize(Res.string.tp_listening_retry),color=colors.error,style=MaterialTheme.typography.labelSmall,
                 modifier=Modifier.padding(vertical=6.dp).testTag("listen-error"))
-            if(hasError && errorDetail!=null)Text(errorDetail,color=colors.onSurfaceVariant,style=MaterialTheme.typography.labelSmall,
-                maxLines=2,overflow=TextOverflow.Ellipsis,modifier=Modifier.testTag("listen-error-detail"))
+            if(hasError && errorDetail!=null)Text(
+                if(errorDetail.startsWith("CapCut ") && errorDetail.endsWith("(-6)"))s.localize(Res.string.tp_capcut_temporarily_blocked) else errorDetail,
+                color=colors.onSurfaceVariant,style=MaterialTheme.typography.labelSmall,
+                modifier=Modifier.testTag("listen-error-detail"))
             ReaderListeningSpeed(speed,onSpeed)
 
         }

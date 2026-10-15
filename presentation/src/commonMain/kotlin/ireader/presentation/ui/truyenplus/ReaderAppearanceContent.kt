@@ -127,7 +127,7 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
                             Text(label(state.fontFamily),Modifier.weight(1f),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Icon(Icons.Default.ExpandMore,null)
                         }
-                        DropdownMenu(fontsOpen,onDismissRequest={fontsOpen=false}) {
+                        ReaderGlassDropdownMenu(fontsOpen,onDismissRequest={fontsOpen=false}) {
                             fonts.forEach { font-> DropdownMenuItem(text={Text(label(font),fontFamily=when(font){FontFamilyModel.Serif->FontFamily.Serif;FontFamilyModel.SansSerif->FontFamily.SansSerif;else->FontFamily.Default})},
                                 modifier=Modifier.testTag("reader-font-${when(font){FontFamilyModel.Serif->"serif";FontFamilyModel.SansSerif->"sans";else->"default"}}"),onClick={actions.onFont(font);fontsOpen=false}) }
                         }

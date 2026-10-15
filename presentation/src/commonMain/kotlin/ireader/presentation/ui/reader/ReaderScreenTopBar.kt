@@ -129,7 +129,7 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
                     }
                     if(onEdit!=null)Box {
                         IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp)) {Icon(Icons.Default.MoreVert,localize(Res.string.expand_menu))}
-                        DropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {
+                        ireader.presentation.ui.truyenplus.ReaderGlassDropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {
                             DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
                             DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
                         }

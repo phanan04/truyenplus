@@ -48,7 +48,10 @@ fun ReaderBackdrop(content: @Composable BoxScope.() -> Unit) {
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
         val c=MaterialTheme.colorScheme
 
-        ReaderResponsiveFrame { Box(Modifier.fillMaxSize().background(c.background), content = content) }
+        ReaderResponsiveFrame { Box(Modifier.fillMaxSize().background(c.background)) {
+            ReaderGlassBackground(Modifier.matchParentSize())
+            content()
+        } }
     }
 }
 
@@ -197,11 +200,11 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
 @Composable private fun ReaderContinueBook(book:ReaderBookUi,onRead:()->Unit,onDetails:()->Unit) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     val artwork=rememberReaderBookArtwork(book)
-    val ink=if(artwork!=null)Color.White else MaterialTheme.colorScheme.onSurface
+    val ink=if(artwork!=null && !LocalReaderFullGlass.current)Color.White else MaterialTheme.colorScheme.onSurface
     val scale=LocalDensity.current.fontScale
     Box(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter)) {
         Surface(onClick=onRead,modifier=Modifier.widthIn(max=(244f*scale.coerceIn(1f,1.35f)).dp).fillMaxWidth()
-            .testTag("home-continue"),shape=RoundedCornerShape(10.dp),color=artwork ?: MaterialTheme.colorScheme.surfaceContainerHigh,contentColor=ink) {
+            .readerOptionalGlass(10).testTag("home-continue"),shape=RoundedCornerShape(10.dp),color=readerOptionalGlassColor(artwork ?: MaterialTheme.colorScheme.surfaceContainerHigh),contentColor=ink) {
             Box {
                 Row(Modifier.padding(10.dp).heightIn(min=60.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                     ReaderCover(book,Modifier.width(38.dp).height(60.dp))
@@ -245,8 +248,8 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
                     else {
                         ReaderCollectionPicker(categories,categoryIndex,onCategory,onCollections,iconOnly=true)
                         Box {
-                            IconButton(onClick={organizeOpen=true},modifier=Modifier.padding(start=8.dp).size(48.dp).shadow(4.dp,CircleShape).background(MaterialTheme.colorScheme.surface,CircleShape).testTag("library-organize")) {Icon(Icons.Outlined.MoreHoriz,strings.localize(Res.string.more))}
-                            DropdownMenu(organizeOpen,{organizeOpen=false}) {
+                            IconButton(onClick={organizeOpen=true},modifier=Modifier.padding(start=8.dp).size(48.dp).shadow(4.dp,CircleShape).readerOptionalGlass(24).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape).testTag("library-organize")) {Icon(Icons.Outlined.MoreHoriz,strings.localize(Res.string.more))}
+                            ReaderGlassDropdownMenu(organizeOpen,{organizeOpen=false}) {
                                 DropdownMenuItem(text={Text(strings.localize(Res.string.select))},modifier=Modifier.heightIn(min=56.dp).testTag("library-edit"),onClick={organizeOpen=false;editing=true},leadingIcon={Icon(Icons.Default.CheckCircleOutline,null)})
                                 DropdownMenuItem(text={Text(strings.localize(Res.string.tp_sort_books))},modifier=Modifier.heightIn(min=56.dp),onClick={organizeOpen=false;onSort()},leadingIcon={Icon(Icons.Default.SortByAlpha,null)})
                                 DropdownMenuItem(text={Text(strings.localize(if(preferList)Res.string.grid else Res.string.list))},modifier=Modifier.heightIn(min=56.dp).testTag("library-layout"),onClick={organizeOpen=false;onLayout(!preferList)},leadingIcon={Icon(if(preferList)Icons.Default.GridView else Icons.Default.ViewList,null)})
@@ -338,7 +341,7 @@ fun ReaderProgressScreen(stats: ReadingStatisticsType1, books: List<ReaderBookUi
             val reading = books.filter { it.read > 0 && it.read < it.total }
             if (reading.isEmpty()) item { Text(strings.localize(Res.string.tp_progress_hint), modifier = Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(reading, key = { it.id }) { book ->
-                Surface(onClick = { onBook(book.id) }, shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = .8f), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp)) {
+                Surface(onClick = { onBook(book.id) }, shape = RoundedCornerShape(18.dp), color = readerOptionalGlassColor(MaterialTheme.colorScheme.surface.copy(alpha = .8f)), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp).readerOptionalGlass(18)) {
                     Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         ReaderCover(book, Modifier.size(width = 48.dp, height = 66.dp))
                         Column(Modifier.weight(1f)) {

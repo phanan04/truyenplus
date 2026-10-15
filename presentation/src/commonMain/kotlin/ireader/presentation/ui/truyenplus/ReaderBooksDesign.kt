@@ -59,12 +59,12 @@ internal object ReaderBooksTokens {
     }
 }
 @Composable private fun ReaderBooksAccount(onClick:()->Unit) {
-    IconButton(onClick,modifier=Modifier.size(48.dp).testTag("books-account")) {
+    IconButton(onClick,modifier=Modifier.size(48.dp).readerOptionalGlass(24).testTag("books-account")) {
         ReaderBooksAccountSymbol(localize(Res.string.tp_settings))
     }
 }
 @Composable private fun ReaderBooksBack(onClick:()->Unit) {
-    IconButton(onClick,modifier=Modifier.size(48.dp).testTag("books-back")) {Icon(Icons.Outlined.ChevronLeft,localize(Res.string.tp_back))}
+    IconButton(onClick,modifier=Modifier.size(48.dp).readerOptionalGlass(24).testTag("books-back")) {Icon(Icons.Outlined.ChevronLeft,localize(Res.string.tp_back))}
 }
 
 @Composable internal fun ReaderBooksSection(title:String,onMore:(()->Unit)?=null,subtitle:String="",topPadding:Dp=22.dp,bottomPadding:Dp=20.dp) {
@@ -82,12 +82,12 @@ internal object ReaderBooksTokens {
     focus:FocusRequester=remember {FocusRequester()},onSubmit:(String)->Unit={},onFocus:()->Unit={},dock:Boolean=false,shelf:Boolean?=null,onScope:((Boolean)->Unit)?=null) {
     val keyboard=LocalSoftwareKeyboardController.current
     TextField(query,onQuery,singleLine=true,shape=CircleShape,
-        modifier=Modifier.fillMaxWidth().heightIn(min=if(dock)48.dp else 52.dp).focusRequester(focus).onFocusChanged {if(it.isFocused)onFocus()}.testTag("books-search-field"),
+        modifier=Modifier.fillMaxWidth().heightIn(min=if(dock)48.dp else 52.dp).then(if(dock)Modifier else Modifier.readerOptionalGlass(26)).focusRequester(focus).onFocusChanged {if(it.isFocused)onFocus()}.testTag("books-search-field"),
         placeholder={Text(placeholder,maxLines=1,overflow=TextOverflow.Ellipsis)},leadingIcon={if(shelf!=null && onScope!=null)ReaderSearchScopePicker(shelf,onScope) else Icon(Icons.Outlined.Search,null)},
         trailingIcon={if(query.isNotEmpty())IconButton({onQuery("")}) {Icon(Icons.Outlined.Cancel,localize(Res.string.clear))}},
         keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(imeAction=androidx.compose.ui.text.input.ImeAction.Search),
         keyboardActions=androidx.compose.foundation.text.KeyboardActions(onSearch={onSubmit(query);keyboard?.hide()}),
-        colors=TextFieldDefaults.colors(focusedContainerColor=if(dock)Color.Transparent else MaterialTheme.colorScheme.onSurface.copy(alpha=.07f),unfocusedContainerColor=if(dock)Color.Transparent else MaterialTheme.colorScheme.onSurface.copy(alpha=.06f),
+        colors=TextFieldDefaults.colors(focusedContainerColor=if(dock)Color.Transparent else readerOptionalGlassColor(MaterialTheme.colorScheme.onSurface.copy(alpha=.07f)),unfocusedContainerColor=if(dock)Color.Transparent else readerOptionalGlassColor(MaterialTheme.colorScheme.onSurface.copy(alpha=.06f)),
             focusedIndicatorColor=Color.Transparent,unfocusedIndicatorColor=Color.Transparent))
 }
 

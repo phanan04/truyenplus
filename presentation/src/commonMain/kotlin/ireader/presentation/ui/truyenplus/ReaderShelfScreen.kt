@@ -115,7 +115,7 @@ import org.koin.compose.koinInject
    })
    Box(Modifier.padding(horizontal=ReaderBooksTokens.gutter).padding(bottom=8.dp)) {
     if(root && onSearchRequested!=null)Surface(onClick={onSearchRequested(query)},shape=CircleShape,
-        color=MaterialTheme.colorScheme.onSurface.copy(alpha=.06f),modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("books-open-search")) {
+        color=readerOptionalGlassColor(MaterialTheme.colorScheme.onSurface.copy(alpha=.06f)),modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).readerOptionalGlass(26).testTag("books-open-search")) {
         Row(Modifier.padding(horizontal=16.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Outlined.Search,null,Modifier.size(22.dp))
             Text(strings.localize(Res.string.tp_shelf_search),style=MaterialTheme.typography.bodyLarge,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -205,7 +205,7 @@ import org.koin.compose.koinInject
     else IconButton(onClick={onRefresh(source.id)}){Icon(Icons.Outlined.Refresh,strings.localize(if(source.pending)Res.string.tp_shelf_resume else Res.string.tp_shelf_refresh))}
     Box {
      IconButton(onClick={menu=true}){Icon(Icons.Outlined.MoreVert,strings.localize(Res.string.expand_menu))}
-     DropdownMenu(menu,onDismissRequest={menu=false}) {
+     ReaderGlassDropdownMenu(menu,onDismissRequest={menu=false}) {
       DropdownMenuItem(text={Text(strings.localize(Res.string.tp_shelf_remove))},onClick={menu=false;onRemove(source)},leadingIcon={Icon(Icons.Outlined.DeleteOutline,null)})
      }
     }
@@ -223,8 +223,8 @@ import org.koin.compose.koinInject
  val title=if(divider>0)filename.substring(0,divider).trim() else filename
  val author=if(divider>0)filename.substring(divider+3).trim() else ""
  val busy=op?.task==ShelfTask.Downloading || op?.task==ShelfTask.Importing
- Surface(shape=RoundedCornerShape(0.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth()) {
-  Column(Modifier.padding(vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+ Surface(shape=RoundedCornerShape(if(LocalReaderFullGlass.current)16.dp else 0.dp),color=Color.Transparent,modifier=Modifier.fillMaxWidth().readerOptionalGlass(16)) {
+  Column(Modifier.padding(horizontal=if(LocalReaderFullGlass.current)12.dp else 0.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
     // Only real filename metadata is available before import; no invented cover.
     Surface(shape=RoundedCornerShape(12.dp),color=MaterialTheme.colorScheme.onSurface.copy(alpha=.05f),modifier=Modifier.size(46.dp,64.dp)) {

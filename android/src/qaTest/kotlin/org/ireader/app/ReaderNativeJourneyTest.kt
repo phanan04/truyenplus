@@ -22,6 +22,8 @@ class ReaderNativeJourneyTest {
         val context=instrumentation.targetContext
         check(context.packageName.endsWith(".debug.qa"))
         val koin=GlobalContext.get()
+        val fullGlass=InstrumentationRegistry.getArguments().getString("fullGlass")=="true"
+        koin.get<UiPreferences>().readerFullGlass().set(fullGlass)
         koin.get<UiPreferences>().apply {
             hasCompletedOnboarding().set(true);hasCompletedFirstLaunch().set(true);language().set("vi");readerAppearance().set("light")
         }
@@ -47,6 +49,11 @@ class ReaderNativeJourneyTest {
             val selector=if(text)androidx.test.uiautomator.UiSelector().text(value)
                 else androidx.test.uiautomator.UiSelector().description(value)
             val target=device.findObject(selector)
+            // Accessibility traversal can outlast the reader's five-second chrome timer.
+            // Reveal it again as a user would; do not wait on a stale visible-node snapshot.
+            if(!target.waitForExists(1500) && value in setOf("Nghe truyện","Chủ đề và cài đặt","Tùy chỉnh nghe")) {
+                device.click(device.displayWidth/2,device.displayHeight/3)
+            }
             Assert.assertTrue("Missing UI $value",target.waitForExists(15_000))
             val rect=target.bounds
             probe.actionLabel=label
@@ -79,7 +86,12 @@ class ReaderNativeJourneyTest {
                 repeat(4) {cycle->
                     for(tab in listOf("Thư viện","Kho truyện","Trang chủ"))click(tab,"$tab-$cycle",shell)
                     click("Cài đặt","account-open-$cycle",shell)
-                    waitFor(By.text("Cài đặt"));device.pressBack();Thread.sleep(350)
+                    waitFor(By.text("Cài đặt"))
+                    if(cycle==0)repeat(2) {toggle->
+                        click("Glass toàn hệ thống","glass-toggle-$toggle",shell,text=true)
+                        awaitState {koin.get<UiPreferences>().readerFullGlass().get()==if(toggle==0)!fullGlass else fullGlass}
+                    }
+                    device.pressBack();Thread.sleep(350)
                 }
             } finally {stop(shell);if(sampling)android.os.Debug.stopMethodTracing()}
             val reader=probe("native-reader")
@@ -123,9 +135,10 @@ class ReaderNativeJourneyTest {
             android.util.Log.e("TruyenPlusQA","Native journey failed: ${diagnostic.readText()}")
             throw error
         } finally {
-            ReaderUiFrameProbe.save("native-journey",frames,actions)
+            ReaderUiFrameProbe.save(if(fullGlass)"native-journey-full-glass" else "native-journey",frames,actions)
             controller.dispatch(TTSCommand.Cleanup)
             TTSV2ServiceStarter(context).stopService()
+            koin.get<UiPreferences>().readerFullGlass().set(false)
             instrumentation.runOnMainSync {activity.finish()}
         }
         Assert.assertEquals("Native user journey has frozen frames",0,frames.sumOf {it.getInt("frozen700ms")})

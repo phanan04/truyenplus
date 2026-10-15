@@ -1,5 +1,8 @@
 package ireader.presentation.ui.settings.textreplacement
 
+import ireader.presentation.ui.truyenplus.ReaderOptionalGlassCard as Card
+import ireader.presentation.ui.truyenplus.readerOptionalPanelGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -383,6 +386,8 @@ fun TextReplacementDialog(
     }
     
     AlertDialog(
+            modifier = Modifier.readerOptionalPanelGlass(28),
+            containerColor = readerOptionalGlassColor(AlertDialogDefaults.containerColor),
         onDismissRequest = onDismiss,
         title = {
             Text(if (replacement == null) "Add Text Replacement" else "Edit Text Replacement")
@@ -536,6 +541,8 @@ fun ImportDialog(
     var jsonInput by remember { mutableStateOf("") }
     
     AlertDialog(
+            modifier = Modifier.readerOptionalPanelGlass(28),
+            containerColor = readerOptionalGlassColor(AlertDialogDefaults.containerColor),
         onDismissRequest = onDismiss,
         title = { Text("Import Text Replacements") },
         text = {
@@ -581,6 +588,8 @@ fun ExportDialog(
     val localizeHelper = requireNotNull(LocalLocalizeHelper.current) { "LocalLocalizeHelper not provided" }
     
     AlertDialog(
+            modifier = Modifier.readerOptionalPanelGlass(28),
+            containerColor = readerOptionalGlassColor(AlertDialogDefaults.containerColor),
         onDismissRequest = onDismiss,
         title = { Text("Export Text Replacements") },
         text = {

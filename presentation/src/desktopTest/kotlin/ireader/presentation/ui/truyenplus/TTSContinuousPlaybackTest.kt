@@ -51,6 +51,31 @@ class TTSContinuousPlaybackTest {
         suspend fun fail() { events.emit(EngineEvent.Error(spoken.last().second, "synthesis failure")) }
     }
 
+    @Test fun seekingWhileOnlineAudioIsPreparingStartsTheSelectedParagraphWithoutReselectingTheVoice()=runTest(dispatcher) {
+        val engine=Engine().apply {sendStarted=false}
+        var creations=0
+        val controller=TTSController(Loader(listOf(listOf("Old paragraph","Selected paragraph","Final paragraph"))),{creations++;engine})
+        try {
+            controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.LoadChapter(1,1));testScheduler.advanceUntilIdle()
+            controller.dispatch(TTSCommand.Play);testScheduler.advanceUntilIdle()
+            val oldId=engine.spoken.last().second
+            assertTrue(controller.state.value.isLoading)
+            controller.dispatch(TTSCommand.JumpToParagraph(1));testScheduler.advanceUntilIdle()
+            assertEquals("Selected paragraph",engine.spoken.last().first,"Seek canceled synthesis but failed to start the new request")
+            val selectedId=engine.spoken.last().second
+            engine.events.emit(EngineEvent.Error(oldId,"Canceled old request",retryable=false));testScheduler.advanceUntilIdle()
+            assertTrue(controller.state.value.isLoading,"Canceled audio must not fail the new request")
+            engine.events.emit(EngineEvent.Started(selectedId));testScheduler.advanceUntilIdle()
+            assertTrue(controller.state.value.isPlaying)
+            assertEquals(1,controller.state.value.currentParagraphIndex)
+            assertEquals(1,creations,"The same selected voice must survive seeking")
+            controller.dispatch(TTSCommand.Pause);testScheduler.advanceUntilIdle()
+            controller.dispatch(TTSCommand.JumpToParagraph(2));testScheduler.advanceUntilIdle()
+            assertTrue(controller.state.value.isPaused,"A deliberately paused session stays paused after positioning")
+            assertEquals(2,engine.spoken.size)
+        } finally {controller.destroy()}
+    }
+
     @Test fun replacingAVoiceKeepsTheChosenSpeedAndPitch()=runTest(dispatcher) {
         val first=Engine();val replacement=Engine();var creations=0
         val controller=TTSController(Loader(listOf(listOf("A paragraph"))),{if(creations++==0)first else replacement})

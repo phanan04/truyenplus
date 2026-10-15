@@ -149,7 +149,7 @@ fun VoiceModelsPanel(state:OfflineVoiceState,previewing:Boolean,previewFailed:Bo
             Surface(Modifier.align(Alignment.Center).widthIn(max=720.dp).fillMaxWidth().padding(12.dp)
                 .heightIn(max=(maxHeight-24.dp).coerceAtLeast(160.dp)).readerPanel(28).testTag("voice-manager").semantics {paneTitle=pane;isTraversalGroup=true},
                 shape=RoundedCornerShape(28.dp),color=Color.Transparent) {
-                Column(Modifier.padding(16.dp)) {
+                ReaderGlassPanelColumn(Modifier.padding(16.dp)) {
                     ReaderBooksSheetHeader(s.localize(Res.string.tp_voice_manager),dismiss)
                     if(renameModel!=null) {
                         Text(OfflineVoiceCatalog.models.firstOrNull {it.id==renameModel}?.title.orEmpty()+" · "+s.localize(Res.string.tp_voice_number,renameSpeaker+1))

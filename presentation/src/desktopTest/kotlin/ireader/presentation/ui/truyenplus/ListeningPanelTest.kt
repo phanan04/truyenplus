@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.ImageComposeScene
+import androidx.compose.ui.use
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.Density
 import ireader.i18n.LocalizeHelper
@@ -16,6 +17,30 @@ import java.util.Locale
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ListeningPanelTest {
+    @Test fun capCutBlockExplainsRecoveryAndKeepsThePlayActionAvailable() {
+        val oldLocale=Locale.getDefault()
+        Locale.setDefault(Locale.forLanguageTag("vi"))
+        var plays=0
+        try {
+            ImageComposeScene(412,800,Density(1f)) {
+                CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
+                    ReaderFloatingPlayer(false,1f,0f,{},{plays++},{},{},{},{},
+                        hasError=true,errorDetail="CapCut submit rejected (-6)")
+                }}
+            }.use {scene ->
+                repeat(4){scene.render()}
+                fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
+                val nodes=scene.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
+                // The card merges its informational text; nested playback buttons remain separate.
+                val text=nodes.flatMap {it.config.getOrNull(SemanticsProperties.Text).orEmpty()}.joinToString {it.text}
+                assertTrue(text.contains("CapCut") && text.contains("-6") && text.contains("phát lại"),text)
+                nodes.first {it.config.getOrNull(SemanticsProperties.TestTag)=="listen-play"}
+                    .config[SemanticsActions.OnClick].action!!.invoke()
+                assertEquals(1,plays)
+            }
+        } finally {Locale.setDefault(oldLocale)}
+    }
+
     @Test fun voiceTimingHintFollowsControlsWithoutCoveringTheVoiceChoice() {
         Locale.setDefault(Locale.forLanguageTag("vi"))
         for(scale in listOf(1f,2f)) {

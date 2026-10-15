@@ -29,6 +29,8 @@ import ireader.i18n.resources.*
 import ireader.i18n.resources.close
 import ireader.i18n.resources.search
 import ireader.i18n.resources.toggle_search_mode_off
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import ireader.presentation.core.toComposeColor
 import ireader.presentation.ui.component.reusable_composable.AppIconButton
 import ireader.presentation.ui.component.reusable_composable.AppTextField
@@ -53,13 +55,13 @@ fun Toolbar(
     // Enhanced with better Material Design 3 patterns
     TopAppBar(
         title = title,
-        modifier = if (applyInsets) modifier.statusBarsPadding() else modifier,
+        modifier = (if (applyInsets) modifier.statusBarsPadding() else modifier).readerOptionalGlass(0, backgroundColor),
         navigationIcon = navigationIcon,
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = backgroundColor,
+            containerColor = readerOptionalGlassColor(backgroundColor),
             titleContentColor = contentColor,
-            scrolledContainerColor = backgroundColor,
+            scrolledContainerColor = readerOptionalGlassColor(backgroundColor),
             actionIconContentColor = contentColor,
             navigationIconContentColor = contentColor
         ),

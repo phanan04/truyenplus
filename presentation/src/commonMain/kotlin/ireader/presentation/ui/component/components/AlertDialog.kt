@@ -8,6 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import ireader.presentation.ui.core.theme.Shapes
+import ireader.presentation.ui.truyenplus.LocalReaderFullGlass
+import ireader.presentation.ui.truyenplus.readerOptionalPanelGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun IAlertDialog(
@@ -27,13 +32,13 @@ fun IAlertDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
-        modifier = modifier,
+        modifier = modifier.readerOptionalPanelGlass(28,containerColor),
         dismissButton = dismissButton,
         icon = icon,
         title = title,
         text = text,
-        shape = shape,
-        containerColor = containerColor,
+        shape = if(LocalReaderFullGlass.current)RoundedCornerShape(28.dp) else shape,
+        containerColor = readerOptionalGlassColor(containerColor),
         iconContentColor = iconContentColor,
 
     )

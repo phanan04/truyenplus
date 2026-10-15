@@ -35,7 +35,7 @@ fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifi
         hazeSource(backdrop.state).background(paper)
 }
 
-/** Glass is limited to floating surfaces. Static list rows and highlight never run a shader. */
+/** Floating surfaces always use the current material; cards opt in through the global setting. */
 @OptIn(ExperimentalHazeApi::class)
 @Composable
 fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
@@ -45,9 +45,10 @@ fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
         return drawWithContent {drawRect(tint);drawContent()}
     }
     val dark=tint.luminance()<.5f
+    val full=LocalReaderFullGlass.current
     val base=drawWithContent {drawRect(tint);drawContent()}
     // Large panels need diffusion and readable text, not extra refraction render layers.
-    if(material==ReaderGlassMaterial.Frosted) {
+    if(material==ReaderGlassMaterial.Frosted && !full) {
         val style=remember(tint) {HazeBlurStyle {
             backgroundColor(tint)
             blurRadius(12.dp)
@@ -58,11 +59,11 @@ fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
         return base.hazeBlur(HazeInput.Sources(backdrop.state),style,
             performanceMode=HazePerformanceMode.Default)
     }
-    val style=remember(tint,radius) {
+    val style=remember(tint,radius,material,full) {
         GlassStyle.regular.then {
             shape(radius?.let {RoundedCornerShape(it.dp)} ?: RoundedCornerShape(50))
             backgroundColor(tint)
-            tint(tint.copy(alpha=if(dark).22f else .18f))
+            tint(tint.copy(alpha=if(full && material==ReaderGlassMaterial.Frosted).42f else if(dark).22f else .18f))
             // Keep Haze's size-aware Regular optics, including its curved edge refraction.
             // The earlier fixed, weak optics made Glass look almost like ordinary blur.
             optics(GlassDefaults.optics)

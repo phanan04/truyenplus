@@ -34,6 +34,65 @@ class ReaderGlassDeviceTest {
         }}
         ui.waitForIdle()
     }
+    @Test fun fullGlassUsesLowerPaperForCardsAndCapturedPageForFloatingPanels() {
+        for(paper in listOf(Color.White,Color(0xFF1B1B1D))) {
+            content {
+                val backdrop=remember {ReaderNavigationBackdrop()}
+                CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop,LocalReaderFullGlass provides true) {
+                    Box(Modifier.fillMaxSize()) {
+                        ReaderPaperTheme(paper,if(paper==Color.White)Color.Black else Color.White) {
+                            ReaderGlassBackground(Modifier.matchParentSize())
+                            Box(Modifier.fillMaxSize().readerNavigationSource(backdrop).background(Color.Red)) {
+                                Box(Modifier.padding(top=160.dp).size(220.dp,80.dp).readerGlassCard(20,paper)
+                                    .testTag("full-card"))
+                            }
+                            Box(Modifier.padding(20.dp).size(220.dp,80.dp).readerPanel(20,paper).testTag("full-panel"))
+                        }
+                    }
+                }
+            }
+            val panel=ui.onNodeWithTag("full-panel").captureToImage().toPixelMap()
+            val red=panel[panel.width/2,panel.height/2]
+            Assert.assertTrue("Full panel lost its page capture: $red",red.red-red.blue>.15f)
+            val first=ui.onNodeWithTag("full-card").captureToImage().toPixelMap()
+            val card=first[first.width/2,first.height/2]
+            Assert.assertTrue("Card captured its red sibling or itself: $card",kotlin.math.abs(card.red-card.blue)<.03f)
+            if(paper!=Color.White)Assert.assertTrue("Dark card inherited a light tint: $card",card.red<.2f)
+            Thread.sleep(500);ui.waitForIdle()
+            val later=ui.onNodeWithTag("full-card").captureToImage().toPixelMap()
+            Assert.assertEquals("Glass feedback changes idle pixels",card.red,later[later.width/2,later.height/2].red,.01f)
+        }
+    }
+
+    @Test fun nestedCardsKeepTheirParentDiffusionOnAndroid() {
+        for(paper in listOf(Color.White,Color(0xFF1B1B1D))) {
+            val card=mutableStateOf(false)
+            content {
+                val backdrop=remember {ReaderNavigationBackdrop()}
+                CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop,LocalReaderFullGlass provides true) {
+                    Box(Modifier.fillMaxSize()) {
+                        Row(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
+                            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Red))
+                            Box(Modifier.weight(1f).fillMaxHeight().background(Color.Blue))
+                        }
+                        Box(Modifier.padding(16.dp).size(288.dp,148.dp).readerPanel(24,paper).testTag("nested-diffusion")) {
+                            if(card.value)ReaderGlassPanelContent {
+                                Box(Modifier.padding(12.dp).size(112.dp,96.dp).readerGlassCard(16,paper))
+                            }
+                        }
+                    }
+                }
+            }
+            fun sample():Color {
+                val pixels=ui.onNodeWithTag("nested-diffusion").captureToImage().toPixelMap()
+                return pixels[(pixels.width*68/288).toInt(),(pixels.height*60/148).toInt()]
+            }
+            val before=sample();ui.runOnIdle {card.value=true};ui.waitForIdle();val after=sample()
+            Assert.assertTrue("Nested card replaced its parent diffusion: $before / $after",
+                kotlin.math.abs(before.green-after.green)<.10f && kotlin.math.abs(before.blue-after.blue)<.10f)
+        }
+    }
+
     @Test fun frostedLayerBlursStripesAndDoesNotRevealUnrecordedContent() {
         content {
             val backdrop=remember{ReaderNavigationBackdrop()}

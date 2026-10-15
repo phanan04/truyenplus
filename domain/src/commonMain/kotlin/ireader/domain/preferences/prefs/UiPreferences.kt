@@ -124,6 +124,7 @@ class UiPreferences(private val preferenceStore: PreferenceStore) {
     }
 
     fun readerAppearance(): Preference<String> = preferenceStore.getString("truyenplus_glass_theme", "system")
+    fun readerFullGlass(): Preference<Boolean> = preferenceStore.getBoolean("truyenplus_full_glass", false)
     fun readerFollowsAppearance(): Preference<Boolean> = preferenceStore.getBoolean("truyenplus_reader_follows_theme", true)
 
     fun language(): Preference<String> {

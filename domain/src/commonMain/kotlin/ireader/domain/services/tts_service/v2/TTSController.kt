@@ -700,8 +700,12 @@ class TTSController(
         val currentState = _state.value
         Log.debug { "$TAG: jumpToParagraph($index) - chunkModeEnabled=${currentState.chunkModeEnabled}" }
         
-        val wasPlaying = currentState.isPlaying
+        // Online voices spend time in LOADING before Started. Seeking must replace that
+        // pending request too, otherwise stop() leaves LOADING with nothing to complete it.
+        val wasPlaying = currentState.isPlaying || currentState.isLoading
+        currentUtteranceId = null
         engine?.stop()
+        _state.update {it.copy(loadingParagraphs=emptySet(),spokenSentence=null,spokenWord=null)}
         
         // If chunk mode is enabled, find the chunk containing this paragraph
         if (currentState.chunkModeEnabled && mergeResult != null) {

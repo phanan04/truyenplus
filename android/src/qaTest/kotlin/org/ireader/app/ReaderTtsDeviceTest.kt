@@ -172,6 +172,61 @@ class ReaderTtsDeviceTest {
         } finally {observer.cancel();engine.release()}
     }
 
+    /** Deterministic native playback fixture: validates cancellation/recovery, not provider availability. */
+    @Test fun capCutSeekDuringLoadingAndProviderRecoveryKeepTheSelectedEngine()=runBlocking<Unit> {
+        requireQa()
+        val texts=listOf("Đoạn đầu đang tải.","Đoạn đã chọn.","Đoạn cần phát lại.")
+        val book=Book(id=920001,sourceId=-1,title="QA CapCut recovery",key="qa-capcut-recovery")
+        val chapter=Chapter(id=920002,bookId=book.id,key="qa-capcut-recovery-1",name="Chương 1")
+        val loader=object:TTSContentLoader {
+            override suspend fun loadChapter(bookId:Long,chapterId:Long)=TTSContentLoader.ChapterContent(book,chapter,texts,texts.indices.toList())
+            override suspend fun getNextChapterId(bookId:Long,currentChapterId:Long):Long?=null
+            override suspend fun getPreviousChapterId(bookId:Long,currentChapterId:Long):Long?=null
+            override fun subscribeChapters(bookId:Long)=flowOf(listOf(chapter))
+        }
+        val entered=CompletableDeferred<Unit>();val canceled=CompletableDeferred<Unit>()
+        val blocked=java.util.concurrent.atomic.AtomicBoolean(true)
+        val sampleCount=16000*8
+        val wave=java.nio.ByteBuffer.allocate(44+sampleCount*2).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
+            put("RIFF".toByteArray());putInt(36+sampleCount*2);put("WAVEfmt ".toByteArray())
+            putInt(16);putShort(1);putShort(1);putInt(16000);putInt(32000);putShort(2);putShort(16)
+            put("data".toByteArray());putInt(sampleCount*2)
+            repeat(sampleCount){putShort((kotlin.math.sin(it*2*Math.PI*440/16000)*700).toInt().toShort())}
+        }.array()
+        val source=object:ireader.domain.services.tts_service.v2.online.CapCutSpeechSource {
+            override suspend fun synthesize(text:String,voice:ireader.domain.services.tts_service.v2.online.CapCutVoice):ByteArray {
+                if(text==texts[0]) {
+                    entered.complete(Unit)
+                    try {awaitCancellation()} finally {canceled.complete(Unit)}
+                }
+                if(text==texts[2] && blocked.get())throw ireader.domain.services.tts_service.v2.online.CapCutSpeechFailure("submit rejected",-6)
+                return wave
+            }
+        }
+        var creations=0
+        val engine=ireader.domain.services.tts_service.v2.online.AndroidCapCutTtsEngine(context,source,
+            ireader.domain.services.tts_service.v2.online.CapCutVoices.voices.first())
+        val controller=TTSController(loader,{creations++;engine})
+        try {
+            controller.dispatch(TTSCommand.Initialize);controller.dispatch(TTSCommand.LoadChapter(book.id,chapter.id))
+            withTimeout(10_000){controller.state.first {it.hasContent && it.isEngineReady}}
+            controller.dispatch(TTSCommand.Play);withTimeout(5000){entered.await()}
+            assertTrue(controller.state.value.isLoading)
+            controller.dispatch(TTSCommand.JumpToParagraph(1))
+            withTimeout(10_000){controller.state.first {it.isPlaying && it.currentParagraphIndex==1}}
+            withTimeout(5000){canceled.await()}
+            controller.dispatch(TTSCommand.Pause)
+            withTimeout(5000){controller.state.first {it.isPaused}}
+            controller.dispatch(TTSCommand.JumpToParagraph(2));controller.dispatch(TTSCommand.Play)
+            withTimeout(5000){controller.state.first {it.playbackState==PlaybackState.ERROR}}
+            assertEquals(2,controller.state.value.currentParagraphIndex)
+            blocked.set(false);controller.dispatch(TTSCommand.Play)
+            withTimeout(10_000){controller.state.first {it.isPlaying && it.currentParagraphIndex==2}}
+            assertEquals(1,creations)
+            Log.i("TruyenPlusQA","PASS CapCut native seek while loading and -6 recovery; local WAV fixture, one engine")
+        } finally {controller.destroy()}
+    }
+
     @Test fun capCutTimeoutReportsAnErrorInsteadOfLeavingLoadingForever()=runBlocking<Unit> {
         requireQa()
         val voice=ireader.domain.services.tts_service.v2.online.CapCutVoices.voices.first()
