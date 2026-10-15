@@ -228,6 +228,12 @@ android {
         named("debug") {
             versionNameSuffix = ""
             applicationIdSuffix = if (truyenPlusQa) ".debug.qa" else ".debug"
+            if (providers.environmentVariable("TRUYENPLUS_CI").orNull == "true") {
+                require(!truyenPlusQa && signingConfigs.getByName("release").storeFile != null) {
+                    "CI requires the original signing key and the installable application package"
+                }
+                signingConfig = signingConfigs.getByName("release")
+            }
             extra["enableCrashlytics"] = false
             extra["alwaysUpdateBuildId"] = false
             isCrunchPngs = false

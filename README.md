@@ -22,6 +22,8 @@ Cập nhật trong app: **biểu tượng tài khoản ở góc trên → Cài �
 
 Dự án sử dụng Kotlin và Compose Multiplatform. Xem [hướng dẫn phát hành](docs/APP_UPDATES.md).
 
+Push lên `main` sẽ [tự kiểm thử, build APK và phát hành cập nhật](https://github.com/phanan04/truyenplus/actions/workflows/android-release.yml).
+
 Mã nguồn gốc: [IReader](README_IREADER.md). Giấy phép: [Apache 2.0](LICENSE).
 
 Chọn Việt/Anh và giao diện Sáng/Tối/Hệ thống trong Cài đặt. Giao diện theo Apple Books: Trang chủ, Thư viện, Kho truyện và Tìm kiếm riêng; mở Cài đặt từ biểu tượng tài khoản ở góc trên.

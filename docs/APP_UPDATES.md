@@ -14,8 +14,25 @@ Release [v2.0.32](https://github.com/phanan04/truyenplus/releases/tag/v2.0.32) �
 
 ## Chuẩn bị một bản mới
 
+### Tự động qua GitHub Actions
+
+Push lên `main` chạy [Build and release Android](https://github.com/phanan04/truyenplus/actions/workflows/android-release.yml).
+Không cần build APK trên máy hoặc tạo tag bằng tay. Có thể chọn **Run workflow** trên nhánh `main` để chạy thủ công.
+
+- Workflow kiểm thử, build APK ARM64 với package hiện tại `.debug`, xác minh khóa ký cũ và tạo `update.json` bằng script có sẵn.
+- APK, `update.json` và `SHA256SUMS` được tải lên một **draft** trước. Chỉ khi kích thước/hash đã khớp mới công khai và đánh dấu latest; sau đó tải lại APK công khai để kiểm tra toàn vẹn.
+- Hai secrets bắt buộc: `ANDROID_KEYSTORE_BASE64` và `TRUYENPLUS_DRIVE_API_KEY`. Không đưa chúng vào Git. Khóa ký phải trùng certificate của bản đang dùng, được workflow kiểm tra trước khi build.
+- Khóa debug cũ mặc định dùng alias `androiddebugkey`, mật khẩu `android`. Nếu khóa có cấu hình khác, đặt thêm `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`.
+- `ProjectConfig` là mốc phiên bản. CI cộng số thứ tự workflow vào versionCode và số patch: mốc `2.0.46 / 100`, run 1 là `2.0.47 / 101`, run 3 là `2.0.49 / 103`. Run lỗi có thể để trống một số phiên bản; rerun giữ nguyên phiên bản.
+- CI chỉ sửa phiên bản trong checkout của runner, không commit ngược vào `main`. Không cần tăng mốc cho mỗi lần phát hành. Khi đổi tên/reset workflow hoặc đổi mốc thủ công, vẫn phải giữ versionCode cao hơn release mới nhất; workflow chặn phát hành ngược phiên bản.
+- Các lượt build được xếp hàng; commit đã bị thay thế không được công khai đè lên bản mới. Release đã công khai không bị thay APK khi rerun.
+- Nếu build lỗi, bản latest cũ vẫn dùng được. Xem bước đỏ trong Actions hoặc tải test reports; chọn **Re-run failed jobs** sau khi sửa cấu hình cần thiết.
+- Thư viện/tiến độ trên máy người dùng không bị tác động bởi CI. Android vẫn yêu cầu người dùng xác nhận cài bản cập nhật.
+
+### Thủ công dự phòng
+
 1. Tăng `versionCode` trong `buildSrc/src/main/kotlin/ProjectConfig.kt` (bản 2.0.32 là 86). Giữ nguyên package và khóa ký của bản đã cài. Không thay debug key giữa các lần phát hành; bản release không thể cập nhật đè bản debug ký bằng khóa khác.
-2. Chỉ build khi người dùng yêu cầu. Tạo các APK cho kiến trúc cần hỗ trợ bằng `:android:assembleStandardDebug` với cùng khóa ký. Không truyền các tham số `android.injected.*` của Android Studio: chúng có thể gắn `android:testOnly=true`, khiến trình cài đặt Android từ chối APK. Script tạo manifest sẽ chặn APK có cờ này.
+2. Tạo các APK cho kiến trúc cần hỗ trợ bằng `:android:assembleStandardDebug` với cùng khóa ký. Chọn versionCode cao hơn release tự động mới nhất. Không truyền các tham số `android.injected.*` của Android Studio: chúng có thể gắn `android:testOnly=true`, khiến trình cài đặt Android từ chối APK. Script tạo manifest sẽ chặn APK có cờ này.
 3. Chạy script dưới đây trên APK đã có. Script đọc package/phiên bản/kiến trúc từ APK và tính kích thước, SHA-256; không build hoặc tải lên mạng.
 
 ```sh
