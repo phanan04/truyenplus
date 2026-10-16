@@ -1,6 +1,12 @@
 package ireader.presentation.ui.settings.textreplacement
 
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
+
 import ireader.presentation.ui.truyenplus.ReaderOptionalGlassCard as Card
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
 import ireader.presentation.ui.truyenplus.readerOptionalPanelGlass
 import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.foundation.layout.*
@@ -51,6 +57,7 @@ fun TextReplacementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                modifier=Modifier.readerOptionalPanelGlass(0),
                 title = { Text("Text Replacement") },
                 navigationIcon = {
                     TopAppBarBackButton(onClick = { navController?.safePopBackStack() })
@@ -77,7 +84,7 @@ fun TextReplacementScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = readerOptionalGlassColor(MaterialTheme.colorScheme.surface),
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
@@ -85,7 +92,9 @@ fun TextReplacementScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { showAddDialog = true },
-                shape = CircleShape
+                shape = CircleShape,modifier=Modifier.readerOptionalGlass(28),
+                containerColor=readerOptionalGlassColor(MaterialTheme.colorScheme.primaryContainer),
+                contentColor=MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = localizeHelper.localize(Res.string.add))
             }

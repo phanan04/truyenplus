@@ -1,5 +1,7 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons

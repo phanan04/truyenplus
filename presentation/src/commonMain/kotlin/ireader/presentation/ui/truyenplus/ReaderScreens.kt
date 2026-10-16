@@ -1,10 +1,15 @@
 package ireader.presentation.ui.truyenplus
+
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
 import kotlinx.coroutines.flow.first
 
 import ireader.i18n.resources.*
 import ireader.i18n.asString
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -87,9 +92,9 @@ fun ReaderChips(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         itemsIndexed(labels) { index, label ->
             Surface(onClick = { onSelect(index) }, shape = CircleShape,
-                modifier=if(selected==index)Modifier else Modifier.readerAppGlassCard(24),
-                color = if (selected == index) MaterialTheme.colorScheme.primary else Color.Transparent,
-                contentColor=if(selected==index) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                modifier=if(LocalReaderFullGlass.current)Modifier.readerControlGlass(CircleShape,selected=selected==index) else if(selected==index)Modifier else Modifier.readerAppGlassCard(24),
+                color = if (selected == index && !LocalReaderFullGlass.current) MaterialTheme.colorScheme.primary else Color.Transparent,
+                contentColor=if(selected==index && !LocalReaderFullGlass.current) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 border = BorderStroke(1.dp, if (selected == index) Color.Transparent else Color.Transparent)) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     if (selected == index) Icon(Icons.Default.Check, null, Modifier.size(14.dp))
@@ -248,7 +253,7 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
                     else {
                         ReaderCollectionPicker(categories,categoryIndex,onCategory,onCollections,iconOnly=true)
                         Box {
-                            IconButton(onClick={organizeOpen=true},modifier=Modifier.padding(start=8.dp).size(48.dp).shadow(4.dp,CircleShape).readerOptionalGlass(24).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape).testTag("library-organize")) {Icon(Icons.Outlined.MoreHoriz,strings.localize(Res.string.more))}
+                            IconButton(onClick={organizeOpen=true},modifier=Modifier.padding(start=8.dp).size(48.dp).shadow(4.dp,CircleShape).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape).testTag("library-organize")) {Icon(Icons.Outlined.MoreHoriz,strings.localize(Res.string.more))}
                             ReaderGlassDropdownMenu(organizeOpen,{organizeOpen=false}) {
                                 DropdownMenuItem(text={Text(strings.localize(Res.string.select))},modifier=Modifier.heightIn(min=56.dp).testTag("library-edit"),onClick={organizeOpen=false;editing=true},leadingIcon={Icon(Icons.Default.CheckCircleOutline,null)})
                                 DropdownMenuItem(text={Text(strings.localize(Res.string.tp_sort_books))},modifier=Modifier.heightIn(min=56.dp),onClick={organizeOpen=false;onSort()},leadingIcon={Icon(Icons.Default.SortByAlpha,null)})

@@ -1,5 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,8 +84,8 @@ private data class ReaderTocResult(val source:List<Chapter>,val query:String,val
     val currentLabel=localize(Res.string.tp_current_chapter)
     val readLabel=localize(if(chapter.read)Res.string.tp_read else Res.string.tp_unread)
     val bookmarkLabel=localize(Res.string.tp_bookmarks)
-    Surface(onClick=onClick,shape=RoundedCornerShape(16.dp),color=if(current)MaterialTheme.colorScheme.onSurface.copy(alpha=.08f) else androidx.compose.ui.graphics.Color.Transparent,
-        modifier=Modifier.fillMaxWidth().heightIn(min=64.dp).testTag("toc-chapter-${chapter.id}").semantics {
+    Surface(onClick=onClick,shape=RoundedCornerShape(16.dp),color=if(current && !LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface.copy(alpha=.08f) else androidx.compose.ui.graphics.Color.Transparent,
+        modifier=Modifier.fillMaxWidth().readerControlGlass(RoundedCornerShape(16.dp),selected=current).heightIn(min=64.dp).testTag("toc-chapter-${chapter.id}").semantics {
             selected=current;stateDescription=listOfNotNull(if(current)currentLabel else null,readLabel,if(chapter.bookmark)bookmarkLabel else null).joinToString(" · ")
         }) {
         Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {

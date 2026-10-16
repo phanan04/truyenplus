@@ -18,9 +18,12 @@ import androidx.compose.ui.unit.dp
     border:BorderStroke?=null,content:@Composable ColumnScope.()->Unit
 ) {
     val full=LocalReaderFullGlass.current
-    Card(modifier=if(full)modifier.clip(shape).readerCardGlass(MaterialTheme.colorScheme.surface) else modifier,
+    Card(modifier=if(full)modifier.clip(shape).readerCardGlass(MaterialTheme.colorScheme.surface,shape=shape) else modifier,
         shape=shape,colors=if(full)colors.copy(containerColor=Color.Transparent,disabledContainerColor=Color.Transparent) else colors,
-        elevation=elevation,border=border,content=content)
+        elevation=elevation,border=border) {
+        val column=this
+        ReaderGlassPanelContent {content(column)}
+    }
 }
 
 /** Menus share the same captured input across popup windows; no own-content blur. */
@@ -31,4 +34,38 @@ import androidx.compose.ui.unit.dp
         .readerNavigationGlass(MaterialTheme.colorScheme.surface,radius=20,material=ReaderGlassMaterial.Frosted) else modifier,
         containerColor=if(full)Color.Transparent else MenuDefaults.containerColor,
         shape=if(full)RoundedCornerShape(20.dp) else MenuDefaults.shape,content=content)
+}
+
+/** Surfaces already own their material. Descendant controls must reuse it instead of sampling again. */
+@Composable fun ReaderGlassGroupSurface(modifier:Modifier=Modifier,shape:Shape=androidx.compose.ui.graphics.RectangleShape,
+    color:Color=MaterialTheme.colorScheme.surface,contentColor:Color=contentColorFor(color),
+    tonalElevation:androidx.compose.ui.unit.Dp=0.dp,shadowElevation:androidx.compose.ui.unit.Dp=0.dp,
+    border:BorderStroke?=null,content:@Composable ()->Unit) {
+    Surface(modifier,shape,color,contentColor,tonalElevation,shadowElevation,border) {
+        ReaderGlassPanelContent(content)
+    }
+}
+
+@Composable fun ReaderGlassGroupSurface(onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true,
+    shape:Shape=MaterialTheme.shapes.medium,color:Color=MaterialTheme.colorScheme.surface,contentColor:Color=contentColorFor(color),
+    tonalElevation:androidx.compose.ui.unit.Dp=0.dp,shadowElevation:androidx.compose.ui.unit.Dp=0.dp,
+    border:BorderStroke?=null,interactionSource:androidx.compose.foundation.interaction.MutableInteractionSource?=null,
+    content:@Composable ()->Unit) {
+    Surface(onClick,modifier,enabled,shape,color,contentColor,tonalElevation,shadowElevation,border,interactionSource) {
+        ReaderGlassPanelContent(content)
+    }
+}
+
+/** Transient feedback uses the same window material; messages and actions remain sharp. */
+@Composable fun ReaderGlassSnackbarHost(hostState:SnackbarHostState,modifier:Modifier=Modifier) {
+    SnackbarHost(hostState,modifier) {data ->
+        val full=LocalReaderFullGlass.current
+        val c=MaterialTheme.colorScheme
+        Snackbar(snackbarData=data,modifier=Modifier.readerOptionalPanelGlass(16),
+            shape=if(full)RoundedCornerShape(16.dp) else SnackbarDefaults.shape,
+            containerColor=if(full)Color.Transparent else SnackbarDefaults.color,
+            contentColor=if(full)c.onSurface else SnackbarDefaults.contentColor,
+            actionColor=if(full)c.onSurface else SnackbarDefaults.actionColor,
+            dismissActionContentColor=if(full)c.onSurface else SnackbarDefaults.dismissActionContentColor)
+    }
 }

@@ -1,5 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 

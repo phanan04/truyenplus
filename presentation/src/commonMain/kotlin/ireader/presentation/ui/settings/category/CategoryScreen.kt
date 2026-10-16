@@ -1,5 +1,17 @@
 package ireader.presentation.ui.settings.category
 
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedButton as OutlinedButton
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.ReaderGlassFilterChip as FilterChip
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
+
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
+import ireader.presentation.ui.truyenplus.LocalReaderFullGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
+import ireader.presentation.ui.truyenplus.ReaderGlassSnackbarHost as SnackbarHost
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 
@@ -250,21 +262,21 @@ fun CategoryFloatingActionButton(
         androidx.compose.material3.ExtendedFloatingActionButton(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(16.dp),
+                .padding(16.dp).readerOptionalGlass(32),
             text = {
                 MidSizeTextComposable(
                     text = localize(Res.string.add),
-                    color = MaterialTheme.colorScheme.onSecondary
+                    color = if(LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondary
                 )
             },
             onClick = {
                 vm.showDialog = true
             },
             icon = {
-                Icon(Icons.Filled.Add, "", tint = MaterialTheme.colorScheme.onSecondary)
+                Icon(Icons.Filled.Add, "", tint = if(LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondary)
             },
-            contentColor = MaterialTheme.colorScheme.onSecondary,
-            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = if(LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondary,
+            containerColor = readerOptionalGlassColor(MaterialTheme.colorScheme.secondary),
             shape = RoundedCornerShape(32.dp)
         )
     }
@@ -368,10 +380,10 @@ private fun AutoRuleChip(
 ) {
     Surface(
         modifier = Modifier
-            .padding(vertical = 2.dp)
+            .padding(vertical = 2.dp).readerOptionalGlass(8)
             .clickable { onToggle() },
         shape = RoundedCornerShape(8.dp),
-        color = if (rule.isEnabled)
+        color = if(LocalReaderFullGlass.current)androidx.compose.ui.graphics.Color.Transparent else if (rule.isEnabled)
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
         else
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -398,7 +410,7 @@ private fun AutoRuleChip(
             Text(
                 text = localize(if(rule.ruleType==CategoryAutoRule.RuleType.GENRE)Res.string.tp_category_genre else Res.string.tp_category_source)+": "+rule.value,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (rule.isEnabled)
+                color = if(LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface else if (rule.isEnabled)
                     MaterialTheme.colorScheme.onPrimaryContainer
                 else
                     MaterialTheme.colorScheme.onSurfaceVariant,
@@ -479,9 +491,9 @@ private fun AutoCategorizationRulesDialog(
                     }
                 } else {
                     Surface(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().readerOptionalGlass(8),
                         shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        color = readerOptionalGlassColor(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     ) {
                         Text(
                             text = localize(Res.string.tp_category_rules_empty),
@@ -634,9 +646,9 @@ private fun AutoRuleItem(
     onDelete: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().readerOptionalGlass(8),
         shape = RoundedCornerShape(8.dp),
-        color = if (rule.isEnabled)
+        color = if(LocalReaderFullGlass.current)androidx.compose.ui.graphics.Color.Transparent else if (rule.isEnabled)
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         else
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
@@ -666,7 +678,7 @@ private fun AutoRuleItem(
                 Text(
                     text = rule.value,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (rule.isEnabled)
+                    color = if(LocalReaderFullGlass.current)MaterialTheme.colorScheme.onSurface else if (rule.isEnabled)
                         MaterialTheme.colorScheme.onSurface
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant

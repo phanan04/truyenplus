@@ -18,6 +18,47 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderFullGlassTest {
+    @Test fun remainingControlsUseGlassWithoutLosingSelectionInputOrDisabledActions() {
+        val full=mutableStateOf(false)
+        val chosen=mutableStateOf(false)
+        val value=mutableStateOf("Novel")
+        var clicks=0;var controlMounts=0
+        ImageComposeScene(400,380) {MaterialTheme {
+            CompositionLocalProvider(LocalReaderFullGlass provides full.value) {
+                ReaderAppBackdrop {
+                    Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                        ReaderGlassButton({clicks++},Modifier.fillMaxWidth()) {remember {controlMounts++};androidx.compose.material3.Text("Import")}
+                        ReaderGlassOutlinedButton({clicks++},enabled=false) {androidx.compose.material3.Text("Disabled")}
+                        ReaderGlassFilterChip(chosen.value,{chosen.value=!chosen.value},label={androidx.compose.material3.Text("Voice")})
+                        ReaderGlassOutlinedTextField(value.value,{value.value=it},label={androidx.compose.material3.Text("Name")})
+                    }
+                }
+            }
+        }}.use {scene ->
+            fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
+            fun nodes()=scene.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
+            fun settle() {repeat(6){scene.render()}}
+            fun image():ByteArray {settle();return scene.render().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes}
+            fun find(text:String)=nodes().first {it.config.getOrNull(SemanticsProperties.Text)?.any {it.text==text}==true}
+            val before=image()
+            full.value=true;val glass=image()
+            assertFalse(before.contentEquals(glass),"Controls still render solid Material backgrounds in full mode")
+            assertTrue(find("Import").config[SemanticsActions.OnClick].action!!.invoke())
+            assertTrue(find("Disabled").config.contains(SemanticsProperties.Disabled))
+            val chip=find("Voice")
+            assertFalse(chip.config[SemanticsProperties.Selected])
+            assertTrue(chip.config[SemanticsActions.OnClick].action!!.invoke());settle()
+            assertTrue(find("Voice").config[SemanticsProperties.Selected])
+            val input=nodes().first {it.config.contains(SemanticsActions.SetText)}
+            assertTrue(input.config[SemanticsActions.SetText].action!!.invoke(androidx.compose.ui.text.AnnotatedString("New title")))
+            assertEquals("New title",value.value)
+            chosen.value=false;value.value="Novel";full.value=false
+            assertTrue(before.contentEquals(image()),"Off did not restore the exact controls")
+            assertEquals(1,clicks)
+            assertEquals(1,controlMounts,"Changing material must not remount control content")
+        }
+    }
+
     @Test fun utilityCaptureIsAbsentWhenOffAndDoesNotRemountItsContent() {
         val enabled=mutableStateOf(false)
         var captured=false;var mounts=0

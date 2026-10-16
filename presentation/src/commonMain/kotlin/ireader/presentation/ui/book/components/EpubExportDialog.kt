@@ -1,5 +1,12 @@
 package ireader.presentation.ui.book.components
 
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedButton as OutlinedButton
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
+
+import ireader.presentation.ui.truyenplus.ReaderGlassPanelColumn as Column
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -17,6 +24,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import ireader.presentation.ui.truyenplus.readerPanel
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
@@ -149,7 +158,7 @@ fun EpubExportDialog(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                        Surface(modifier=Modifier.readerOptionalGlass(18),shape = RoundedCornerShape(18.dp), color = readerOptionalGlassColor(MaterialTheme.colorScheme.surfaceContainerLow)) {
                             Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 IBookImageComposable(image = BookCover.from(book), contentScale = ContentScale.Crop,

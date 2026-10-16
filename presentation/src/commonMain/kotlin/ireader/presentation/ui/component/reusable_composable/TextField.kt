@@ -1,11 +1,11 @@
 package ireader.presentation.ui.component.reusable_composable
 
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

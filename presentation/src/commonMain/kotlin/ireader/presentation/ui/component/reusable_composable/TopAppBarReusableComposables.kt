@@ -1,5 +1,8 @@
 package ireader.presentation.ui.component.reusable_composable
 
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.readerOptionalGlass
+import ireader.presentation.ui.truyenplus.readerOptionalGlassColor
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -194,7 +197,7 @@ fun AppIconButton(
         modifier =
         modifier
             .size(48.dp) // Increased from 40dp to meet 48dp minimum touch target for accessibility
-            .background(color = MaterialTheme.colorScheme.background)
+            .readerOptionalGlass(24).background(color = readerOptionalGlassColor(MaterialTheme.colorScheme.background))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
@@ -234,7 +237,7 @@ fun AppIconButton(
         )
 
     Surface(
-        modifier = finalModifier,
+        modifier = finalModifier.readerOptionalGlass(12),
         shape = RoundedCornerShape(12.dp),
         color = Color.Transparent,
     ) {

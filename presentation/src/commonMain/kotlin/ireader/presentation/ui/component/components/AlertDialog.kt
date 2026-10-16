@@ -29,6 +29,7 @@ fun IAlertDialog(
     titleContentColor: Color = contentColorFor(MaterialTheme.colorScheme.surface),
     textContentColor: Color = contentColorFor(MaterialTheme.colorScheme.surface),
 ) {
+    ireader.presentation.ui.truyenplus.ReaderGlassPanelContent {
     AlertDialog(
         onDismissRequest = onDismissRequest,
         confirmButton = confirmButton,
@@ -42,4 +43,5 @@ fun IAlertDialog(
         iconContentColor = iconContentColor,
 
     )
+    }
 }

@@ -1,5 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -59,12 +62,12 @@ internal object ReaderBooksTokens {
     }
 }
 @Composable private fun ReaderBooksAccount(onClick:()->Unit) {
-    IconButton(onClick,modifier=Modifier.size(48.dp).readerOptionalGlass(24).testTag("books-account")) {
+    IconButton(onClick,modifier=Modifier.size(48.dp).testTag("books-account")) {
         ReaderBooksAccountSymbol(localize(Res.string.tp_settings))
     }
 }
 @Composable private fun ReaderBooksBack(onClick:()->Unit) {
-    IconButton(onClick,modifier=Modifier.size(48.dp).readerOptionalGlass(24).testTag("books-back")) {Icon(Icons.Outlined.ChevronLeft,localize(Res.string.tp_back))}
+    IconButton(onClick,modifier=Modifier.size(48.dp).testTag("books-back")) {Icon(Icons.Outlined.ChevronLeft,localize(Res.string.tp_back))}
 }
 
 @Composable internal fun ReaderBooksSection(title:String,onMore:(()->Unit)?=null,subtitle:String="",topPadding:Dp=22.dp,bottomPadding:Dp=20.dp) {

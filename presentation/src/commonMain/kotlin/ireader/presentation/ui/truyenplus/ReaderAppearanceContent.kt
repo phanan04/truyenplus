@@ -1,5 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedButton as OutlinedButton
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -193,8 +197,8 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
 @Composable internal fun ReaderSettingsTabs(labels:List<String>,ids:List<String>,selected:Int,onSelect:(Int)->Unit,tag:String,enabled:List<Boolean> = List(labels.size){true}) {
     Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=4.dp),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
         labels.forEachIndexed { i,label->
-            Surface(onClick={onSelect(i)},enabled=enabled[i],shape=RoundedCornerShape(12.dp),color=if(selected==i)LocalContentColor.current.copy(alpha=.09f) else Color.Transparent,
-                modifier=Modifier.weight(1f).height(48.dp).testTag("$tag-${ids[i]}").semantics {this.selected=selected==i;contentDescription=label}) {
+            Surface(onClick={onSelect(i)},enabled=enabled[i],shape=RoundedCornerShape(12.dp),color=if(selected==i && !LocalReaderFullGlass.current)LocalContentColor.current.copy(alpha=.09f) else Color.Transparent,
+                modifier=Modifier.weight(1f).readerControlGlass(RoundedCornerShape(12.dp),enabled[i],selected==i).height(48.dp).testTag("$tag-${ids[i]}").semantics {this.selected=selected==i;contentDescription=label}) {
                 Box(Modifier.padding(horizontal=4.dp),contentAlignment=Alignment.Center){Text(label,style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)}
             }
         }
@@ -242,7 +246,7 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
 
 @Composable private fun Choice(text: String, selected: Boolean, click: () -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, fontFamily: FontFamily? = null, padding: Int = 12) {
-    Surface(onClick = click, enabled = enabled, modifier = modifier.heightIn(min=48.dp).semantics { this.selected = selected },
+    Surface(onClick = click, enabled = enabled, modifier = modifier.readerControlGlass(RoundedCornerShape(12.dp),enabled,selected).heightIn(min=48.dp).semantics { this.selected = selected },
         shape = RoundedCornerShape(12.dp), color = Color.Transparent, contentColor = if (selected) ReaderControlAccent else LocalContentColor.current,
         border = BorderStroke(1.dp, if(selected) ReaderControlAccent else Color.Transparent)) {
         Box(Modifier.padding(horizontal = padding.dp), contentAlignment = Alignment.Center) { Text(text, fontFamily = fontFamily, style = MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis) }

@@ -13,6 +13,31 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderCategoryRowTest {
+    @Test fun expandedCollectionRulesKeepReadableTextWithFullGlass() {
+        for(full in listOf(false,true))for(dark in listOf(false,true)) {
+            ImageComposeScene(400,800) {
+                CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),LocalReaderFullGlass provides full) {
+                    MaterialTheme(if(dark)androidx.compose.material3.darkColorScheme() else androidx.compose.material3.lightColorScheme()) {
+                        ReaderAppBackdrop {EnhancedCategoryItem(category=CategoryWithCount(Category(4,"Stories",0,0),7),
+                            rules=listOf(CategoryAutoRule(1,4,CategoryAutoRule.RuleType.GENRE,"Tiên hiệp")),
+                            onDelete={},onRename={},onConfigureAutoRules={},onToggleRule={_,_->},onDeleteRule={})}
+                    }
+                }
+            }.use {scene ->
+                fun all(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::all)
+                fun nodes()=scene.semanticsOwners.flatMap {all(it.rootSemanticsNode)}
+                repeat(3){scene.render(it*100_000_000L)}
+                val expand=nodes().first {it.config.getOrNull(SemanticsProperties.Text)?.any {"1" in it.text}==true && it.config.contains(SemanticsActions.OnClick)}
+                assertTrue(expand.config[SemanticsActions.OnClick].action!!.invoke())
+                repeat(6){scene.render((it+3)*100_000_000L)}
+                val rule=nodes().first {it.config.getOrNull(SemanticsProperties.Text)?.any {"Tiên hiệp" in it.text}==true}
+                val results=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                assertTrue(rule.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results))
+                assertTrue(results.single().layoutInput.style.color.alpha>.9f,"Glass made a rule label transparent")
+            }
+        }
+    }
+
     @Test fun collectionNameKeepsSpaceAtLargeFontAndHasAccessibleReordering() {
         val name="Bộ sưu tập truyện yêu thích có tên dài"
         val scene=ImageComposeScene(320,800,Density(1f,2f)) {

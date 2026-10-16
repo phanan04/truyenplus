@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
@@ -22,12 +24,14 @@ private val LocalReaderGlassPanel=staticCompositionLocalOf {false}
     CompositionLocalProvider(LocalReaderGlassPanel provides true,content=content)
 }
 
-@Composable fun ReaderGlassPanelColumn(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) {
-    ReaderGlassPanelContent {Column(modifier,content=content)}
+@Composable fun ReaderGlassPanelColumn(modifier:Modifier=Modifier,
+    verticalArrangement:Arrangement.Vertical=Arrangement.Top,horizontalAlignment:Alignment.Horizontal=Alignment.Start,
+    content:@Composable ColumnScope.()->Unit) {
+    ReaderGlassPanelContent {Column(modifier,verticalArrangement,horizontalAlignment,content)}
 }
 
-@Composable internal fun Modifier.readerCardGlass(tint:Color,radius:Int?=null):Modifier =
-    if(LocalReaderGlassPanel.current)background(tint.copy(alpha=.08f)) else readerNavigationGlass(tint,radius=radius)
+@Composable internal fun Modifier.readerCardGlass(tint:Color,radius:Int?=null,shape:androidx.compose.ui.graphics.Shape?=null):Modifier =
+    if(LocalReaderGlassPanel.current)background(tint.copy(alpha=.08f)) else readerNavigationGlass(tint,radius=radius,shapeOverride=shape)
 
 /** A new popup/window always needs its own diffusion even when opened from an existing panel. */
 @Composable fun Modifier.readerOptionalPanelGlass(radius:Int=28,tint:Color=MaterialTheme.colorScheme.surface):Modifier =

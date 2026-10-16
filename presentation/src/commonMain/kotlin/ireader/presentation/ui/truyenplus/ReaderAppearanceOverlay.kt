@@ -1,5 +1,8 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -35,7 +38,7 @@ fun ReaderAppearanceOverlay(onDismiss: () -> Unit, background: Color = MaterialT
             .heightIn(max=(maxHeight-16.dp-playerInset).coerceAtLeast(48.dp)).readerPanel(24,background,ink).testTag("reader-appearance-panel")
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
             shape = RoundedCornerShape(24.dp), color = Color.Transparent, contentColor = ink) {
-            Column(Modifier.navigationBarsPadding()) {
+            ReaderGlassPanelColumn(Modifier.navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(strings.localize(Res.string.tp_reader_appearance), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                     IconButton(onClick = onDismiss, Modifier.size(48.dp).testTag("reader-appearance-close")) {

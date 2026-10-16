@@ -39,7 +39,7 @@ fun Modifier.readerNavigationSource(backdrop: ReaderNavigationBackdrop?): Modifi
 @OptIn(ExperimentalHazeApi::class)
 @Composable
 fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
-    material:ReaderGlassMaterial=ReaderGlassMaterial.Compact): Modifier {
+    material:ReaderGlassMaterial=ReaderGlassMaterial.Compact,shapeOverride:androidx.compose.ui.graphics.Shape?=null): Modifier {
     val backdrop=LocalReaderNavigationBackdrop.current
     if(backdrop==null || !backdrop.samplingEnabled) {
         return drawWithContent {drawRect(tint);drawContent()}
@@ -59,9 +59,9 @@ fun Modifier.readerNavigationGlass(tint: Color, radius:Int?=null,
         return base.hazeBlur(HazeInput.Sources(backdrop.state),style,
             performanceMode=HazePerformanceMode.Default)
     }
-    val style=remember(tint,radius,material,full) {
+    val style=remember(tint,radius,material,full,shapeOverride) {
         GlassStyle.regular.then {
-            shape(radius?.let {RoundedCornerShape(it.dp)} ?: RoundedCornerShape(50))
+            shape(shapeOverride as? RoundedCornerShape ?: radius?.let {RoundedCornerShape(it.dp)} ?: RoundedCornerShape(50))
             backgroundColor(tint)
             tint(tint.copy(alpha=if(full && material==ReaderGlassMaterial.Frosted).42f else if(dark).22f else .18f))
             // Keep Haze's size-aware Regular optics, including its curved edge refraction.

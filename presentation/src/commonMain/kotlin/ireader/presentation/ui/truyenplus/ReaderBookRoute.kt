@@ -1,8 +1,14 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassButton as Button
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
+import ireader.presentation.ui.truyenplus.ReaderGlassSnackbarHost as SnackbarHost
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.sp
@@ -242,7 +248,7 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
             }
         }
         item {
-            Box(Modifier.padding(horizontal=ReaderBooksTokens.gutter,vertical=16.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.04f),ReaderBooksTokens.rowShape)) {
+            Box(Modifier.padding(horizontal=ReaderBooksTokens.gutter,vertical=16.dp).readerOptionalGlass(18).background(readerOptionalGlassColor(MaterialTheme.colorScheme.onSurface.copy(alpha=.04f)),ReaderBooksTokens.rowShape)) {
                 ReaderBooksActionRow(strings.localize(Res.string.tp_chapters),chapters.size.toString(),Icons.Default.FormatListBulleted,
                     onClick={if(chapters.isNotEmpty())contentsOpen=true},modifier=Modifier.testTag("book-contents"),enabled=chapters.isNotEmpty())
             }

@@ -1,5 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedButton as OutlinedButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +41,7 @@ fun ReaderFloatingPlayer(isPlaying: Boolean, speed: Float, progress: Float,
     val active=isPlaying || isLoading
     Surface(modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).readerPanel(26).clickable(enabled=onMinimize!=null,interactionSource=remember { androidx.compose.foundation.interaction.MutableInteractionSource() },indication=null) { onMinimize?.invoke() }.testTag("listen-expanded-toggle"),
         shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=colors.onSurface) {
-        Column(Modifier.padding(horizontal=12.dp,vertical=4.dp)) {
+        ReaderGlassPanelColumn(Modifier.padding(horizontal=12.dp,vertical=4.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Outlined.Headphones,null,Modifier.size(20.dp))
                 Column(Modifier.weight(1f)) {
@@ -92,9 +96,9 @@ internal fun ReaderListeningSpeed(speed:Float,onSpeed:(Float)->Unit) {
                 for(value in 2..8) {
                     val selected=step==value
                     Surface(onClick={onSpeed(value*.25f)},shape=RoundedCornerShape(14.dp),
-                        color=if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
-                        contentColor=if(selected)colors.surface else colors.onSurface,
-                        modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-$value").semantics {this.selected=selected}) {
+                        color=if(LocalReaderFullGlass.current)Color.Transparent else if(selected)colors.onSurface else colors.onSurface.copy(alpha=.04f),
+                        contentColor=if(selected && !LocalReaderFullGlass.current)colors.surface else colors.onSurface,
+                        modifier=Modifier.weight(1f).readerControlGlass(RoundedCornerShape(14.dp),selected=selected).height(48.dp).testTag("listen-speed-$value").semantics {this.selected=selected}) {
                         Box(contentAlignment=Alignment.Center) {
                             Text(listeningSpeedLabel(value*.25f),fontSize=12.sp,maxLines=1,softWrap=false,
                                 fontWeight=if(selected)FontWeight.SemiBold else FontWeight.Normal)
@@ -104,8 +108,8 @@ internal fun ReaderListeningSpeed(speed:Float,onSpeed:(Float)->Unit) {
             } else {
                 OutlinedButton(onClick={onSpeed((step-1)*.25f)},enabled=step>2,
                     modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-decrease"),shape=RoundedCornerShape(14.dp)) {Text("−")}
-                Surface(modifier=Modifier.weight(1f).height(48.dp).testTag("listen-speed-value"),
-                    shape=RoundedCornerShape(14.dp),color=colors.onSurface,contentColor=colors.surface) {
+                Surface(modifier=Modifier.weight(1f).readerControlGlass(RoundedCornerShape(14.dp),selected=true).height(48.dp).testTag("listen-speed-value"),
+                    shape=RoundedCornerShape(14.dp),color=readerOptionalGlassColor(colors.onSurface),contentColor=if(LocalReaderFullGlass.current)colors.onSurface else colors.surface) {
                     Box(contentAlignment=Alignment.Center) {Text(listeningSpeedLabel(step*.25f),fontSize=12.sp,maxLines=1,softWrap=false,fontWeight=FontWeight.SemiBold)}
                 }
                 OutlinedButton(onClick={onSpeed((step+1)*.25f)},enabled=step<8,
@@ -126,7 +130,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
     Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(20.dp)) {
-        Column {
+        ReaderGlassPanelColumn {
             Row(Modifier.fillMaxWidth().height(48.dp).padding(start=18.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically) {
                 Text(s.localize(Res.string.tp_listening_settings),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)
                 if(onDismiss!=null)IconButton(onClick=onDismiss,modifier=Modifier.size(48.dp).testTag("listen-options-close")){Icon(Icons.Default.Close,s.localize(Res.string.close))}

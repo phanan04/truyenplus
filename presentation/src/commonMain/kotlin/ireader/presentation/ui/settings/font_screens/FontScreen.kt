@@ -1,5 +1,8 @@
 package ireader.presentation.ui.settings.font_screens
 
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+import ireader.presentation.ui.truyenplus.ReaderGlassOutlinedTextField as OutlinedTextField
+
 import ireader.presentation.ui.truyenplus.ReaderOptionalGlassCard as Card
 import ireader.presentation.ui.truyenplus.readerOptionalGlass
 import ireader.presentation.ui.truyenplus.readerOptionalGlassColor

@@ -104,8 +104,8 @@ fun MidSizeToolbar(
 ) {
 
     Surface(
-        modifier = modifier,
-        color = backgroundColor,
+        modifier = modifier.readerOptionalGlass(0,backgroundColor),
+        color = readerOptionalGlassColor(backgroundColor),
         contentColor = contentColor,
         shadowElevation = elevation,
     ) {
@@ -116,7 +116,7 @@ fun MidSizeToolbar(
             navigationIcon = navigationIcon,
             actions = actions,
             colors = TopAppBarDefaults.mediumTopAppBarColors(
-                containerColor = backgroundColor,
+                containerColor = readerOptionalGlassColor(backgroundColor),
                 titleContentColor = contentColor,
             ),
         )

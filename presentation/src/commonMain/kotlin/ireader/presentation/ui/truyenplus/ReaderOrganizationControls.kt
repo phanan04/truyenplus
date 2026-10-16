@@ -1,5 +1,9 @@
 package ireader.presentation.ui.truyenplus
 
+import ireader.presentation.ui.truyenplus.ReaderGlassTextButton as TextButton
+import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
+
+import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.selection.selectable
@@ -78,7 +82,7 @@ import ireader.presentation.ui.core.theme.LocalLocalizeHelper
     val s=requireNotNull(LocalLocalizeHelper.current)
     var open by androidx.compose.runtime.remember {androidx.compose.runtime.mutableStateOf(false)}
     Box {
-        TextButton(onClick={open=true},modifier=(if(iconOnly)Modifier.size(48.dp).shadow(4.dp,CircleShape).readerOptionalGlass(24).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape) else Modifier.heightIn(min=48.dp)).testTag("library-collections")) {
+        TextButton(onClick={open=true},modifier=(if(iconOnly)Modifier.size(48.dp).shadow(4.dp,CircleShape).background(readerOptionalGlassColor(MaterialTheme.colorScheme.surface),CircleShape) else Modifier.heightIn(min=48.dp)).testTag("library-collections")) {
             if(iconOnly)Icon(Icons.Default.Sort,s.localize(Res.string.tp_collections),Modifier.size(24.dp))
             else {
                 Text(names.getOrNull(selected).orEmpty(),maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
