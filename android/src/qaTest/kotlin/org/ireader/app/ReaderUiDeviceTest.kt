@@ -37,7 +37,7 @@ class ReaderUiDeviceTest {
             val koin=GlobalContext.get()
             koin.get<UiPreferences>().readerFullGlass().set(false)
             koin.get<AppPreferences>().capCutVoiceId().set("")
-            if(description.methodName in setOf("largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze","fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback"))
+            if(description.methodName in setOf("checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking","largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze","fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback"))
                 koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
             koin.get<UiPreferences>().apply {
                 val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
@@ -52,8 +52,8 @@ class ReaderUiDeviceTest {
                     backgroundColorReader().set(DomainColor(1f,1f,1f));textColorReader().set(DomainColor(0f,0f,0f))
                 }
             }
-            if(description.methodName=="booksRootNavigationSearchAccountAndReadingRemainConnected")koin.get<UiPreferences>().apply {readerAppearance().set("light");readerSearchShelf().set(false)}
-            val visual=description.methodName=="booksRootNavigationSearchAccountAndReadingRemainConnected"
+            if(description.methodName in setOf("booksRootNavigationSearchAccountAndReadingRemainConnected","checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking"))koin.get<UiPreferences>().apply {readerAppearance().set("light");readerFollowsAppearance().set(true);readerSearchShelf().set(false)}
+            val visual=description.methodName in setOf("booksRootNavigationSearchAccountAndReadingRemainConnected","checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking")
             if(visual)koin.get<ireader.domain.preferences.prefs.LibraryPreferences>().categoryFlags().set(ireader.domain.models.DisplayMode.CompactGrid.flag)
             val cover=File(context.getExternalFilesDir(null),"reference-cover.jpg")
             val metadata=File(context.getExternalFilesDir(null),"reference-meta.json").takeIf {visual && it.isFile}?.let {org.json.JSONObject(it.readText())}
@@ -578,6 +578,28 @@ class ReaderUiDeviceTest {
         ui.onNodeWithTag("listen-options-close").performClick()
         wakeControls();ui.onNodeWithTag("reader-close").performClick();waitTag("book-read");device.pressBack();waitTag("books-search-workspace")
         ui.onNodeWithTag("search-return").performClick();waitTag("nav-Library");ui.onNodeWithTag("nav-Library").assertIsSelected()
+    }
+
+    @Test fun checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking() {
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        for(tag in listOf("reader-settings","reader-appearance-shortcut","reader-menu-appearance")) {
+            wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-reading-menu")
+            if(tag=="reader-settings")shot("checkpoint25-reader-menu")
+            ui.onNodeWithTag(tag).performClick();waitTag("reader-appearance-panel")
+            ui.onNodeWithTag("reader-reading-menu").assertDoesNotExist()
+            ui.onNodeWithTag("reader-appearance-customize").assertIsDisplayed()
+            if(tag=="reader-settings")shot("checkpoint25-themes")
+            ui.onNodeWithTag("reader-appearance-close").performClick()
+        }
+        wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-previous")
+        ui.onNodeWithTag("reader-previous").assertIsNotEnabled()
+        ui.onNodeWithTag("reader-next").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Chương 2",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-previous")
+        ui.onNodeWithTag("reader-previous").assertIsEnabled().performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Chương 1",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls();shot("checkpoint25-reader")
     }
 
     @Test fun readerPanelsAndScrollingStayResponsiveWhileListening() {

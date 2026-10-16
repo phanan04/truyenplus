@@ -522,6 +522,7 @@ data class ReaderScreenSpec(
                     exit = slideOutVertically(targetOffsetY = { -it })
                 ) {
                     ReaderScreenDrawer(
+                        book = vm.book,
                         onReverseIcon = {
                             vm.toggleDrawerAsc()
                         },

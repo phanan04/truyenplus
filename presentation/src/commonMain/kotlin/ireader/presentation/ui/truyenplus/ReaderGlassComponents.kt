@@ -2,6 +2,8 @@ package ireader.presentation.ui.truyenplus
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -29,11 +31,14 @@ import androidx.compose.ui.unit.dp
 /** Menus share the same captured input across popup windows; no own-content blur. */
 @Composable fun ReaderGlassDropdownMenu(expanded:Boolean,onDismissRequest:()->Unit,
     modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit) {
-    val full=LocalReaderFullGlass.current
-    DropdownMenu(expanded,onDismissRequest,modifier=if(full)modifier.clip(RoundedCornerShape(20.dp))
-        .readerNavigationGlass(MaterialTheme.colorScheme.surface,radius=20,material=ReaderGlassMaterial.Frosted) else modifier,
-        containerColor=if(full)Color.Transparent else MenuDefaults.containerColor,
-        shape=if(full)RoundedCornerShape(20.dp) else MenuDefaults.shape,content=content)
+    val c=MaterialTheme.colorScheme
+    DropdownMenu(expanded,onDismissRequest,modifier=modifier.widthIn(min=250.dp).clip(RoundedCornerShape(29.dp))
+        .readerNavigationGlass(c.surface,radius=29,material=ReaderGlassMaterial.Frosted),
+        containerColor=Color.Transparent,shape=RoundedCornerShape(29.dp),tonalElevation=0.dp,shadowElevation=6.dp) {
+        ReaderGlassPanelContent {
+            androidx.compose.foundation.layout.Column(Modifier.width(250.dp),content=content)
+        }
+    }
 }
 
 /** Surfaces already own their material. Descendant controls must reuse it instead of sampling again. */

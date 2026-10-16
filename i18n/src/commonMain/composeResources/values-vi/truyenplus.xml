@@ -380,4 +380,10 @@
     <string name="tp_settings_read_listen">Đọc và nghe</string>
     <string name="tp_settings_tools">Công cụ</string>
     <string name="tp_reader_customize">Tùy chỉnh</string>
+    <string name="tp_paper_white">Trắng</string>
+    <string name="tp_paper_charcoal">Than chì</string>
+    <string name="tp_paper_light">Giấy sáng</string>
+    <string name="tp_paper_night">Đêm</string>
+    <string name="tp_paper_warm">Giấy ấm</string>
+    <string name="tp_paper_blue">Xanh nhạt</string>
 </resources>

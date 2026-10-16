@@ -63,7 +63,7 @@ import androidx.compose.ui.unit.dp
     shape:Shape=ButtonDefaults.textShape,colors:ButtonColors=ButtonDefaults.textButtonColors(),
     elevation:ButtonElevation?=null,border:BorderStroke?=null,contentPadding:PaddingValues=ButtonDefaults.TextButtonContentPadding,
     interactionSource:MutableInteractionSource?=null,content:@Composable RowScope.()->Unit) {
-    TextButton(onClick,modifier.readerControlGlass(shape,enabled),enabled,shape,glassButtonColors(colors),elevation,border,contentPadding,interactionSource) {
+    TextButton(onClick,modifier,enabled,shape,glassButtonColors(colors),elevation,border,contentPadding,interactionSource) {
         val row=this;ReaderControlContent {content(row)}
     }
 }
@@ -71,7 +71,7 @@ import androidx.compose.ui.unit.dp
 @Composable fun ReaderGlassIconButton(onClick:()->Unit,modifier:Modifier=Modifier,enabled:Boolean=true,
     colors:IconButtonColors=IconButtonDefaults.iconButtonColors(),interactionSource:MutableInteractionSource?=null,
     content:@Composable ()->Unit) {
-    IconButton(onClick,modifier.readerControlGlass(CircleShape,enabled),enabled,
+    IconButton(onClick,modifier,enabled,
         if(LocalReaderFullGlass.current)colors.copy(containerColor=Color.Transparent,disabledContainerColor=Color.Transparent) else colors,
         interactionSource) {ReaderControlContent(content)}
 }

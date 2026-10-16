@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ireader.domain.models.entities.Chapter
 import ireader.i18n.localize
 import ireader.i18n.resources.*
@@ -106,35 +107,34 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
     var moreOpen by remember { mutableStateOf(false) }
     val appearanceLabel = localize(Res.string.tp_reader_appearance)
     ireader.presentation.ui.truyenplus.ReaderPaperTheme(backgroundColor,textColor) {
-    Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=12.dp,vertical=6.dp),contentAlignment=Alignment.TopCenter) {
-        Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(56.dp).testTag("reader-top-capsule"),
+    Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=18.dp,vertical=12.dp),contentAlignment=Alignment.TopCenter) {
+        Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(48.dp).testTag("reader-top-capsule"),
             verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            Surface(Modifier.size(52.dp).readerPanel(26,backgroundColor,textColor),shape=RoundedCornerShape(26.dp),color=Color.Transparent,contentColor=textColor) {
+            IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings").semantics {contentDescription=appearanceLabel}) {
+                Text("Aa",color=textColor,style=MaterialTheme.typography.titleMedium)
+            }
+            // A quiet paper-backed caption stays legible over text without becoming another floating capsule.
+            Surface(Modifier.weight(1f).height(40.dp).testTag("reader-identity"),
+                shape=RoundedCornerShape(10.dp),color=backgroundColor,contentColor=textColor) {
+                Column(Modifier.fillMaxSize().padding(horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                    Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),
+                        style=MaterialTheme.typography.labelMedium.copy(fontSize=13.sp),color=textColor.copy(alpha=.7f),
+                        maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
+                    if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f)Text(bookTitle,
+                        style=MaterialTheme.typography.labelSmall.copy(fontSize=12.sp),color=textColor.copy(alpha=.55f),
+                        maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
+                }
+            }
+            if(onEdit!=null)Box {
+                IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp)) {Icon(Icons.Default.MoreVert,localize(Res.string.expand_menu),tint=textColor)}
+                ireader.presentation.ui.truyenplus.ReaderGlassDropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {
+                    DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
+                    DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
+                    if(onListen!=null)DropdownMenuItem(text={Text(localize(Res.string.tp_listen_book))},onClick={moreOpen=false;onListen()})
+                }
+            }
+            Surface(Modifier.size(48.dp).readerPanel(24,backgroundColor,textColor),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=textColor) {
                 IconButton(onClick=onBack,modifier=Modifier.fillMaxSize().testTag("reader-close")) {Icon(Icons.Default.Close,localize(Res.string.tp_back))}
-            }
-            Surface(Modifier.weight(1f).height(56.dp).readerPanel(28,backgroundColor,textColor).testTag("reader-identity"),
-                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
-                Column(Modifier.fillMaxSize().padding(horizontal=12.dp,vertical=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                    Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),style=MaterialTheme.typography.labelMedium,
-                        color=textColor.copy(alpha=.8f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
-                    if(bookTitle.isNotBlank() && LocalDensity.current.fontScale<1.5f)Text(bookTitle,style=MaterialTheme.typography.labelSmall,
-                        color=textColor.copy(alpha=.6f),maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.Center)
-                }
-            }
-            Surface(Modifier.readerPanel(28,backgroundColor,textColor),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=textColor) {
-                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings")
-                        .semantics {contentDescription=appearanceLabel}) {
-                        Text("Aa",color=textColor,style=MaterialTheme.typography.titleMedium)
-                    }
-                    if(onEdit!=null)Box {
-                        IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp)) {Icon(Icons.Default.MoreVert,localize(Res.string.expand_menu))}
-                        ireader.presentation.ui.truyenplus.ReaderGlassDropdownMenu(moreOpen,onDismissRequest={moreOpen=false}) {
-                            DropdownMenuItem(text={Text(localize(Res.string.tp_edit_chapter))},onClick={moreOpen=false;onEdit()})
-                            DropdownMenuItem(text={Text(localize(Res.string.bookmark))},onClick={moreOpen=false;onBookmark()})
-                        }
-                    }
-                }
             }
         }
     }

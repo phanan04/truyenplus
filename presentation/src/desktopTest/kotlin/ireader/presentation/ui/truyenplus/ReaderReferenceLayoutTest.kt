@@ -23,7 +23,7 @@ class ReaderReferenceLayoutTest {
     @Test fun chapterHeaderLeavesReadingActionsInTheFooter() {
         Locale.setDefault(Locale.forLanguageTag("vi"))
         var settings=0
-        val scene=ImageComposeScene(width=360,height=120,density=Density(1f)) {
+        val scene=ImageComposeScene(width=360,height=420,density=Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                 MaterialTheme {
                     ReaderChapterTopBar(Chapter(id=273,bookId=1,key="273",name="Chương 273: Luận Kiếm Thiếp (1)"),{},{},{settings++},onListen={})
@@ -36,7 +36,7 @@ class ReaderReferenceLayoutTest {
             val nodes=scene.semanticsOwners.flatMap { children(it.rootSemanticsNode) }
             val clickable=nodes.filter { it.config.getOrNull(SemanticsActions.OnClick)?.action!=null }
             assertEquals(2,clickable.size,"Reader header should have only back and appearance actions")
-            requireNotNull(clickable.last().config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
+            requireNotNull(nodes.first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-settings"}.config.getOrNull(SemanticsActions.OnClick)?.action).invoke()
             assertEquals(1,settings)
             assertTrue(nodes.any { it.config.getOrNull(SemanticsProperties.Text)?.any { it.text.startsWith("Chương 273") }==true })
         } finally { scene.close() }
@@ -80,7 +80,7 @@ class ReaderReferenceLayoutTest {
 
     @Test fun chapterFooterShowsPositionAndDisablesPreviousAtFirstChapter() {
         var listen=0;var contents=0;var next=0;var bookmark=0
-        val scene=ImageComposeScene(width=360,height=120,density=Density(1f)) {
+        val scene=ImageComposeScene(width=360,height=420,density=Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                 MaterialTheme {
                     ReaderChapterFooter(0,9008,false,false,{}, {next++},{contents++},{listen++},{bookmark++},{})
@@ -90,7 +90,10 @@ class ReaderReferenceLayoutTest {
         try {
             scene.render(0);scene.render(1_000_000_000)
             fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
-            val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            fun currentNodes()=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
+            currentNodes().first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-footer-more"}.config[SemanticsActions.OnClick].action!!.invoke()
+            scene.render(2_000_000_000);scene.render(3_000_000_000)
+            val nodes=currentNodes()
             fun node(tag:String)=nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)==tag }
             assertTrue(SemanticsProperties.Disabled in node("reader-previous").config)
             for(tag in listOf("reader-listen","reader-contents","reader-next","reader-bookmark"))
@@ -122,7 +125,7 @@ class ReaderReferenceLayoutTest {
     }
 
     @Test fun chapterFooterDisablesNextAtLastChapter() {
-        val scene=ImageComposeScene(width=360,height=120,density=Density(1f)) {
+        val scene=ImageComposeScene(width=360,height=420,density=Density(1f)) {
             CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {
                 MaterialTheme { ReaderChapterFooter(9007,9008,false,false,{},{},{},{},{},{}) }
             }
@@ -130,6 +133,8 @@ class ReaderReferenceLayoutTest {
         try {
             scene.render(0);scene.render(1_000_000_000)
             fun descendants(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::descendants)
+            scene.semanticsOwners.flatMap {descendants(it.rootSemanticsNode)}.first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-footer-more"}.config[SemanticsActions.OnClick].action!!.invoke()
+            scene.render(2_000_000_000);scene.render(3_000_000_000)
             val nodes=scene.semanticsOwners.flatMap { descendants(it.rootSemanticsNode) }
             assertTrue(SemanticsProperties.Disabled in nodes.first { it.config.getOrNull(SemanticsProperties.TestTag)=="reader-next" }.config)
             assertTrue(nodes.any { it.config.getOrNull(SemanticsProperties.Text)?.any { it.text=="9008/9008" }==true })

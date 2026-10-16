@@ -380,4 +380,10 @@
     <string name="tp_settings_read_listen">Reading and listening</string>
     <string name="tp_settings_tools">Tools</string>
     <string name="tp_reader_customize">Customize</string>
+    <string name="tp_paper_white">White</string>
+    <string name="tp_paper_charcoal">Charcoal</string>
+    <string name="tp_paper_light">Light paper</string>
+    <string name="tp_paper_night">Night</string>
+    <string name="tp_paper_warm">Warm paper</string>
+    <string name="tp_paper_blue">Pale blue</string>
 </resources>

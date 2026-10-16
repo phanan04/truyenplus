@@ -73,18 +73,32 @@ fun ReaderAppearanceContent(state:ReaderAppearanceUi,actions:ReaderAppearanceAct
             ReaderSettingSwitch(s.localize(Res.string.tp_follow_appearance),state.followAppearance,actions.onFollowAppearance)
             ReaderSettingSwitch(s.localize(Res.string.tp_reader_auto_brightness),state.autoBrightness,actions.onAutoBrightness)
             if(!state.autoBrightness)Slider(state.brightness.coerceIn(0f,.5f),actions.onBrightness,valueRange=0f.. .5f,modifier=Modifier.height(48.dp))
-        } else BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max=320.dp).padding(horizontal=16.dp).testTag("reader-appearance-home")) {
-            val short=maxHeight<230.dp
-            val smallGallery=maxHeight<184.dp
+        } else BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max=420.dp).padding(horizontal=18.dp).testTag("reader-appearance-home")) {
+            val short=maxHeight<360.dp || androidx.compose.ui.platform.LocalDensity.current.fontScale>=1.5f
+            val papers=remember(state.themes,state.themeId) {
+                val order=listOf(-2L,-3L,-5L,-1L,-11L,-7L)
+                val quick=state.themes.sortedBy {order.indexOf(it.id).takeIf {i->i>=0} ?: (order.size+state.themes.indexOf(it))}.take(6)
+                val selected=state.themes.firstOrNull {it.id==state.themeId}
+                if(selected!=null && quick.none {it.id==selected.id})quick.take(5)+selected else quick
+            }
+            val optionWidth=if(maxWidth>=350.dp)112.dp else 96.dp
             val sizeControls:@Composable ()->Unit={
-                Row(Modifier.fillMaxWidth().height(48.dp),verticalAlignment=Alignment.CenterVertically) {
-                    IconButton({actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,
-                        modifier=Modifier.size(48.dp).testTag("reader-font-decrease").semantics {contentDescription=s.localize(Res.string.decrease_font_size)}) {Text("A−")}
-                    Text(state.fontSize.toString(),style=MaterialTheme.typography.titleMedium)
-                    IconButton({actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,
-                        modifier=Modifier.size(48.dp).testTag("reader-font-increase").semantics {contentDescription=s.localize(Res.string.increase_font_size)}) {Text("A+")}
-                    Spacer(Modifier.weight(1f))
-                    IconButton({options=true},Modifier.size(48.dp).testTag("reader-paper-options")){Icon(Icons.Default.Contrast,s.localize(Res.string.tp_appearance))}
+                Row(Modifier.fillMaxWidth().height(48.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Surface(shape=CircleShape,color=LocalContentColor.current.copy(alpha=.07f),modifier=Modifier.weight(1f)) {
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            IconButton({actions.onFontSize((state.fontSize-1).coerceAtLeast(8))},enabled=state.fontSize>8,
+                                modifier=Modifier.weight(1f).height(48.dp).testTag("reader-font-decrease").semantics {contentDescription=s.localize(Res.string.decrease_font_size)}) {Text("A",style=MaterialTheme.typography.bodyMedium)}
+                            VerticalDivider(Modifier.height(32.dp),color=LocalContentColor.current.copy(alpha=.12f))
+                            IconButton({actions.onFontSize((state.fontSize+1).coerceAtMost(40))},enabled=state.fontSize<40,
+                                modifier=Modifier.weight(1f).height(48.dp).testTag("reader-font-increase").semantics {contentDescription=s.localize(Res.string.increase_font_size)}) {Text("A",style=MaterialTheme.typography.titleLarge)}
+                        }
+                    }
+                    Surface(shape=CircleShape,color=LocalContentColor.current.copy(alpha=.07f),modifier=Modifier.width(optionWidth)) {
+                        Row {
+                            IconButton({customizing=true},Modifier.weight(1f).height(48.dp)){Icon(Icons.Default.AutoStories,s.localize(Res.string.tp_reader_customize),Modifier.size(22.dp))}
+                            IconButton({options=true},Modifier.weight(1f).height(48.dp).testTag("reader-paper-options")){Icon(Icons.Default.Contrast,s.localize(Res.string.tp_appearance),Modifier.size(22.dp))}
+                        }
+                    }
                 }
             }
             val brightness:@Composable ()->Unit={
@@ -95,18 +109,24 @@ fun ReaderAppearanceContent(state:ReaderAppearanceUi,actions:ReaderAppearanceAct
                     Icon(Icons.Default.BrightnessHigh,null,Modifier.size(18.dp))
                 }
             }
-            val customize:@Composable RowScope.()->Unit={
-                TextButton({customizing=true},modifier=Modifier.heightIn(min=48.dp).testTag("reader-appearance-customize"),contentPadding=PaddingValues(horizontal=8.dp)) {
-                    Icon(Icons.Default.Tune,s.localize(Res.string.tp_reader_customize),Modifier.size(20.dp))
-                    if(androidx.compose.ui.platform.LocalDensity.current.fontScale<1.5f){Spacer(Modifier.width(4.dp));Text(s.localize(Res.string.tp_reader_customize),maxLines=1)}
+            val customize:@Composable ()->Unit={
+                Surface(onClick={customizing=true},modifier=Modifier.fillMaxWidth().height(48.dp).testTag("reader-appearance-customize"),
+                    shape=CircleShape,color=LocalContentColor.current.copy(alpha=.07f)) {
+                    Row(horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically) {
+                        Icon(Icons.Default.Tune,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp))
+                        Text(s.localize(Res.string.tp_reader_customize),style=MaterialTheme.typography.titleSmall,maxLines=1)
+                    }
                 }
             }
             if(short && maxWidth>=440.dp)Row(horizontalArrangement=Arrangement.spacedBy(20.dp)) {
-                Column(Modifier.weight(.42f)){sizeControls();brightness();Row {customize()}}
-                Box(Modifier.weight(.58f)){ReaderThemePalette(state.themes,state.themeId,actions.onTheme,pageSize=if(smallGallery)3 else 6,gap=0.dp)}
-            } else Column {
+                Column(Modifier.weight(.48f),verticalArrangement=Arrangement.spacedBy(8.dp)){sizeControls();brightness();customize()}
+                Box(Modifier.weight(.52f)){ReaderThemePalette(papers,state.themeId,actions.onTheme,pageSize=3,gap=0.dp)}
+            } else Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
                 sizeControls();if(!short)brightness()
-                ReaderThemePalette(state.themes,state.themeId,actions.onTheme,pageSize=if(short)3 else 6,gap=if(short)0.dp else 8.dp,controls=customize)
+                HorizontalDivider(color=LocalContentColor.current.copy(alpha=.08f))
+                ReaderThemePalette(papers,state.themeId,actions.onTheme,pageSize=if(short)3 else 6,gap=10.dp,namedCards=!short)
+                customize()
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -213,7 +233,7 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
 
 /** All page papers stay visible, like the Apple Books theme palette, without a horizontal hunt. */
 @Composable internal fun ReaderThemePalette(themes:List<ReaderColors>,selectedId:Long,select:(Long)->Unit,
-    pageSize:Int=8,gap:androidx.compose.ui.unit.Dp=8.dp,controls:(@Composable RowScope.()->Unit)?=null) {
+    pageSize:Int=8,gap:androidx.compose.ui.unit.Dp=8.dp,namedCards:Boolean=false,controls:(@Composable RowScope.()->Unit)?=null) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     val pages=themes.chunked(pageSize)
     val columns=if(pageSize==8)4 else 3
@@ -222,12 +242,15 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
         pages.getOrNull(page).orEmpty().chunked(columns).forEach {row->
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 row.forEach {theme->
-                    Surface(onClick={select(theme.id)},shape=RoundedCornerShape(14.dp),
+                    Surface(onClick={select(theme.id)},shape=RoundedCornerShape(if(namedCards)20.dp else 14.dp),
                         color=theme.backgroundColor.toComposeColor(),contentColor=theme.onTextColor.toComposeColor(),
-                        border=BorderStroke(if(selectedId==theme.id)2.dp else 1.dp,theme.onTextColor.toComposeColor().copy(alpha=if(selectedId==theme.id).85f else .2f)),
-                        modifier=Modifier.weight(1f).heightIn(min=56.dp).testTag("reader-theme-${theme.id}")
+                        border=BorderStroke(if(selectedId==theme.id)3.dp else .5.dp,theme.onTextColor.toComposeColor().copy(alpha=if(selectedId==theme.id).85f else .2f)),
+                        modifier=Modifier.weight(1f).heightIn(min=if(namedCards)92.dp else 56.dp).testTag("reader-theme-${theme.id}")
                             .semantics {selected=selectedId==theme.id;contentDescription="${s.localize(Res.string.tp_background_tab)} ${themes.indexOf(theme)+1}"}) {
-                        Box(Modifier.padding(8.dp),contentAlignment=Alignment.Center) {Text("Aa",style=MaterialTheme.typography.titleMedium)}
+                        Column(Modifier.padding(8.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                            Text("Aa",fontFamily=FontFamily.Serif,style=if(namedCards)MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium)
+                            if(namedCards)Text(readerPaperName(theme,themes.indexOf(theme)),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
                     }
                 }
                 repeat(columns-row.size){Spacer(Modifier.weight(1f))}
@@ -242,6 +265,16 @@ internal fun ReaderAppearanceAdvancedContent(state: ReaderAppearanceUi, actions:
             Spacer(Modifier.weight(1f));controls?.invoke(this)
         }
     }
+}
+
+@Composable private fun readerPaperName(theme:ReaderColors,index:Int):String {
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    val name=when(theme.id) {
+        -2L->Res.string.tp_paper_white; -3L->Res.string.tp_paper_charcoal; -5L->Res.string.tp_paper_light
+        -1L->Res.string.tp_paper_night; -11L->Res.string.tp_paper_warm; -7L->Res.string.tp_paper_blue
+        else->null
+    }
+    return if(name!=null)s.localize(name) else "${s.localize(Res.string.tp_background_tab)} ${index+1}"
 }
 
 @Composable private fun Choice(text: String, selected: Boolean, click: () -> Unit, modifier: Modifier = Modifier,

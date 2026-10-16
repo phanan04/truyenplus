@@ -58,9 +58,9 @@ class BooksMeasuredReferenceTest {
         scene {ReaderBottomNav(ReaderDestination.Home,{},{})}.use {s->
             render(s)
             val search=tag(s,"nav-search").boundsInRoot
-            assertEquals(64f,search.width,1f);assertEquals(64f,search.height,1f)
-            assertEquals(309f,search.left,1f)
-            assertEquals(56f,tag(s,"nav-Home").boundsInRoot.height,1f)
+            assertEquals(62f,search.width,1f);assertEquals(62f,search.height,1f)
+            assertEquals(311f,search.left,1f)
+            assertEquals(54f,tag(s,"nav-Home").boundsInRoot.height,1f)
         }
     }
     @Test fun editorialHeaderKeepsTheReferenceBoldInkWeight() {

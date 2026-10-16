@@ -16,7 +16,9 @@ import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.hazeSource
 import ireader.domain.preferences.prefs.UiPreferences
 
-val LocalReaderFullGlass=staticCompositionLocalOf {false}
+// This preference changes at runtime. Track readers so the switch does not
+// invalidate unrelated chapter content and navigation state below its provider.
+val LocalReaderFullGlass=compositionLocalOf {false}
 private val LocalReaderGlassPanel=staticCompositionLocalOf {false}
 
 /** A panel diffuses its backdrop once. Inner cards inherit it instead of sampling the sharp page again. */

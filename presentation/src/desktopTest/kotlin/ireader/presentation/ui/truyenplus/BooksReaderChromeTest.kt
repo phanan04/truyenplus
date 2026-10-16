@@ -19,13 +19,14 @@ import kotlin.test.*
 class BooksReaderChromeTest {
     @Test fun readingToolsAndChapterNavigationFloatInSeparateReachableClusters() {
         var previous=0
-        ImageComposeScene(393,200) {CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
+        ImageComposeScene(393,420) {CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
             ReaderChapterFooter(1,3,false,false,{previous++},{},{},{},{},{})
         }}}.use {s->
             s.render(0);s.render(1_000_000_000)
             val reading=node(s,"reader-toolbar-reading").boundsInRoot
             val navigation=node(s,"reader-toolbar-navigation").boundsInRoot
             assertTrue(reading.right<navigation.left && reading.height>=48 && navigation.height>=48)
+            node(s,"reader-footer-more").config[SemanticsActions.OnClick].action!!.invoke();s.render(2_000_000_000);s.render(3_000_000_000)
             node(s,"reader-previous").config[SemanticsActions.OnClick].action!!.invoke();assertEquals(1,previous)
         }
     }

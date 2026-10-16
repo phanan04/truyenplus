@@ -25,66 +25,56 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
     onPrevious: () -> Unit, onNext: () -> Unit, onContents: () -> Unit, onListen: () -> Unit,
     onBookmark: () -> Unit, onAutoScroll: () -> Unit, modifier: Modifier = Modifier,
     backgroundColor: Color = MaterialTheme.colorScheme.surface, onAppearance: () -> Unit = {}) {
-    val ink = LocalContentColor.current
-    val s = requireNotNull(LocalLocalizeHelper.current)
+    val ink=LocalContentColor.current
+    val s=requireNotNull(LocalLocalizeHelper.current)
+    var menuOpen by remember {mutableStateOf(false)}
+    val activePanel=LocalReaderPanels.current?.active
+    LaunchedEffect(activePanel) {if(activePanel!=null && activePanel!=ReaderPanel.None)menuOpen=false}
+    ireader.presentation.core.ui.PlatformBackHandler(menuOpen){menuOpen=false}
+    val position=if(totalChapters>0)"${(chapterIndex+1).coerceIn(1,totalChapters)}/$totalChapters" else "—"
     Box(modifier.fillMaxWidth(),contentAlignment=Alignment.BottomCenter) {
-    BoxWithConstraints(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)) {
-        val fullControls=maxWidth>=312.dp
-        var moreOpen by remember {mutableStateOf(false)}
-        val listen: @Composable () -> Unit = {
-            IconButton(onClick=onListen,modifier=Modifier.size(48.dp).testTag("reader-listen")) { Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book),tint=ink) }
-        }
-        val appearance: @Composable () -> Unit = {
-            IconButton(onClick=onAppearance,modifier=Modifier.size(48.dp).testTag("reader-appearance-shortcut")) {
-                Text("Aa",color=ink,style=MaterialTheme.typography.titleMedium,
-                    modifier=Modifier.semantics {contentDescription=s.localize(Res.string.tp_reader_appearance)})
-            }
-        }
-        val mark: @Composable () -> Unit = {
-            IconButton(onClick=onBookmark,modifier=Modifier.size(48.dp).testTag("reader-bookmark")) { Icon(if(bookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,s.localize(Res.string.tp_bookmarks),tint=if(bookmarked) ReaderControlAccent else ink) }
-        }
-        val previous: @Composable () -> Unit = {
-            IconButton(onClick=onPrevious,enabled=chapterIndex>0,modifier=Modifier.size(48.dp).testTag("reader-previous")) { Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_previous_chapter),tint=ink.copy(alpha=if(chapterIndex>0) 1f else .35f)) }
-        }
-        val contents: @Composable () -> Unit = {
-            val position=if(totalChapters>0) "${(chapterIndex+1).coerceIn(1,totalChapters)}/$totalChapters" else "—"
-            IconButton(onClick=onContents,modifier=Modifier.size(48.dp).testTag("reader-contents")) {
-                Column(horizontalAlignment=Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.MenuBook,s.localize(Res.string.drawer)+" · "+position,tint=ink,modifier=Modifier.size(22.dp))
-                    if(androidx.compose.ui.platform.LocalDensity.current.fontScale<1.5f)
-                        Text(position,style=MaterialTheme.typography.labelSmall,maxLines=1)
+        BoxWithConstraints(Modifier.widthIn(max=760.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp)) {
+            val menuWidth=minOf(272.dp,maxWidth)
+            Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(menuOpen)Column(Modifier.width(menuWidth).testTag("reader-reading-menu"),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                    Surface(onClick={menuOpen=false;onContents()},shape=RoundedCornerShape(24.dp),color=ink,contentColor=backgroundColor,
+                        modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("reader-contents")) {
+                        Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Text(s.localize(Res.string.tp_chapters)+" · "+position,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Icon(Icons.Default.FormatListBulleted,null,Modifier.size(24.dp))
+                        }
+                    }
+                    Surface(onClick={menuOpen=false;onAppearance()},shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink,
+                        modifier=Modifier.fillMaxWidth().readerPanel(24,backgroundColor,ink).heightIn(min=48.dp).testTag("reader-menu-appearance")) {
+                        Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Text(s.localize(Res.string.tp_reader_appearance),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            Text("Aa",style=MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                    Surface(Modifier.fillMaxWidth().readerPanel(28,backgroundColor,ink),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
+                        Row(Modifier.height(56.dp).padding(horizontal=4.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                            IconButton({menuOpen=false;onPrevious()},Modifier.size(48.dp).testTag("reader-previous"),enabled=chapterIndex>0){Icon(Icons.Default.ChevronLeft,s.localize(Res.string.tp_previous_chapter))}
+                            IconButton({menuOpen=false;onNext()},Modifier.size(48.dp).testTag("reader-next"),enabled=chapterIndex<totalChapters-1){Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter))}
+                            IconButton({menuOpen=false;onBookmark()},Modifier.size(48.dp).testTag("reader-bookmark")){Icon(if(bookmarked)Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,s.localize(Res.string.tp_bookmarks))}
+                            IconButton({menuOpen=false;onAutoScroll()},Modifier.size(48.dp).testTag("reader-auto-scroll")){Icon(if(autoScroll)Icons.Default.Pause else Icons.Default.UnfoldMore,s.localize(Res.string.auto_scroll))}
+                        }
+                    }
                 }
-            }
-        }
-        val next: @Composable () -> Unit = {
-            IconButton(onClick=onNext,enabled=chapterIndex<totalChapters-1,modifier=Modifier.size(48.dp).testTag("reader-next")) { Icon(Icons.Default.ChevronRight,s.localize(Res.string.tp_next_chapter),tint=ink.copy(alpha=if(chapterIndex<totalChapters-1) 1f else .35f)) }
-        }
-        Row(Modifier.fillMaxWidth().heightIn(min=56.dp).testTag("reader-footer-capsule"),
-            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            Surface(Modifier.readerPanel(28,backgroundColor,ink).testTag("reader-toolbar-reading"),
-                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
-                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
-                    listen();appearance();if(fullControls)mark()
-                }
-            }
-            Surface(Modifier.readerPanel(28,backgroundColor,ink).testTag("reader-toolbar-navigation"),
-                shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
-                Row(Modifier.height(56.dp).padding(horizontal=4.dp),verticalAlignment=Alignment.CenterVertically) {
-                    if(fullControls){previous();contents();next()} else {
-                        contents()
-                        Box {
-                            IconButton(onClick={moreOpen=true},modifier=Modifier.size(48.dp).testTag("reader-footer-more")){Icon(Icons.Default.MoreVert,s.localize(Res.string.more))}
-                            ReaderGlassDropdownMenu(moreOpen,{moreOpen=false}) {
-                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_previous_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-previous"),enabled=chapterIndex>0,onClick={moreOpen=false;onPrevious()})
-                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_next_chapter))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-next"),enabled=chapterIndex<totalChapters-1,onClick={moreOpen=false;onNext()})
-                                DropdownMenuItem(text={Text(s.localize(Res.string.tp_bookmarks))},modifier=Modifier.heightIn(min=64.dp).testTag("reader-bookmark"),onClick={moreOpen=false;onBookmark()})
-                                DropdownMenuItem(text={Text(s.localize(Res.string.auto_scroll))},onClick={moreOpen=false;onAutoScroll()})
-                            }
+                Row(Modifier.fillMaxWidth().height(56.dp).testTag("reader-footer-capsule"),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.testTag("reader-toolbar-reading"),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                        Surface(Modifier.size(48.dp).readerPanel(24,backgroundColor,ink),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink) {
+                            IconButton({menuOpen=false;onListen()},Modifier.fillMaxSize().testTag("reader-listen")){Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book))}
+                        }
+                        IconButton({menuOpen=false;onAppearance()},Modifier.size(48.dp).testTag("reader-appearance-shortcut").semantics {contentDescription=s.localize(Res.string.tp_reader_appearance)}) {Text("Aa",color=ink,style=MaterialTheme.typography.titleMedium)}
+                    }
+                    Row(Modifier.weight(1f).testTag("reader-toolbar-navigation"),verticalAlignment=Alignment.CenterVertically) {
+                        Text(position,Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=ink.copy(alpha=.6f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,maxLines=1)
+                        Surface(Modifier.size(48.dp).readerPanel(24,backgroundColor,ink),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink) {
+                            IconButton({menuOpen=!menuOpen},Modifier.fillMaxSize().testTag("reader-footer-more")){Icon(if(menuOpen)Icons.Default.Close else Icons.Default.FormatListBulleted,s.localize(Res.string.more))}
                         }
                     }
                 }
             }
         }
-    }
     }
 }

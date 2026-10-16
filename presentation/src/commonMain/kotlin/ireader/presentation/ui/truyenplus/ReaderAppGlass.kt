@@ -36,12 +36,12 @@ import androidx.compose.ui.unit.dp
 @Composable fun ReaderGlassSheet(onDismissRequest:()->Unit,content:@Composable ColumnScope.()->Unit) {
     val c=MaterialTheme.colorScheme
     ModalBottomSheet(onDismissRequest=onDismissRequest,
-        shape=RoundedCornerShape(28.dp),dragHandle=null,
+        shape=RoundedCornerShape(36.dp),dragHandle=null,
         containerColor=Color.Transparent,contentColor=c.onSurface,tonalElevation=0.dp,
-        sheetMaxWidth=720.dp,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
+        sheetMaxWidth=600.dp,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {
         // Clip the actual panel, after Material's sheet motion. Clipping its outer modifier
         // cuts off descendants while the sheet is translated into the window.
-        Surface(Modifier.fillMaxWidth().readerPanel(28,c.surface,c.onSurface),shape=RoundedCornerShape(28.dp),
+        Surface(Modifier.fillMaxWidth().readerPanel(36,c.surface,c.onSurface),shape=RoundedCornerShape(36.dp),
             color=Color.Transparent,contentColor=c.onSurface) {
             ReaderGlassPanelColumn {
                 BottomSheetDefaults.DragHandle(Modifier.align(androidx.compose.ui.Alignment.CenterHorizontally))

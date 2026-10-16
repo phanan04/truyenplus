@@ -3,6 +3,7 @@ package ireader.presentation.ui.truyenplus
 import ireader.presentation.ui.truyenplus.ReaderGlassIconButton as IconButton
 
 import ireader.presentation.ui.truyenplus.ReaderGlassGroupSurface as Surface
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 
@@ -34,18 +36,17 @@ fun ReaderAppearanceOverlay(onDismiss: () -> Unit, background: Color = MaterialT
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
-        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 720.dp).fillMaxWidth().padding(horizontal=12.dp,vertical=8.dp).padding(bottom=playerInset)
-            .heightIn(max=(maxHeight-16.dp-playerInset).coerceAtLeast(48.dp)).readerPanel(24,background,ink).testTag("reader-appearance-panel")
+        Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = 600.dp).fillMaxWidth().padding(top=8.dp).padding(bottom=playerInset)
+            .heightIn(max=(maxHeight-16.dp-playerInset).coerceAtLeast(48.dp)).readerPanel(36,background,ink).testTag("reader-appearance-panel")
             .clickable(remember { MutableInteractionSource() }, indication = null) {},
-            shape = RoundedCornerShape(24.dp), color = Color.Transparent, contentColor = ink) {
+            shape = RoundedCornerShape(36.dp), color = Color.Transparent, contentColor = ink) {
             ReaderGlassPanelColumn(Modifier.navigationBarsPadding()) {
-                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(strings.localize(Res.string.tp_reader_appearance), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                    IconButton(onClick = onDismiss, Modifier.size(48.dp).testTag("reader-appearance-close")) {
+                Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(strings.localize(Res.string.tp_reader_appearance), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge.copy(fontSize=20.sp,fontWeight=androidx.compose.ui.text.font.FontWeight.SemiBold))
+                    IconButton(onClick = onDismiss, Modifier.size(48.dp).background(ink.copy(alpha=.06f),androidx.compose.foundation.shape.CircleShape).testTag("reader-appearance-close")) {
                         Icon(Icons.Default.Close, strings.localize(Res.string.close))
                     }
                 }
-                HorizontalDivider(color = ink.copy(alpha = .08f))
                 content()
             }
         }

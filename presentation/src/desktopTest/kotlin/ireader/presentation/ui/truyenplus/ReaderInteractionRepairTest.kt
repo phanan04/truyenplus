@@ -24,7 +24,7 @@ class ReaderInteractionRepairTest {
         }.use {scene ->
             scene.render();scene.render()
             val panel=nodes(scene).first{it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-panel"}.boundsInRoot
-            assertTrue(panel.height<=240,"Text settings contain an empty fixed-height area: $panel")
+            assertTrue(panel.height<=280,"Quick type, brightness and the full-width Customize action must wrap their content: $panel")
             val png=requireNotNull(scene.render().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)).bytes
             val image=javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(png))
             val pixel=image.getRGB(8,200)

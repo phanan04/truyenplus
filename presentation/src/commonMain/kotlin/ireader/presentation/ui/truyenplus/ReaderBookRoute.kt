@@ -200,8 +200,8 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
         item {
             Column(Modifier.fillMaxWidth().background(tone).testTag("book-artwork-hero"),horizontalAlignment=Alignment.CenterHorizontally) {
                 Box(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter)) {
-                    Box(Modifier.fillMaxWidth().padding(top=28.dp),contentAlignment=Alignment.Center) {
-                        ReaderCover(book,Modifier.width(198.dp).height(270.dp).shadow(12.dp,androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
+                    Box(Modifier.fillMaxWidth().padding(top=64.dp),contentAlignment=Alignment.Center) {
+                        ReaderCover(book,Modifier.width(186.dp).aspectRatio(.64f).testTag("book-hero-cover").shadow(12.dp,androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
                     }
                     Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(top=12.dp),horizontalArrangement=Arrangement.SpaceBetween) {
                         Surface(shape=CircleShape,color=Color.Transparent,contentColor=ink,modifier=Modifier.size(48.dp).readerGlassCard(24,tone,ink)) {
@@ -216,19 +216,29 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
                     horizontalAlignment=Alignment.CenterHorizontally) {
                     Text(book.title,modifier=Modifier.testTag("book-detail-title"),style=ReaderBooksTokens.section,color=ink,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                     if(author.isNotBlank())Text(if(author=="Unknown")strings.localize(Res.string.unknown) else author,
-                        style=MaterialTheme.typography.bodyLarge,color=ink.copy(alpha=.85f),modifier=Modifier.padding(top=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                        style=MaterialTheme.typography.bodyLarge.copy(fontSize=16.sp,lineHeight=20.sp),color=ink.copy(alpha=.85f),modifier=Modifier.padding(top=8.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                     if(book.total>0)Text(strings.localize(Res.string.tp_book_summary,book.total,"${book.progress.percent}%"),
                         style=MaterialTheme.typography.bodySmall,color=ink.copy(alpha=.75f),modifier=Modifier.padding(top=12.dp),textAlign=androidx.compose.ui.text.style.TextAlign.Center)
-                    Surface(Modifier.fillMaxWidth().padding(top=24.dp).readerOptionalGlass(20,tone),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=readerOptionalGlassColor(ink.copy(alpha=.08f))) {
-                        Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                            Button(onRead,enabled=chapters.isNotEmpty(),shape=CircleShape,
-                                colors=ButtonDefaults.buttonColors(containerColor=ink,contentColor=tone),
-                                modifier=Modifier.weight(1f).heightIn(min=52.dp).testTag("book-read")) {
-                                Text(strings.localize(if(book.read>0)Res.string.tp_continue_reading else Res.string.tp_start_reading))
+                    Surface(Modifier.fillMaxWidth().padding(top=20.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=ink.copy(alpha=.1f)) {
+                        BoxWithConstraints(Modifier.padding(14.dp)) {
+                            val stacked=maxWidth.value/androidx.compose.ui.platform.LocalDensity.current.fontScale<260f
+                            val read:@Composable (Modifier)->Unit={buttonModifier->
+                                androidx.compose.material3.Button(onRead,enabled=chapters.isNotEmpty(),shape=CircleShape,
+                                    colors=ButtonDefaults.buttonColors(containerColor=ink,contentColor=tone),contentPadding=PaddingValues(horizontal=8.dp,vertical=10.dp),
+                                    modifier=buttonModifier.heightIn(min=48.dp).testTag("book-read")) {
+                                    Text(strings.localize(if(book.read>0)Res.string.tp_continue_reading else Res.string.tp_start_reading),style=MaterialTheme.typography.labelLarge,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                }
                             }
-                            IconButton(onListen,enabled=chapters.isNotEmpty(),modifier=Modifier.size(52.dp).testTag("book-listen")) {
-                                Icon(Icons.Outlined.Headphones,strings.localize(Res.string.tp_listen_book),tint=ink)
+                            val listen:@Composable (Modifier)->Unit={buttonModifier->
+                                androidx.compose.material3.Button(onListen,enabled=chapters.isNotEmpty(),shape=CircleShape,
+                                    colors=ButtonDefaults.buttonColors(containerColor=ink.copy(alpha=.14f),contentColor=ink),contentPadding=PaddingValues(horizontal=8.dp,vertical=10.dp),
+                                    modifier=buttonModifier.heightIn(min=48.dp).testTag("book-listen")) {
+                                    Icon(Icons.Outlined.Headphones,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp))
+                                    Text(strings.localize(Res.string.tp_listen_book),style=MaterialTheme.typography.labelLarge,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                }
                             }
+                            if(stacked)Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {read(Modifier.fillMaxWidth());listen(Modifier.fillMaxWidth())}
+                            else Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {listen(Modifier.weight(1f));read(Modifier.weight(1f))}
                         }
                     }
                 }
@@ -258,13 +268,13 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
         BoxWithConstraints {
             if(maxWidth.value/androidx.compose.ui.platform.LocalDensity.current.fontScale>=840f)Row(horizontalArrangement=Arrangement.spacedBy(24.dp)) {
                 LazyColumn(Modifier.weight(.5f).fillMaxHeight(),contentPadding=PaddingValues(bottom=bottomInset+24.dp),content=summary)
-                Box(Modifier.weight(.5f).fillMaxHeight()) {ReaderChapterContents(chapters,activeChapterId,onChapter)}
+                Box(Modifier.weight(.5f).fillMaxHeight()) {ReaderChapterContents(chapters,activeChapterId,onChapter,book=book)}
             } else LazyColumn(Modifier.fillMaxSize(),contentPadding=PaddingValues(bottom=bottomInset+24.dp),content=summary)
         }
     }
     if(contentsOpen)ReaderGlassSheet(onDismissRequest={contentsOpen=false}) {
         Box(Modifier.fillMaxWidth().heightIn(max=LocalReaderViewport.current.height*.82f)) {
-            ReaderChapterContents(chapters,activeChapterId,{contentsOpen=false;onChapter(it)},onDismiss={contentsOpen=false})
+            ReaderChapterContents(chapters,activeChapterId,{contentsOpen=false;onChapter(it)},onDismiss={contentsOpen=false},book=book)
         }
     }
 }

@@ -32,21 +32,21 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
     val strings=requireNotNull(LocalLocalizeHelper.current)
     val colors=MaterialTheme.colorScheme
     val compact=LocalReaderViewport.current.width.value/LocalReaderViewport.current.fontScale<340f
-    val tabHeight=56.dp
+    val tabHeight=54.dp
     Row(Modifier.widthIn(max=600.dp).fillMaxWidth().padding(start=20.dp,end=20.dp,top=10.dp,bottom=ReaderBooksTokens.bottomDockGap),
         verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-        BoxWithConstraints(Modifier.weight(1f).shadow(3.dp,CircleShape).clip(CircleShape)
-            .readerNavigationGlass(colors.surface).border(.5.dp,colors.onSurface.copy(alpha=.08f),CircleShape).padding(4.dp).selectableGroup()) {
+        BoxWithConstraints(Modifier.weight(1f).shadow(2.dp,CircleShape).clip(CircleShape)
+            .readerNavigationGlass(colors.surface).padding(4.dp).selectableGroup()) {
             val width=maxWidth/ReaderAppScope.destinations.size
             val index=ReaderAppScope.destinations.indexOf(selected).coerceAtLeast(0)
             val offset = animateDpAsState(width*index, spring(dampingRatio=.86f,stiffness=500f),label="navigation selection")
             // Animate the marker's placement without recomposing every tab/Glass modifier.
             Box(Modifier.offset {IntOffset(offset.value.roundToPx(),0)}.width(width).height(tabHeight).clip(CircleShape)
-                .background(colors.onSurface.copy(alpha=.09f)))
+                .background(colors.onSurface.copy(alpha=.075f)))
             Row(Modifier.fillMaxWidth()) {
                 ReaderAppScope.destinations.forEach { destination ->
                     val active=destination==selected
-                    val color by animateColorAsState(colors.onSurface,label="navigation icon")
+                    val color by animateColorAsState(if(active)colors.onSurface else colors.onSurface.copy(alpha=.68f),label="navigation icon")
                     val icon=when(destination) {
                         ReaderDestination.Home -> Icons.Filled.Home
                         ReaderDestination.Library -> ReaderBooksSymbols.Library
@@ -58,17 +58,17 @@ fun ReaderBottomNav(selected: ReaderDestination, onSelect: (ReaderDestination)->
                         .selectable(active,onClick={onSelect(destination)},role=Role.Tab)
                         .semantics { contentDescription=label;testTag="nav-${destination.name}" },
                         horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                        Icon(icon,null,Modifier.size(28.dp),tint=color)
-                        if(!compact) Text(label,Modifier.padding(top=3.dp),style=MaterialTheme.typography.labelSmall.copy(fontSize=13.sp,lineHeight=16.sp),
+                        Icon(icon,null,Modifier.size(24.dp),tint=color)
+                        if(!compact) Text(label,Modifier.padding(top=2.dp),style=MaterialTheme.typography.labelSmall.copy(fontSize=10.sp,lineHeight=12.sp,letterSpacing=0.sp),
                             fontWeight=if(active) FontWeight.SemiBold else FontWeight.Medium,color=color,maxLines=1,overflow=TextOverflow.Ellipsis)
                     }
                 }
             }
         }
-        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(3.dp,CircleShape).clip(CircleShape)
-            .readerNavigationGlass(colors.surface).border(.5.dp,colors.onSurface.copy(alpha=.08f),CircleShape)
+        IconButton(onClick=onSearch,modifier=Modifier.size(tabHeight+8.dp).shadow(2.dp,CircleShape).clip(CircleShape)
+            .readerNavigationGlass(colors.surface)
             .semantics { testTag="nav-search" }) {
-            Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(28.dp),tint=colors.onSurface)
+            Icon(Icons.Outlined.Search,strings.localize(Res.string.search),Modifier.size(24.dp),tint=colors.onSurface)
         }
     }
 }

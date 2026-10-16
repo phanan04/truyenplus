@@ -150,7 +150,16 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
         item {
             val c=MaterialTheme.colorScheme
             Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(c.background,lerp(c.background,c.onBackground,.035f)))).testTag("books-home-opening")) {
-                ReaderBooksHeader(strings.localize(Res.string.tp_home),onSettings)
+                ReaderBooksHeader(strings.localize(Res.string.tp_home),onSettings,actions={
+                    if(onProgress!=null)IconButton(onProgress,Modifier.size(48.dp).testTag("home-progress-shortcut")) {
+                        val ink=MaterialTheme.colorScheme.onSurface
+                        androidx.compose.foundation.Canvas(Modifier.size(28.dp).semantics {contentDescription=strings.localize(Res.string.tp_progress)}) {
+                            val stroke=androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(),cap=StrokeCap.Round)
+                            drawCircle(ink.copy(alpha=.18f),style=stroke)
+                            drawArc(ink,-90f,360f*(current?.progress?.fraction ?: 0f),false,style=stroke)
+                        }
+                    }
+                })
                 current?.let {book->
                     ReaderBooksSection(strings.localize(Res.string.tp_continue_reading),topPadding=14.dp,bottomPadding=5.dp)
                     ReaderContinueBook(book,onRead={onContinue(book.id)},onDetails={onBook(book.id)})
@@ -186,15 +195,18 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
     Column(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter,vertical=32.dp),horizontalAlignment=Alignment.CenterHorizontally) {
         Text(s.localize(Res.string.tp_reading_activity),style=ReaderBooksTokens.section)
         if(book!=null)Text(book.title,style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis,modifier=Modifier.padding(top=6.dp))
-        Box(Modifier.padding(top=24.dp).size(232.dp).clickable(onClick=onProgress).testTag("home-progress"),contentAlignment=Alignment.Center) {
+        Box(Modifier.padding(top=24.dp).widthIn(max=328.dp).fillMaxWidth().height((172f*LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).clickable(onClick=onProgress).testTag("home-progress"),contentAlignment=Alignment.BottomCenter) {
             androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(4.dp)) {
                 val stroke=androidx.compose.ui.graphics.drawscope.Stroke(width=4.dp.toPx(),cap=StrokeCap.Round)
-                drawCircle(ink.copy(alpha=.07f),style=stroke)
-                if(book!=null && book.total>0)drawArc(Color(0xFF52ACD9),-90f,360f*book.progress.fraction,false,style=stroke)
+                val diameter=size.width-8.dp.toPx()
+                val origin=androidx.compose.ui.geometry.Offset(4.dp.toPx(),size.height-diameter/2f)
+                val bounds=androidx.compose.ui.geometry.Size(diameter,diameter)
+                drawArc(ink.copy(alpha=.07f),180f,180f,false,topLeft=origin,size=bounds,style=stroke)
+                if(book!=null && book.total>0)drawArc(Color(0xFF52ACD9),180f,180f*book.progress.fraction,false,topLeft=origin,size=bounds,style=stroke)
             }
-            Column(Modifier.padding(24.dp),horizontalAlignment=Alignment.CenterHorizontally) {
+            Column(Modifier.padding(horizontal=24.dp,vertical=8.dp),horizontalAlignment=Alignment.CenterHorizontally) {
                 Text(s.localize(Res.string.tp_progress),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.SemiBold)
-                Text(if(book!=null && book.total>0)"${book.progress.percent}%" else "—",style=ReaderBooksTokens.title.copy(fontSize=48.sp,lineHeight=58.sp),modifier=Modifier.padding(top=8.dp))
+                Text(if(book!=null && book.total>0)"${book.progress.percent}%" else "—",style=ReaderBooksTokens.title.copy(fontSize=44.sp,lineHeight=52.sp),modifier=Modifier.padding(top=8.dp))
                 if(book!=null && book.total>0)Text(s.localize(Res.string.tp_chapter_count,book.read,book.total),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -205,19 +217,19 @@ fun ReaderHomeScreen(books: List<ReaderBookUi>, isLoading: Boolean, onBook: (Lon
 @Composable private fun ReaderContinueBook(book:ReaderBookUi,onRead:()->Unit,onDetails:()->Unit) {
     val strings=requireNotNull(LocalLocalizeHelper.current)
     val artwork=rememberReaderBookArtwork(book)
-    val ink=if(artwork!=null && !LocalReaderFullGlass.current)Color.White else MaterialTheme.colorScheme.onSurface
+    val ink=if(artwork!=null)Color.White else MaterialTheme.colorScheme.onSurface
     val scale=LocalDensity.current.fontScale
     Box(Modifier.fillMaxWidth().padding(horizontal=ReaderBooksTokens.gutter)) {
         Surface(onClick=onRead,modifier=Modifier.widthIn(max=(244f*scale.coerceIn(1f,1.35f)).dp).fillMaxWidth()
-            .readerOptionalGlass(10).testTag("home-continue"),shape=RoundedCornerShape(10.dp),color=readerOptionalGlassColor(artwork ?: MaterialTheme.colorScheme.surfaceContainerHigh),contentColor=ink) {
+            .testTag("home-continue"),shape=RoundedCornerShape(10.dp),color=artwork ?: MaterialTheme.colorScheme.surfaceContainerHigh,contentColor=ink) {
             Box {
                 Row(Modifier.padding(10.dp).heightIn(min=60.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                     ReaderCover(book,Modifier.width(38.dp).height(60.dp))
                     Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(1.dp)) {
-                        Text(book.title,style=MaterialTheme.typography.bodyLarge.copy(fontWeight=FontWeight.SemiBold,lineHeight=20.sp),maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text(book.title,style=MaterialTheme.typography.bodyLarge.copy(fontSize=13.sp,fontWeight=FontWeight.SemiBold,lineHeight=17.sp),maxLines=1,overflow=TextOverflow.Ellipsis)
                         val detail=book.author.ifBlank {readerChapterDisplayTitle(book.chapter)}
-                        if(detail.isNotBlank())Text(detail,style=MaterialTheme.typography.bodyMedium.copy(lineHeight=18.sp),maxLines=1,overflow=TextOverflow.Ellipsis,color=ink.copy(alpha=.8f))
-                        if(book.total>0)Text("${book.progress.percent}%",style=MaterialTheme.typography.bodySmall.copy(fontSize=13.sp,lineHeight=16.sp),color=ink.copy(alpha=.7f))
+                        if(detail.isNotBlank())Text(detail,style=MaterialTheme.typography.bodyMedium.copy(fontSize=12.sp,lineHeight=16.sp),maxLines=1,overflow=TextOverflow.Ellipsis,color=ink.copy(alpha=.8f))
+                        if(book.total>0)Text("${book.progress.percent}%",style=MaterialTheme.typography.bodySmall.copy(fontSize=11.sp,lineHeight=14.sp),color=ink.copy(alpha=.7f))
                     }
                     Spacer(Modifier.width(24.dp))
                 }
@@ -244,9 +256,9 @@ fun ReaderLibraryScreen(books: List<ReaderBookUi>, categories: List<String>, cat
     val searchFocus=remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard=androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     LaunchedEffect(requestSearch) { if(requestSearch) { gridState.requestScrollToItem(0);snapshotFlow {gridState.layoutInfo.visibleItemsInfo.any {it.index==0}}.first {it};androidx.compose.runtime.withFrameNanos {};androidx.compose.runtime.withFrameNanos {};searchFocus.requestFocus();keyboard?.show();onSearchFocused() } }
-    LazyVerticalGrid(state=gridState, columns = if(listMode) GridCells.Fixed(1) else GridCells.Adaptive(132.dp), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = ReaderBooksTokens.gutter, end = ReaderBooksTokens.gutter, bottom = LocalReaderDockInset.current), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+    LazyVerticalGrid(state=gridState, columns = if(listMode) GridCells.Fixed(1) else GridCells.Adaptive(132.dp), modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(start = ReaderBooksTokens.gutter, end = ReaderBooksTokens.gutter, bottom = LocalReaderDockInset.current), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(span={GridItemSpan(maxLineSpan)}) {
-            if(!searchMode)Column {
+            if(!searchMode)Column(Modifier.padding(bottom=8.dp)) {
                 var organizeOpen by remember {mutableStateOf(false)}
                 ReaderBooksHeader(categories.getOrNull(categoryIndex)?.takeIf {categoryIndex>0 && it.isNotBlank()} ?: strings.localize(Res.string.tp_library),horizontalPadding=0.dp,actions={
                     if(editing || selected.isNotEmpty())TextButton(onClick={editing=false;onClearSelection()},modifier=Modifier.heightIn(min=48.dp).testTag("library-edit")) {Text(strings.localize(Res.string.done))}

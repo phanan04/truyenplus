@@ -131,6 +131,6 @@ internal object ReaderBooksTokens {
         Text(title,style=MaterialTheme.typography.titleMedium.copy(fontSize=17.sp,lineHeight=22.sp,fontWeight=FontWeight.Bold,letterSpacing=0.sp),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
             modifier=Modifier.weight(1f).semantics {heading()},maxLines=2,overflow=TextOverflow.Ellipsis)
         actions()
-        IconButton(onClose,Modifier.size(48.dp).then(closeModifier).testTag(closeTag),enabled=closeEnabled) {Icon(Icons.Outlined.Close,localize(Res.string.close))}
+        IconButton(onClose,Modifier.size(48.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.06f),CircleShape).then(closeModifier).testTag(closeTag),enabled=closeEnabled) {Icon(Icons.Outlined.Close,localize(Res.string.close),Modifier.size(22.dp))}
     }
 }

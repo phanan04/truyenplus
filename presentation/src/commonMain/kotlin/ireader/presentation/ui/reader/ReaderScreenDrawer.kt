@@ -16,7 +16,8 @@ fun ReaderScreenDrawer(
         onReverseIcon: () -> Unit,
         drawerScrollState: LazyListState,
         onMap: (LazyListState) -> Unit,
+        book: ireader.domain.models.entities.Book? = null,
 ) {
     ireader.presentation.ui.truyenplus.ReaderChapterContents(chapters,chapter?.id,onChapter,modifier,
-        onReverse=onReverseIcon,listState=drawerScrollState)
+        onReverse=onReverseIcon,listState=drawerScrollState,book=book?.let {ireader.presentation.ui.truyenplus.ReaderBookUi(it.id,it.title,ireader.domain.models.BookCover.from(it))})
 }
