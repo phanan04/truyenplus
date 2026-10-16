@@ -40,22 +40,37 @@ class ReaderNativeJourneyTest {
         }
         val activity=instrumentation.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         val device=UiDevice.getInstance(instrumentation)
+        // Follow/highlight animations can keep accessibility busy longer than chrome's
+        // five-second timeout. Use our explicit waits instead of UiAutomator's 10s idle wait.
+        val automationConfig=androidx.test.uiautomator.Configurator.getInstance()
+        val originalIdleTimeout=automationConfig.waitForIdleTimeout
+        automationConfig.waitForIdleTimeout=100
         val controller=koin.get<TTSController>()
         val frames=mutableListOf<org.json.JSONObject>()
         val actions=mutableListOf<org.json.JSONObject>()
         fun present(selector:BySelector)=device.wait(Until.hasObject(selector),15_000)==true
         fun waitFor(selector:BySelector) {Assert.assertTrue("Missing UI $selector",present(selector))}
         fun click(value:String,label:String,probe:ReaderUiFrameProbe,text:Boolean=false) {
-            val selector=if(text)androidx.test.uiautomator.UiSelector().text(value)
-                else androidx.test.uiautomator.UiSelector().description(value)
-            val target=device.findObject(selector)
-            // Accessibility traversal can outlast the reader's five-second chrome timer.
-            // Reveal it again as a user would; do not wait on a stale visible-node snapshot.
-            if(!target.waitForExists(1500) && value in setOf("Nghe truyện","Chủ đề và cài đặt","Tùy chỉnh nghe")) {
-                device.click(device.displayWidth/2,device.displayHeight/3)
+            val selector=if(text)By.text(value) else By.desc(value)
+            var target=device.wait(Until.findObject(selector),500)
+            // One margin tap reveals hidden controls. A caller must not pre-toggle them:
+            // two independent wake attempts can hide the controls again.
+            if(target==null && value in setOf("Nghe truyện","Chủ đề và cài đặt","Tùy chỉnh nghe")) {
+                device.click(4,device.displayHeight/3)
+                target=device.wait(Until.findObject(selector),2000)
             }
-            Assert.assertTrue("Missing UI $value",target.waitForExists(15_000))
-            val rect=target.bounds
+            Assert.assertNotNull("Missing UI $value",target)
+            // Navigation can replace the accessibility node between lookup and bounds.
+            // Re-query before any input; never retry a click that was already sent.
+            var bounds:android.graphics.Rect?=null
+            repeat(5) {
+                if(bounds==null) {
+                    try {bounds=device.findObject(selector)?.visibleBounds}
+                    catch(_:androidx.test.uiautomator.StaleObjectException) { }
+                    if(bounds==null)Thread.sleep(30)
+                }
+            }
+            val rect=requireNotNull(bounds) {"No stable bounds for $value"}
             probe.actionLabel=label
             val start=android.os.SystemClock.elapsedRealtime()
             Assert.assertTrue(device.click(rect.centerX(),rect.centerY()))
@@ -98,25 +113,16 @@ class ReaderNativeJourneyTest {
             try {
                 click("Đo hiệu năng đọc nghe","open-reader",reader,text=true)
                 waitFor(By.textContains("Hoàng Yên Trần khẽ gật đầu."))
-                if(!device.hasObject(By.desc("Chủ đề và cài đặt")))
-                    device.click(device.displayWidth/2,device.displayHeight/3)
-                waitFor(By.desc("Chủ đề và cài đặt"))
                 repeat(4) {i->
-                    if(!device.hasObject(By.desc("Chủ đề và cài đặt")))
-                        device.click(device.displayWidth/2,device.displayHeight/3)
                     click("Chủ đề và cài đặt","font-open-$i",reader)
                     waitFor(By.text("Chủ đề và cài đặt"));click("Đóng","font-close-$i",reader)
                 }
-                if(!device.hasObject(By.desc("Nghe truyện")))
-                    device.click(device.displayWidth/2,device.displayHeight/3)
                 click("Nghe truyện","open-listening",reader)
                 awaitState {controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
                 if(!controller.state.value.isPlaying)controller.dispatch(TTSCommand.Play)
                 awaitState {controller.state.value.isPlaying && controller.state.value.spokenSentence!=null}
                 val paragraph=controller.state.value.currentParagraphIndex
                 repeat(4) {i->
-                    // Touch the upper paper area to reveal immersive controls if needed.
-                    if(!device.hasObject(By.desc("Tùy chỉnh nghe")))device.click(device.displayWidth/2,device.displayHeight/3)
                     click("Tùy chỉnh nghe","listen-open-$i",reader)
                     waitFor(By.text("Tùy chỉnh nghe"));click("Đóng","listen-close-$i",reader)
                 }
@@ -132,9 +138,11 @@ class ReaderNativeJourneyTest {
         } catch(error:Throwable) {
             val diagnostic=java.io.File(context.getExternalFilesDir(null),"qa-native-failure.xml")
             device.dumpWindowHierarchy(diagnostic)
+            device.takeScreenshot(java.io.File(context.getExternalFilesDir(null),"qa-native-failure.png"))
             android.util.Log.e("TruyenPlusQA","Native journey failed: ${diagnostic.readText()}")
             throw error
         } finally {
+            automationConfig.waitForIdleTimeout=originalIdleTimeout
             ReaderUiFrameProbe.save(if(fullGlass)"native-journey-full-glass" else "native-journey",frames,actions)
             controller.dispatch(TTSCommand.Cleanup)
             TTSV2ServiceStarter(context).stopService()

@@ -33,7 +33,7 @@ class SmartReaderBehaviourTest {
   assertTrue(follow.following)
   assertEquals(1,follow.returnRequest)
  }
- @Test fun immersiveListeningWakesOnTouchAndNeverHidesOverOpenSettings() {
+ @Test fun immersiveListeningKeepsSettingsReachableWithoutWakingTheHeader() {
   val chrome=ReaderImmersiveState()
   chrome.touch(0)
   chrome.update(4999,true,false)
@@ -43,7 +43,8 @@ class SmartReaderBehaviourTest {
   chrome.touch(6000)
   assertTrue(chrome.visible)
   chrome.update(15000,true,true)
-  assertTrue(chrome.visible)
+  assertFalse(chrome.visible)
+  assertTrue(chrome.playbackVisible)
   chrome.touch(15000)
   chrome.update(18000,false,false)
   assertTrue(chrome.visible)
@@ -65,7 +66,8 @@ class SmartReaderBehaviourTest {
   assertTrue(chrome.playbackVisible,"Idle listening still keeps its player; a manual swipe hides both")
   chrome.onUserScroll()
   chrome.update(6500,true,true)
-  assertTrue(chrome.visible && chrome.playbackVisible,"Open settings must remain reachable")
+  assertFalse(chrome.visible,"Settings must not reveal the header")
+  assertTrue(chrome.playbackVisible,"Open settings keep playback reachable")
  }
  @Test fun mergedSpeechPositionMapsBackToTheCorrectParagraphWithoutChangingPlaybackIndex() {
   val paragraphs=listOf("Một câu đầu. Câu thứ hai.","Một đoạn mới. Kết thúc.")
@@ -73,5 +75,42 @@ class SmartReaderBehaviourTest {
   val position=spokenSentencePosition(paragraphs,listOf(0,1),merged,merged.indexOf("Kết"))!!
   assertEquals(1,position.paragraphIndex)
   assertEquals("Kết thúc.",paragraphs[1].substring(position.start,position.end))
+ }
+ @Test fun openingSettingsDoesNotRevealTheChapterHeader() {
+  val chrome=ReaderImmersiveState()
+  chrome.touch(0);chrome.onUserScroll()
+  chrome.update(8000,true,true)
+  assertFalse(chrome.visible,"Opening a panel must not reveal unrelated reader controls")
+  assertTrue(chrome.playbackVisible,"Playback stays reachable below listening settings")
+ }
+ @Test fun readingIdleHidesBothControlsButListeningIdleKeepsPlayback() {
+  val reading=ReaderImmersiveState();val listening=ReaderImmersiveState()
+  reading.touch(100);listening.touch(100)
+  reading.update(5099,true,false,listening=false)
+  assertTrue(reading.visible)
+  reading.update(5100,true,false,listening=false)
+  listening.update(5100,true,false,listening=true)
+  assertFalse(reading.visible || reading.playbackVisible)
+  assertFalse(listening.visible);assertTrue(listening.playbackVisible)
+ }
+ @Test fun blankTapTogglesBothButAControlInteractionOnlyRefreshesTheDeadline() {
+  val chrome=ReaderImmersiveState()
+  chrome.touch(0);chrome.toggle(100)
+  assertFalse(chrome.visible || chrome.playbackVisible)
+  chrome.interact(200)
+  assertFalse(chrome.visible || chrome.playbackVisible,"Seeking/Play must not reveal the header")
+  chrome.toggle(300)
+  assertTrue(chrome.visible && chrome.playbackVisible)
+  chrome.interact(5000);chrome.update(8000,true,false)
+  assertTrue(chrome.visible)
+  chrome.update(10000,true,false)
+  assertFalse(chrome.visible)
+ }
+ @Test fun readingSettingsDoNotForceEitherToolbarBackOnScreen() {
+  val chrome=ReaderImmersiveState()
+  chrome.touch(0);chrome.update(100,true,true,listening=false)
+  assertFalse(chrome.visible || chrome.playbackVisible)
+  chrome.update(200,true,false,listening=false)
+  assertFalse(chrome.visible || chrome.playbackVisible)
  }
 }

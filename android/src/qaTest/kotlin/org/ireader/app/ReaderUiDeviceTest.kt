@@ -37,7 +37,7 @@ class ReaderUiDeviceTest {
             val koin=GlobalContext.get()
             koin.get<UiPreferences>().readerFullGlass().set(false)
             koin.get<AppPreferences>().capCutVoiceId().set("")
-            if(description.methodName in setOf("checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking","largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze","fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback"))
+            if(description.methodName in setOf("readerChromeIdleAndSettingsKeepPlaybackReachableWithoutWakingHeader","checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking","largeSystemFontKeepsTheFirstParagraphBelowTheFloatingHeader","booksRootNavigationSearchAccountAndReadingRemainConnected","paragraphListenFromHereChangesTheRealPlaybackPosition","manualScrollHidesReaderChromeAndPlayerWithoutPausingPlayback","miniPlayerAndContinueReopenTheLiveListeningSession","readerPanelsAndScrollingStayResponsiveWhileListening","shellPanelsNavigationAndIdleDoNotFreeze","fullGlassSwitchPersistsAcrossSettingsReaderAndLivePlayback"))
                 koin.get<ireader.domain.services.processstate.ProcessStateManager>().clearReaderState()
             koin.get<UiPreferences>().apply {
                 val complete=description.methodName!="firstLaunchActionsFollowTheSelectedLanguage"
@@ -60,7 +60,8 @@ class ReaderUiDeviceTest {
             runBlocking {
                 val id=koin.get<BookRepository>().upsert(Book(id=888100,sourceId=-200,title=metadata?.optString("title")?.takeIf {it.isNotBlank()} ?: "Kiểm tra đọc và nghe",author=metadata?.optString("author").orEmpty(),cover=if(visual && cover.isFile)cover.absolutePath else "",key="qa-ui",favorite=true,initialized=true))!!
                 val chapters=(1..3).map {i->Chapter(id=888100+i.toLong(),bookId=id,key="qa-ui-$i",name="Chương $i: Gió đêm",
-                    sourceOrder=i.toLong(),number=i.toFloat(),read=i==1,content=List(30){Text("Hoàng Yên Trần khẽ gật đầu. Gió đêm thổi qua, mang hương hoa thoang thoảng. Nàng nhìn về phía ngọn núi xa.")})}
+                    sourceOrder=i.toLong(),number=i.toFloat(),read=i==1,content=List(30){p->Text("Hoàng Yên Trần khẽ gật đầu. Gió đêm thổi qua, mang hương hoa thoang thoảng. Nàng nhìn về phía ngọn núi xa."+
+                        if(description.methodName=="paragraphListenFromHereChangesTheRealPlaybackPosition")" Đoạn kiểm tra số ${p+1}." else "")})}
                 koin.get<ChapterRepository>().insertChapters(chapters)
                 if(visual) {
                     val fixture=File(context.getExternalFilesDir(null),"visual-books.json")
@@ -91,7 +92,7 @@ class ReaderUiDeviceTest {
     }
     private fun wakeControls() {
         if(ui.onAllNodesWithTag("reader-settings").fetchSemanticsNodes().isEmpty()) {
-            ui.onRoot().performTouchInput {click(Offset(width/2f,height/3f))}
+            ui.onRoot().performTouchInput {click(Offset(4f,height/3f))}
             waitTag("reader-settings")
         }
     }
@@ -100,6 +101,44 @@ class ReaderUiDeviceTest {
         if(ui.onAllNodesWithTag("reader-appearance-customize").fetchSemanticsNodes().isNotEmpty()) {
             ui.onNodeWithTag("reader-appearance-customize").performClick();waitTag("reader-font-picker")
         }
+    }
+    @Test fun readerChromeIdleAndSettingsKeepPlaybackReachableWithoutWakingHeader() {
+        val koin=GlobalContext.get()
+        koin.get<ireader.domain.services.tts_service.v2.offline.OfflineVoiceStore>().select(null)
+        waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
+        ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
+        wakeControls()
+        ui.onNodeWithTag("reader-appearance-shortcut").assertDoesNotExist()
+        ui.waitUntil(12_000){ui.onAllNodesWithTag("reader-settings").fetchSemanticsNodes().isEmpty()}
+        ui.onNodeWithTag("reader-toolbar-reading").assertDoesNotExist()
+        wakeControls()
+        ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-panel")
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        ui.onNodeWithTag("reader-toolbar-reading").assertDoesNotExist()
+        // Dismiss through the scrim: the same tap must not also reveal the toolbars.
+        ui.onRoot().performTouchInput {click(Offset(width/2f,height*.25f))}
+        ui.onNodeWithTag("reader-appearance-panel").assertDoesNotExist()
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        wakeControls();ui.onNodeWithTag("reader-listen").performClick();waitTag("listen-play")
+        val controller=koin.get<TTSController>()
+        ui.waitUntil(30_000){controller.state.value.chapter?.id==888101L && !controller.state.value.isLoading}
+        if(!controller.state.value.isPlaying)ui.onNodeWithTag("listen-play").performClick()
+        ui.waitUntil(30_000){controller.state.value.isPlaying}
+        ui.waitUntil(12_000){ui.onAllNodesWithTag("reader-settings").fetchSemanticsNodes().isEmpty()}
+        ui.onNodeWithTag("listen-play").assertIsDisplayed().performClick()
+        ui.waitUntil(10_000){!controller.state.value.isPlaying && !controller.state.value.isLoading}
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-panel")
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        ui.onNodeWithTag("listen-play").assertIsDisplayed()
+        shot("reader-single-aa-listening-options")
+        ui.onNodeWithTag("listen-options-close").performClick();waitTag("listen-expanded-toggle")
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        ui.onRoot().performTouchInput {swipe(Offset(width/2f,height*.5f),Offset(width/2f,height*.3f),500)}
+        ui.waitUntil(10_000){ui.onAllNodesWithTag("listen-settings").fetchSemanticsNodes().isEmpty()}
+        wakeControls();waitTag("listen-expanded-toggle")
+        Assert.assertFalse("A blank tap resumed paused narration",controller.state.value.isPlaying || controller.state.value.isLoading)
+        shot("reader-single-aa-glass-header")
     }
     private fun shot(name:String) {
         ui.waitForIdle()
@@ -149,8 +188,9 @@ class ReaderUiDeviceTest {
             Assert.assertTrue("Chapter identity has no readable paper backing: $color",
                 if(light)color.luminance()>.65f else color.luminance()<.4f)
         }
-        assertIdentityPaper(true)
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
         assertTitleInk(false);shot("chrome-white-app-dark-options")
+        ui.onNodeWithTag("listen-options-close").performClick();wakeControls();assertIdentityPaper(true)
         ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-close");openCustomization()
         ui.onNodeWithTag("listen-options-close").assertDoesNotExist();shot("chrome-white-app-dark-font")
         ui.onNodeWithTag("reader-appearance-close").performClick();waitTag("listen-settings")
@@ -162,8 +202,9 @@ class ReaderUiDeviceTest {
             }
         }
         ui.waitForIdle()
+        wakeControls();assertIdentityPaper(false)
         ui.onNodeWithTag("listen-settings").performClick();waitTag("listen-options-close")
-        assertIdentityPaper(false)
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
         assertTitleInk(true);shot("chrome-dark-app-light-options")
         ui.onNodeWithTag("listen-options-close").performClick();waitTag("listen-expanded-toggle")
         if(ui.onAllNodesWithTag("listen-speed-decrease").fetchSemanticsNodes().isNotEmpty()) {
@@ -361,11 +402,24 @@ class ReaderUiDeviceTest {
         ui.waitUntil(10_000){controller.state.value.currentParagraphIndex==expected+5}
         // Even the first tap with hidden controls must seek immediately.
         // Send an actual finger tap: selection containers must not intercept playback seeking.
-        ui.onAllNodes(hasText("Hoàng Yên Trần khẽ gật đầu.",substring=true) and hasClickAction()).onFirst()
-            .performTouchInput {click() }
+        val target=ui.onNode(hasText("Đoạn kiểm tra số 1.",substring=true) and hasClickAction())
+        val layouts=mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        target.performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult){it(layouts)}
+        // A paragraph can span a full-width box; its centre may be blank line space.
+        // Tap a real glyph, exactly as a reader selecting where to listen would.
+        val glyph=layouts.single().getBoundingBox(0).center
+        Log.i("TruyenPlusUiQA","Seek target bounds=${target.fetchSemanticsNode().boundsInRoot}, glyph=$glyph, layout=${layouts.single().size}, index=${controller.state.value.currentParagraphIndex}, expected=$expected")
+        shot("seek-before-text-tap")
+        target.performTouchInput {click(glyph)}
+        shot("seek-after-text-tap")
         ui.waitUntil(10_000){controller.state.value.currentParagraphIndex==expected}
-        waitTag("reader-settings")
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
         ui.onNodeWithTag("reader-listen-from-here").assertDoesNotExist()
+        controller.dispatch(TTSCommand.Pause)
+        ui.waitUntil(10_000){!controller.state.value.isPlaying && !controller.state.value.isLoading}
+        val retained=controller.state.value.currentParagraphIndex
+        wakeControls()
+        Assert.assertEquals("A margin tap must not seek",retained,controller.state.value.currentParagraphIndex)
         shot("listening-from-selected-paragraph")
     }
 
@@ -389,11 +443,10 @@ class ReaderUiDeviceTest {
         Assert.assertTrue("Scrolling the chapter paused the TTS session: ${controller.state.value.playbackState}",
             controller.state.value.isPlaying || controller.state.value.isLoading)
         shot("immersive-manual-scroll")
-        // One actual tap restores controls and can seek; no extra confirmation UI.
+        // A margin tap restores controls without seeking; text has its own direct action.
         wakeControls();waitTag("listen-settings")
         ui.onNodeWithTag("reader-listen-from-here").assertDoesNotExist()
-        // The same finger tap may seek, which briefly loads the newly selected paragraph.
-        // Loading is active playback intent; a paused/stopped session is a regression.
+        // Playback continues independently of chrome visibility.
         Assert.assertTrue("Restoring controls paused the TTS session: ${controller.state.value.playbackState}",
             controller.state.value.isPlaying || controller.state.value.isLoading)
         ui.waitUntil(10_000){controller.state.value.isPlaying}
@@ -583,15 +636,16 @@ class ReaderUiDeviceTest {
     @Test fun checkpoint25ReaderMenuKeepsPanelsExclusiveAndChapterNavigationWorking() {
         waitTag("home-continue");ui.onNodeWithTag("home-continue").performClick()
         ui.waitUntil(30_000){ui.onAllNodesWithText("Hoàng Yên Trần khẽ gật đầu.",substring=true).fetchSemanticsNodes().isNotEmpty()}
-        for(tag in listOf("reader-settings","reader-appearance-shortcut","reader-menu-appearance")) {
-            wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-reading-menu")
-            if(tag=="reader-settings")shot("checkpoint25-reader-menu")
-            ui.onNodeWithTag(tag).performClick();waitTag("reader-appearance-panel")
-            ui.onNodeWithTag("reader-reading-menu").assertDoesNotExist()
-            ui.onNodeWithTag("reader-appearance-customize").assertIsDisplayed()
-            if(tag=="reader-settings")shot("checkpoint25-themes")
-            ui.onNodeWithTag("reader-appearance-close").performClick()
-        }
+        wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-reading-menu")
+        ui.onNodeWithTag("reader-appearance-shortcut").assertDoesNotExist()
+        ui.onNodeWithTag("reader-menu-appearance").assertDoesNotExist()
+        shot("checkpoint25-reader-menu")
+        ui.onNodeWithTag("reader-settings").performClick();waitTag("reader-appearance-panel")
+        ui.onNodeWithTag("reader-settings").assertDoesNotExist()
+        ui.onNodeWithTag("reader-reading-menu").assertDoesNotExist()
+        ui.onNodeWithTag("reader-appearance-customize").assertIsDisplayed()
+        shot("checkpoint25-themes")
+        ui.onNodeWithTag("reader-appearance-close").performClick()
         wakeControls();ui.onNodeWithTag("reader-footer-more").performClick();waitTag("reader-previous")
         ui.onNodeWithTag("reader-previous").assertIsNotEnabled()
         ui.onNodeWithTag("reader-next").performClick()

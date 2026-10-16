@@ -430,7 +430,8 @@ private fun ReadingScreenContent(
 
                         // Reader controls bottom bar (non-modal) with fast animation
                         AnimatedVisibility(
-                            visible = !vm.isReaderModeEnable && ireader.presentation.ui.truyenplus.LocalReaderListening.current == null,
+                            visible = !vm.isReaderModeEnable && ireader.presentation.ui.truyenplus.LocalReaderListening.current == null &&
+                                (panels==null || panels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None) && !vm.showSettingsBottomSheet,
                             enter = slideInVertically(
                                 initialOffsetY = { fullHeight -> fullHeight },
                                 animationSpec = tween(
@@ -467,7 +468,6 @@ private fun ReadingScreenContent(
                                         chapter = chapter,
                                         chapters = vm.stateChapters,
                                         currentChapterIndex = vm.currentChapterIndex,
-                                        onSetting = { if(panels!=null)panels.open(ireader.presentation.ui.truyenplus.ReaderPanel.Appearance) else vm.showSettingsBottomSheet=true },
                                         onNext = onNextWithReset,
                                         onPrev = onPrevWithReset,
                                         onSliderChange = onSliderChange,

@@ -17,6 +17,10 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.semantics.*
 import ireader.presentation.core.toComposeTextAlign
 import ireader.presentation.ui.reader.ReaderTextPreferencesState
 import ireader.domain.models.prefs.mapTextAlign
@@ -24,7 +28,7 @@ import ireader.domain.models.prefs.mapTextAlign
 /** Static paragraph wash and engine-driven marker. Never changes glyph geometry or audio work. */
 @Composable
 internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningContext,
-    preferences:ReaderTextPreferencesState,modifier:Modifier) {
+    preferences:ReaderTextPreferencesState,modifier:Modifier,onSelect:(()->Unit)?=null,actionLabel:String="") {
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val sentence=context.sentenceRange(page,text)
     val visibleRange=sentence.takeIf {context.highlight}
@@ -98,12 +102,57 @@ internal fun ReaderSpokenParagraph(text:String,page:Int,context:ReaderListeningC
         shade(previousWord,1f-wordFade.value,wordFill);shade(word,wordFade.value,wordFill)
         drawContent()
     }
+    val interactive=if(onSelect==null)decorated else decorated
+        .readerSpeechTap(text,{layout},onSelect)
+        // Keep each speech target separate from the reader container's click action.
+        .semantics(mergeDescendants=true) {
+            onClick(actionLabel){onSelect();true}
+            customActions=listOf(CustomAccessibilityAction(actionLabel){onSelect();true})
+        }
     val content:@Composable ()->Unit={
-        Text(text,decorated,style=androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=preferences.paragraphIndent.sp)),fontSize=preferences.fontSize.sp,fontFamily=preferences.fontFamily,
+        Text(text,interactive,style=androidx.compose.ui.text.TextStyle(textIndent=androidx.compose.ui.text.style.TextIndent(firstLine=preferences.paragraphIndent.sp)),fontSize=preferences.fontSize.sp,fontFamily=preferences.fontFamily,
             color=preferences.textColor,lineHeight=preferences.lineHeight.sp,
             letterSpacing=preferences.letterSpacing.sp,fontWeight=FontWeight(preferences.fontWeight),
             textAlign=mapTextAlign(preferences.textAlignment).toComposeTextAlign(),onTextLayout={layout=it})
     }
     // Listening owns a short tap; text selection stays available in normal reading.
     content()
+}
+
+/** Only occupied text lines seek. Indents, trailing line space and paragraph gaps remain chrome targets. */
+internal fun readerTextContains(text:String,layout:TextLayoutResult,point:Offset):Boolean {
+    if(text.isEmpty() || point.x<0 || point.y<0 || point.x>=layout.size.width || point.y>=layout.size.height)return false
+    val line=layout.getLineForVerticalPosition(point.y)
+    val start=layout.getLineStart(line)
+    val end=layout.getLineEnd(line,visibleEnd=true).coerceAtMost(text.length)
+    val first=(start until end).firstOrNull {!text[it].isWhitespace()} ?: return false
+    val last=(end-1 downTo first).first {!text[it].isWhitespace()}
+    val a=layout.getBoundingBox(first);val b=layout.getBoundingBox(last)
+    return point.x>=minOf(a.left,b.left) && point.x<maxOf(a.right,b.right) &&
+        point.y>=minOf(a.top,b.top) && point.y<maxOf(a.bottom,b.bottom)
+}
+
+@Composable private fun Modifier.readerSpeechTap(text:String,layout:()->TextLayoutResult?,onSelect:()->Unit):Modifier {
+    val select by rememberUpdatedState(onSelect)
+    val currentLayout by rememberUpdatedState(layout)
+    return pointerInput(text) {
+        awaitEachGesture {
+            val down=awaitFirstDown(requireUnconsumed=false)
+            var moved=false
+            do {
+                val event=awaitPointerEvent()
+                val change=event.changes.firstOrNull {it.id==down.id} ?: break
+                moved=moved || (change.position-down.position).getDistance()>viewConfiguration.touchSlop || event.changes.size>1
+                if(!change.pressed) {
+                    val result=currentLayout()
+                    if(!moved && !change.isConsumed && result!=null &&
+                        change.uptimeMillis-down.uptimeMillis<viewConfiguration.longPressTimeoutMillis &&
+                        readerTextContains(text,result,down.position) && readerTextContains(text,result,change.position)) {
+                        change.consume();select()
+                    }
+                    break
+                }
+            } while(true)
+        }
+    }
 }

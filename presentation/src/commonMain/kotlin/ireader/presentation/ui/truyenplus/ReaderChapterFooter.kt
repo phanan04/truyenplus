@@ -24,7 +24,7 @@ import ireader.i18n.resources.*
 fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boolean, autoScroll: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onContents: () -> Unit, onListen: () -> Unit,
     onBookmark: () -> Unit, onAutoScroll: () -> Unit, modifier: Modifier = Modifier,
-    backgroundColor: Color = MaterialTheme.colorScheme.surface, onAppearance: () -> Unit = {}) {
+    backgroundColor: Color = MaterialTheme.colorScheme.surface) {
     val ink=LocalContentColor.current
     val s=requireNotNull(LocalLocalizeHelper.current)
     var menuOpen by remember {mutableStateOf(false)}
@@ -37,18 +37,12 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
             val menuWidth=minOf(272.dp,maxWidth)
             Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 if(menuOpen)Column(Modifier.width(menuWidth).testTag("reader-reading-menu"),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                    Surface(onClick={menuOpen=false;onContents()},shape=RoundedCornerShape(24.dp),color=ink,contentColor=backgroundColor,
-                        modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("reader-contents")) {
+                    Surface(onClick={menuOpen=false;onContents()},shape=RoundedCornerShape(24.dp),color=readerOptionalGlassColor(ink),
+                        contentColor=if(LocalReaderFullGlass.current)ink else backgroundColor,
+                        modifier=Modifier.fillMaxWidth().readerOptionalGlass(24,backgroundColor).heightIn(min=48.dp).testTag("reader-contents")) {
                         Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
                             Text(s.localize(Res.string.tp_chapters)+" · "+position,Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             Icon(Icons.Default.FormatListBulleted,null,Modifier.size(24.dp))
-                        }
-                    }
-                    Surface(onClick={menuOpen=false;onAppearance()},shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink,
-                        modifier=Modifier.fillMaxWidth().readerPanel(24,backgroundColor,ink).heightIn(min=48.dp).testTag("reader-menu-appearance")) {
-                        Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Text(s.localize(Res.string.tp_reader_appearance),Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                            Text("Aa",style=MaterialTheme.typography.titleMedium)
                         }
                     }
                     Surface(Modifier.fillMaxWidth().readerPanel(28,backgroundColor,ink),shape=RoundedCornerShape(28.dp),color=Color.Transparent,contentColor=ink) {
@@ -65,7 +59,6 @@ fun ReaderChapterFooter(chapterIndex: Int, totalChapters: Int, bookmarked: Boole
                         Surface(Modifier.size(48.dp).readerPanel(24,backgroundColor,ink),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=ink) {
                             IconButton({menuOpen=false;onListen()},Modifier.fillMaxSize().testTag("reader-listen")){Icon(Icons.Default.Headphones,s.localize(Res.string.tp_listen_book))}
                         }
-                        IconButton({menuOpen=false;onAppearance()},Modifier.size(48.dp).testTag("reader-appearance-shortcut").semantics {contentDescription=s.localize(Res.string.tp_reader_appearance)}) {Text("Aa",color=ink,style=MaterialTheme.typography.titleMedium)}
                     }
                     Row(Modifier.weight(1f).testTag("reader-toolbar-navigation"),verticalAlignment=Alignment.CenterVertically) {
                         Text(position,Modifier.weight(1f),style=MaterialTheme.typography.bodySmall,color=ink.copy(alpha=.6f),textAlign=androidx.compose.ui.text.style.TextAlign.Center,maxLines=1)

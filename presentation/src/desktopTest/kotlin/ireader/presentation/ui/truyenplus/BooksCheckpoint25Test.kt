@@ -122,8 +122,8 @@ class BooksCheckpoint25Test {
             menu.config[SemanticsActions.OnClick].action!!.invoke()
             s.render(2_000_000_000);s.render(3_000_000_000)
             val contents=node(s,"reader-contents").boundsInRoot
-            val appearance=node(s,"reader-menu-appearance").boundsInRoot
-            assertTrue(contents.width>=250f && appearance.top>=contents.bottom,"Reader actions expand vertically like source 137")
+            val previous=node(s,"reader-previous").boundsInRoot
+            assertTrue(contents.width>=250f && previous.top>=contents.bottom,"Chapter tools remain below Contents without a duplicate appearance entry")
             node(s,"reader-next").config[SemanticsActions.OnClick].action!!.invoke()
             assertEquals(1,next)
         }
@@ -177,7 +177,7 @@ class BooksCheckpoint25Test {
     @Test fun openingAnotherReaderPanelClosesTheReadingToolsMenu() {
         val panels=ReaderPanelState()
         ImageComposeScene(393,500) {CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),LocalReaderPanels provides panels) {MaterialTheme {
-            ReaderBackdrop {ReaderChapterFooter(0,3,false,false,{},{},{},{},{},{},Modifier.align(Alignment.BottomCenter),onAppearance={panels.open(ReaderPanel.Appearance)})}
+            ReaderBackdrop {ReaderChapterFooter(0,3,false,false,{},{},{},{},{},{},Modifier.align(Alignment.BottomCenter))}
         }}}.use {s->
             s.render(0);s.render(1_000_000_000)
             node(s,"reader-footer-more").config[SemanticsActions.OnClick].action!!.invoke()

@@ -177,13 +177,22 @@ data class ReaderScreenSpec(
         var showListening by rememberSaveable { mutableStateOf(listenOnOpen) }
         val followState=remember { ireader.presentation.ui.truyenplus.ReaderFollowState() }
         val immersive=remember { ireader.presentation.ui.truyenplus.ReaderImmersiveState() }
-        // Capture visibility on pointer-down, before waking. A callback reads this only on click.
-        val wakingParagraphTap=remember { mutableStateOf(false) }
         val immersiveEpoch=remember { TimeSource.Monotonic.markNow() }
         val sentenceTarget=remember { kotlinx.coroutines.flow.MutableStateFlow<ireader.presentation.ui.truyenplus.ReaderSentenceTarget?>(null) }
         val reportSentenceBounds=remember { { page:Int,bounds:androidx.compose.ui.geometry.Rect -> sentenceTarget.value=ireader.presentation.ui.truyenplus.ReaderSentenceTarget(page,bounds) } }
         val target by sentenceTarget.collectAsState()
         val readerPanels=remember { ireader.presentation.ui.truyenplus.ReaderPanelState() }
+        val toggleReaderControls:()->Unit={
+            if(readerPanels.active==ireader.presentation.ui.truyenplus.ReaderPanel.None && !vm.showSettingsBottomSheet) {
+                immersive.toggle(immersiveEpoch.elapsedNow().inWholeMilliseconds)
+                vm.toggleReaderMode(!immersive.visible)
+            }
+        }
+        LaunchedEffect(vm) {
+            vm.state.first {it is ReaderState.Success && it.isChapterLoaded}
+            immersive.touch(immersiveEpoch.elapsedNow().inWholeMilliseconds)
+            vm.toggleReaderMode(false)
+        }
         val blurSupported=ireader.presentation.ui.truyenplus.rememberReaderBlurSupported()
         val chapterBackdrop=remember(blurSupported) {
             if(blurSupported) ireader.presentation.ui.truyenplus.ReaderNavigationBackdrop() else null
@@ -400,10 +409,10 @@ data class ReaderScreenSpec(
         val playbackActive=ttsState.isPlaying || ttsState.isLoading
         LaunchedEffect(showListening,playbackActive,readerPanels.active,vm.showSettingsBottomSheet) {
             while(true) {
-                delay(500)
                 immersive.update(immersiveEpoch.elapsedNow().inWholeMilliseconds,
-                    !showListening || playbackActive,readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet)
+                    !showListening || playbackActive,readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet,listening=showListening)
                 if(!immersive.visible && !vm.isReaderModeEnable)vm.toggleReaderMode(true)
+                delay(500)
             }
         }
         LaunchedEffect(showListening,followListening,listeningSourceIndex,ttsState.spokenSentence,target,
@@ -422,7 +431,7 @@ data class ReaderScreenSpec(
                     val topInset=with(readerDensity) {
                         (if(vm.isReaderModeEnable)statusBarInset else statusBarInset+68.dp).toPx()
                     }
-                    val bottomInset=with(readerDensity) {(readerPlayerHeight+navigationInset).toPx()}
+                    val bottomInset=with(readerDensity) {((if(immersive.playbackVisible)readerPlayerHeight else 0.dp)+navigationInset).toPx()}
                     ireader.presentation.ui.truyenplus.readerFollowScrollDelta(top,bottom,info.viewportSize.height.toFloat(),topInset,bottomInset)
                         ?.let {lazyListState.animateScrollBy(it)}
                 }
@@ -575,18 +584,17 @@ data class ReaderScreenSpec(
                 ireader.presentation.ui.truyenplus.ReaderPaperTheme {
                 // Use Box to overlay top bar without affecting content layout
                 androidx.compose.foundation.layout.Box(
-                    modifier = androidx.compose.ui.Modifier.fillMaxSize().readerWakeOnTouch {
-                        wakingParagraphTap.value=vm.isReaderModeEnable
-                        immersive.touch(immersiveEpoch.elapsedNow().inWholeMilliseconds)
-                        if(vm.isReaderModeEnable)vm.toggleReaderMode(false)
-                    }
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize().readerWakeOnTouch(
+                        onInteraction={immersive.interact(immersiveEpoch.elapsedNow().inWholeMilliseconds)},
+                        onTouch=toggleReaderControls)
                 ) {
                     ireader.presentation.ui.truyenplus.ReaderGlassBackground(androidx.compose.ui.Modifier.matchParentSize())
                     // Content first (below the top bar)
                     val headerInset=statusBarInset+68.dp
                     val padding = androidx.compose.foundation.layout.PaddingValues(
                         top=if(!vm.isReaderModeEnable)headerInset else statusBarInset,
-                        bottom = if (showListening) readerPlayerHeight + navigationInset else if (!vm.isReaderModeEnable) readerFooterHeight else navigationInset)
+                        bottom = if (showListening && (immersive.playbackVisible || readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet)) readerPlayerHeight + navigationInset
+                            else if (!showListening && !vm.isReaderModeEnable) readerFooterHeight else navigationInset)
 
                     androidx.compose.runtime.CompositionLocalProvider(
                         ireader.presentation.ui.truyenplus.LocalReaderListening provides if (showListening)
@@ -668,11 +676,7 @@ data class ReaderScreenSpec(
                                 Log.error(e, "Reader Spec failed to go previous chapter")
                             }
                         },
-                        toggleReaderMode = {
-                            // The initial pointer pass already revealed hidden controls.
-                            // Do not let the paragraph's click immediately hide them again.
-                            if (!wakingParagraphTap.value) vm.toggleReaderMode()
-                        },
+                        toggleReaderMode = toggleReaderControls,
                         readerScreenPreferencesState = vm,
                         onBackgroundColorAndTextColorApply = { bgColor, txtColor ->
                             try {
@@ -786,7 +790,7 @@ data class ReaderScreenSpec(
                     ReaderScreenTopBar(
                         onPlay = { showListening = true },
                         modifier = androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopCenter),
-                        isReaderModeEnable = successState?.isReaderModeEnabled ?: false,
+                        isReaderModeEnable = !immersive.visible || readerPanels.active!=ireader.presentation.ui.truyenplus.ReaderPanel.None || vm.showSettingsBottomSheet,
                         isLoaded = successState?.isChapterLoaded ?: false,
                         onRefresh = {
                             scope.launch {

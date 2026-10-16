@@ -34,6 +34,70 @@ class ReaderGlassDeviceTest {
         }}
         ui.waitForIdle()
     }
+    @Test fun chapterHeaderDiffusesFinePageDetailsBehindItsTitle() {
+        content {
+            val backdrop=remember {ReaderNavigationBackdrop()}
+            CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop,LocalReaderFullGlass provides false,
+                ireader.presentation.ui.core.theme.LocalLocalizeHelper provides ireader.i18n.LocalizeHelper(androidx.compose.ui.platform.LocalContext.current)) {
+                Box(Modifier.fillMaxSize()) {
+                    Canvas(Modifier.fillMaxSize().readerNavigationSource(backdrop)) {
+                        for(x in 0 until size.width.toInt() step 4)
+                            drawRect(if((x/4)%2==0)Color.Black else Color.White,Offset(x.toFloat(),0f),Size(4f,size.height))
+                    }
+                    ireader.presentation.ui.reader.ReaderChapterTopBar(
+                        ireader.domain.models.entities.Chapter(1,1,"a","Chương kiểm tra"),{},{},{},
+                        backgroundColor=Color.White,textColor=Color.Black,bookTitle="Kiểm tra Glass",onEdit={})
+                }
+            }
+        }
+        Thread.sleep(300);ui.waitForIdle()
+        val pixels=ui.onNodeWithTag("reader-top-capsule").captureToImage().toPixelMap()
+        val y=(4*ui.activity.resources.displayMetrics.density).toInt()
+        val samples=(pixels.width/3 until pixels.width*2/3).map {pixels[it,y].red}
+        Assert.assertTrue("Fine page details remain sharp behind the header: ${samples.min()}..${samples.max()}",
+            samples.max()-samples.min()<.05f)
+    }
+    @Test fun readerHeaderExpandedPlayerAndSettingsAllSampleThePageInFullGlass() {
+        for(paper in listOf(Color.White,Color(0xFF1B1B1D)))for(panel in 0..3) {
+            val tag=when(panel){0->"reader-identity";1->"listen-expanded-toggle";2->"listen-options-panel";else->"reader-appearance-panel"}
+            content {
+                val backdrop=remember {ReaderNavigationBackdrop()}
+                CompositionLocalProvider(LocalReaderNavigationBackdrop provides backdrop,LocalReaderFullGlass provides true,
+                    ireader.presentation.ui.core.theme.LocalLocalizeHelper provides ireader.i18n.LocalizeHelper(androidx.compose.ui.platform.LocalContext.current)) {
+                    ReaderPaperTheme(paper,if(paper==Color.White)Color.Black else Color.White) {
+                        Box(Modifier.fillMaxSize()) {
+                            Row(Modifier.matchParentSize().readerNavigationSource(backdrop)) {
+                                Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFFDF594E)))
+                                Box(Modifier.weight(1f).fillMaxHeight().background(Color(0xFF457ADC)))
+                            }
+                            when(panel) {
+                                0->ireader.presentation.ui.reader.ReaderChapterTopBar(
+                                    ireader.domain.models.entities.Chapter(1,1,"a","Chương kiểm tra"),{},{},{},backgroundColor=paper,
+                                    textColor=if(paper==Color.White)Color.Black else Color.White,bookTitle="Kiểm tra Glass",onEdit={})
+                                1->ReaderFloatingPlayer(false,1f,.2f,{},{},{},{},{},{},modifier=Modifier.align(Alignment.BottomCenter))
+                                2->Box(Modifier.align(Alignment.BottomCenter)) {
+                                    ReaderFloatingOptions("Giọng hệ thống",1f,true,true,true,false,15,ListeningAudioState(),{},{},{},{},{},{},{},{},{},{})
+                                }
+                                else->ReaderAppearanceOverlay({}) {ReaderAppearanceContent(ReaderAppearanceUi(),ReaderAppearanceActions())}
+                            }
+                        }
+                    }
+                }
+            }
+            Thread.sleep(300);ui.waitForIdle()
+            val pixels=ui.onNodeWithTag(tag).captureToImage().toPixelMap()
+            val left=pixels[(pixels.width*.15f).toInt(),(pixels.height*.06f).toInt()]
+            val right=pixels[(pixels.width*.85f).toInt(),(pixels.height*.06f).toInt()]
+            Assert.assertTrue("$tag is flat/opaque instead of sampling the page on $paper: $left / $right",
+                left.red-left.blue>right.red-right.blue+.08f)
+            val screenshot=InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+            val folder=java.io.File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null),"qa-screens").apply {mkdirs()}
+            java.io.File(folder,"reader-glass-${if(paper==Color.White)"light" else "dark"}-$panel.png").outputStream().use {
+                screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)
+            }
+            screenshot.recycle()
+        }
+    }
     @Test fun fullGlassUsesLowerPaperForCardsAndCapturedPageForFloatingPanels() {
         for(paper in listOf(Color.White,Color(0xFF1B1B1D))) {
             content {

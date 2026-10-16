@@ -129,7 +129,7 @@ fun ReaderFloatingOptions(voice: String, pitch: Float, autoNext: Boolean, highli
     highlightWords:Boolean=false,onHighlightWords:(Boolean)->Unit={},wordTiming:ReaderWordTiming=ReaderWordTiming.Conditional) {
     val s=requireNotNull(LocalLocalizeHelper.current)
     var page by remember { mutableIntStateOf(0) }
-    Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(20.dp)) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal=12.dp).readerPanel(20).testTag("listen-options-panel"),color=Color.Transparent,contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(20.dp)) {
         ReaderGlassPanelColumn {
             Row(Modifier.fillMaxWidth().height(48.dp).padding(start=18.dp,end=8.dp),verticalAlignment=Alignment.CenterVertically) {
                 Text(s.localize(Res.string.tp_listening_settings),Modifier.weight(1f),style=MaterialTheme.typography.titleMedium,maxLines=1,overflow=TextOverflow.Ellipsis)

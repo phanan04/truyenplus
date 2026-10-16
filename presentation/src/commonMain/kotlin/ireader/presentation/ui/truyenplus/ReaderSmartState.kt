@@ -7,6 +7,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.*
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 
 @Stable class ReaderFollowState {
     var following by mutableStateOf(true); private set
@@ -20,10 +22,15 @@ import androidx.compose.ui.input.pointer.*
     var playbackVisible by mutableStateOf(true); private set
     private var lastTouch=0L
     fun touch(now:Long) { lastTouch=now;visible=true;playbackVisible=true }
+    fun interact(now:Long) {lastTouch=now}
+    fun toggle(now:Long) {if(visible)onUserScroll() else touch(now)}
     fun onUserScroll() { visible=false;playbackVisible=false }
-    fun update(now:Long,active:Boolean,settingsOpen:Boolean) {
-        if(settingsOpen) { visible=true;playbackVisible=true }
-        else if(active && now-lastTouch>=delayMs)visible=false
+    fun update(now:Long,active:Boolean,settingsOpen:Boolean,listening:Boolean=true) {
+        if(settingsOpen) { visible=false;playbackVisible=listening;lastTouch=now }
+        else if(active && now-lastTouch>=delayMs) {
+            visible=false
+            if(!listening)playbackVisible=false
+        }
     }
 }
 /** Observe scroll without consuming it; smart follow and other programmatic moves stay untouched. */
@@ -36,14 +43,26 @@ internal class ReaderUserScrollConnection(private val onUserScroll:()->Unit):Nes
 
 data class ReaderSentenceTarget(val page:Int,val bounds:Rect)
 
-@Composable fun Modifier.readerWakeOnTouch(onTouch:()->Unit):Modifier {
+/** Children own text/buttons first; only an unclaimed completed tap toggles chrome. */
+@Composable fun Modifier.readerWakeOnTouch(onInteraction:()->Unit={},onTouch:()->Unit):Modifier {
     val callback by rememberUpdatedState(onTouch)
+    val interaction by rememberUpdatedState(onInteraction)
     return pointerInput(Unit) {
-        awaitPointerEventScope {
-            while(true) {
-                val event=awaitPointerEvent(PointerEventPass.Initial)
-                if(event.changes.any {it.pressed && !it.previousPressed})callback()
-            }
+        awaitEachGesture {
+            val down=awaitFirstDown(requireUnconsumed=false,pass=PointerEventPass.Initial)
+            var moved=false
+            var claimed=false
+            do {
+                val event=awaitPointerEvent(PointerEventPass.Final)
+                val change=event.changes.firstOrNull {it.id==down.id} ?: break
+                moved=moved || (change.position-down.position).getDistance()>viewConfiguration.touchSlop || event.changes.size>1
+                claimed=claimed || change.isConsumed
+                if(!change.pressed) {
+                    interaction()
+                    if(!moved && !claimed && change.uptimeMillis-down.uptimeMillis<viewConfiguration.longPressTimeoutMillis)callback()
+                    break
+                }
+            } while(true)
         }
     }
 }

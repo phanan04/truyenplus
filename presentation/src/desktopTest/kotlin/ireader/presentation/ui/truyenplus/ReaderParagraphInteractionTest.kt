@@ -5,6 +5,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.text.TextLayoutResult
 import ireader.core.source.model.Text
 import ireader.domain.models.prefs.PreferenceValues
 import ireader.i18n.LocalizeHelper
@@ -14,6 +19,63 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderParagraphInteractionTest {
+    @Test fun firstParagraphWithPaddingSeeksInsideAClickableReaderContainer() {
+        var selected=0;var chrome=0
+        val text="Hoàng Yên Trần khẽ gật đầu. Gió đêm thổi qua."
+        val preferences=ReaderTextPreferencesState(20,30,0,400,12,PreferenceValues.PreferenceTextAlignment.Left,
+            androidx.compose.ui.graphics.Color.Black,null,10,4,2,true,false,false,0,false)
+        ImageComposeScene(360,640,Density(1f)) {
+            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),
+                LocalReaderListening provides ReaderListeningContext(listOf(0),0,true,{selected++})) {
+                MaterialTheme {Box(Modifier.fillMaxSize().clickable {chrome++}) {
+                    StyleTextOptimized(Modifier,0,Text(text),false,preferences)
+                }}
+            }
+        }.use {s ->
+            repeat(3){s.render()}
+            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
+            val node=s.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}.first {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text==text}==true}
+            val results=mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+            val point=node.boundsInRoot.topLeft+results.single().getBoundingBox(0).center
+            s.sendPointerEvent(PointerEventType.Press,point)
+            s.sendPointerEvent(PointerEventType.Release,point)
+            repeat(3){s.render()}
+            assertEquals(1,selected,"The padded first paragraph must own a tap on its text")
+            assertEquals(0,chrome,"Seeking must not invoke the reader's parent tap")
+        }
+    }
+    @Test fun trailingSpaceTogglesChromeInsteadOfSeekingTheParagraph() {
+        var selected=0;var chrome=0
+        val text="Hoàng Yên Trần."
+        val preferences=ReaderTextPreferencesState(20,30,0,400,0,PreferenceValues.PreferenceTextAlignment.Left,
+            androidx.compose.ui.graphics.Color.Black,null,2,4,2,true,false,false,0,false)
+        ImageComposeScene(360,640,Density(1f)) {
+            CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper(),
+                LocalReaderListening provides ReaderListeningContext(listOf(7),0,true,{selected++})) {
+                MaterialTheme {Box(Modifier.fillMaxSize().readerWakeOnTouch {chrome++}) {
+                    StyleTextOptimized(Modifier,7,Text(text),false,preferences)
+                }}
+            }
+        }.use {s ->
+            repeat(3){s.render()}
+            fun nodes(n:SemanticsNode):List<SemanticsNode> = listOf(n)+n.children.flatMap(::nodes)
+            val node=s.semanticsOwners.flatMap {nodes(it.rootSemanticsNode)}.first {it.config.getOrNull(SemanticsProperties.Text)?.any {t->t.text==text}==true}
+            val results=mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action!!.invoke(results)
+            val glyph=results.single().getBoundingBox(0)
+            fun tap(point:Offset) {
+                s.sendPointerEvent(PointerEventType.Press,point)
+                s.sendPointerEvent(PointerEventType.Release,point)
+                repeat(3){s.render()}
+            }
+            tap(node.boundsInRoot.topLeft+glyph.center)
+            assertEquals(1,selected);assertEquals(0,chrome,"Seeking must leave chrome visibility untouched")
+            tap(Offset(350f,node.boundsInRoot.top+glyph.center.y))
+            assertEquals(1,selected,"Trailing line space is not a speech target")
+            assertEquals(1,chrome)
+        }
+    }
     @Test fun touchingListeningTextImmediatelySeeksToTheMappedParagraphWithoutAMenu() {
         var selected:Int?=null
         val original="  Hoàng Yên Trần nói: ‘Đi thôi!’"

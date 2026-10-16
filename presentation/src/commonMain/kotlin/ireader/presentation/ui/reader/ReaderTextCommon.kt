@@ -319,14 +319,8 @@ internal fun StyleTextOptimized(
             listening.onSentenceBounds(pageIndex, bounds.translate(androidx.compose.ui.geometry.Offset(0f, topPixels)))
         })
         Box {
-            val actions = if (speechIndex == null) paragraphModifier else paragraphModifier
-                .clickable(onClickLabel = actionLabel) { listening.onSelect(speechIndex) }
-                .then(Modifier.semantics {
-                    customActions = listOf(androidx.compose.ui.semantics.CustomAccessibilityAction(actionLabel) {
-                        listening.onSelect(speechIndex); true
-                    })
-                })
-            ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,positioned,preferences,actions.fillMaxWidth())
+            ireader.presentation.ui.truyenplus.ReaderSpokenParagraph(originalText,index,positioned,preferences,paragraphModifier.fillMaxWidth(),
+                onSelect=speechIndex?.let { {listening.onSelect(it)} },actionLabel=actionLabel)
 
         }
         return

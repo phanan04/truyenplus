@@ -11,13 +11,13 @@ import kotlin.test.*
 
 @OptIn(ExperimentalComposeUiApi::class)
 class ReaderCoreControlsTest {
-    @Test fun readingFooterStaysOneCompactRowAndOffersAppearanceNearTheThumb() {
+    @Test fun readingFooterStaysOneCompactRowWithoutDuplicatingAppearance() {
         for((width,font) in listOf(240 to 2f,280 to 2f,320 to 1f,320 to 2f,600 to 1.5f,800 to 2f)) {
             scene(width,200,font) {ReaderChapterFooter(0,100,false,false,{},{},{},{},{},{})}.use {s ->
                 s.render(0);s.render(1_000_000_000)
                 val footer=nodes(s).first {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-footer-capsule"}
                 assertTrue(footer.boundsInRoot.height<=84,"Footer crowds reading viewport at $width/$font: ${footer.boundsInRoot}")
-                assertNotNull(nodes(s).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-shortcut"})
+                assertNull(nodes(s).firstOrNull {it.config.getOrNull(SemanticsProperties.TestTag)=="reader-appearance-shortcut"})
                 for(n in nodes(s).filter {it.config.getOrNull(SemanticsActions.OnClick)!=null}) {
                     assertTrue(n.boundsInRoot.width>=47 && n.boundsInRoot.height>=47)
                     assertTrue(n.boundsInRoot.left>=0 && n.boundsInRoot.right<=width)

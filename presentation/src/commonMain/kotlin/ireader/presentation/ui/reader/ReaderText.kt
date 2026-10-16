@@ -444,7 +444,7 @@ fun ReaderText(
                                                             scope.launch {
                                                                 swipeState.animateOffsetTo(0f)
                                                             }
-                                                        } else if (!isDragging && !isHorizontalGesture) {
+                                                        } else if (!isDragging && !isHorizontalGesture && change?.isConsumed!=true) {
                                                             // It was a tap — just toggle reader mode
                                                             debouncedToggleReaderMode()
                                                         }

@@ -108,14 +108,15 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
     val appearanceLabel = localize(Res.string.tp_reader_appearance)
     ireader.presentation.ui.truyenplus.ReaderPaperTheme(backgroundColor,textColor) {
     Box(modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=18.dp,vertical=12.dp),contentAlignment=Alignment.TopCenter) {
-        Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(48.dp).testTag("reader-top-capsule"),
+        Row(Modifier.widthIn(max=760.dp).fillMaxWidth().height(48.dp)
+            .readerPanel(24,backgroundColor,textColor).testTag("reader-top-capsule"),
             verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             IconButton(onClick=onSettings,modifier=Modifier.size(48.dp).testTag("reader-settings").semantics {contentDescription=appearanceLabel}) {
                 Text("Aa",color=textColor,style=MaterialTheme.typography.titleMedium)
             }
-            // A quiet paper-backed caption stays legible over text without becoming another floating capsule.
+            // The whole header shares one Glass pass, including Aa and the chapter identity.
             Surface(Modifier.weight(1f).height(40.dp).testTag("reader-identity"),
-                shape=RoundedCornerShape(10.dp),color=backgroundColor,contentColor=textColor) {
+                shape=RoundedCornerShape(10.dp),color=Color.Transparent,contentColor=textColor) {
                 Column(Modifier.fillMaxSize().padding(horizontal=4.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                     Text(ireader.presentation.ui.truyenplus.readerChapterDisplayTitle(chapter?.name.orEmpty()),
                         style=MaterialTheme.typography.labelMedium.copy(fontSize=13.sp),color=textColor.copy(alpha=.7f),
@@ -133,7 +134,7 @@ fun ReaderChapterTopBar(chapter: Chapter?, onBookmark: () -> Unit, onBack: () ->
                     if(onListen!=null)DropdownMenuItem(text={Text(localize(Res.string.tp_listen_book))},onClick={moreOpen=false;onListen()})
                 }
             }
-            Surface(Modifier.size(48.dp).readerPanel(24,backgroundColor,textColor),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=textColor) {
+            Surface(Modifier.size(48.dp),shape=RoundedCornerShape(24.dp),color=Color.Transparent,contentColor=textColor) {
                 IconButton(onClick=onBack,modifier=Modifier.fillMaxSize().testTag("reader-close")) {Icon(Icons.Default.Close,localize(Res.string.tp_back))}
             }
         }
