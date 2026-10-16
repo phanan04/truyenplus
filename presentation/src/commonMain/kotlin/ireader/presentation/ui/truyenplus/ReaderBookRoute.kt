@@ -46,6 +46,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.*
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import org.koin.compose.koinInject
 import ireader.domain.usecases.epub.ImportEpub
 import ireader.domain.data.repository.BookMetadataLookup
@@ -222,11 +224,13 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
                     Surface(Modifier.fillMaxWidth().padding(top=20.dp),shape=androidx.compose.foundation.shape.RoundedCornerShape(20.dp),color=ink.copy(alpha=.1f)) {
                         BoxWithConstraints(Modifier.padding(14.dp)) {
                             val stacked=maxWidth.value/androidx.compose.ui.platform.LocalDensity.current.fontScale<260f
+                            val readDescription=strings.localize(if(book.read>0)Res.string.tp_continue_reading else Res.string.tp_start_reading)
                             val read:@Composable (Modifier)->Unit={buttonModifier->
                                 androidx.compose.material3.Button(onRead,enabled=chapters.isNotEmpty(),shape=CircleShape,
                                     colors=ButtonDefaults.buttonColors(containerColor=ink,contentColor=tone),contentPadding=PaddingValues(horizontal=8.dp,vertical=10.dp),
-                                    modifier=buttonModifier.heightIn(min=48.dp).testTag("book-read")) {
-                                    Text(strings.localize(if(book.read>0)Res.string.tp_continue_reading else Res.string.tp_start_reading),style=MaterialTheme.typography.labelLarge,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                    modifier=buttonModifier.heightIn(min=48.dp).testTag("book-read").semantics {contentDescription=readDescription}) {
+                                    Text(strings.localize(if(book.read>0)Res.string.continues else Res.string.read),style=MaterialTheme.typography.labelLarge,
+                                        maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                                 }
                             }
                             val listen:@Composable (Modifier)->Unit={buttonModifier->
@@ -234,7 +238,7 @@ fun ReaderBookScreen(book:ReaderBookUi,author:String,chapters:List<Chapter>,onBa
                                     colors=ButtonDefaults.buttonColors(containerColor=ink.copy(alpha=.14f),contentColor=ink),contentPadding=PaddingValues(horizontal=8.dp,vertical=10.dp),
                                     modifier=buttonModifier.heightIn(min=48.dp).testTag("book-listen")) {
                                     Icon(Icons.Outlined.Headphones,null,Modifier.size(18.dp));Spacer(Modifier.width(6.dp))
-                                    Text(strings.localize(Res.string.tp_listen_book),style=MaterialTheme.typography.labelLarge,maxLines=2,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
+                                    Text(strings.localize(Res.string.tp_listen_book),style=MaterialTheme.typography.labelLarge,maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=androidx.compose.ui.text.style.TextAlign.Center)
                                 }
                             }
                             if(stacked)Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {read(Modifier.fillMaxWidth());listen(Modifier.fillMaxWidth())}

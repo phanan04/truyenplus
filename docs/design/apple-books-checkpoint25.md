@@ -54,6 +54,8 @@ Final local QA screenshots and reports are under `.opencode/reports/checkpoint25
 
 21 installed-Android checks passed: five RenderNode/material checks, root navigation/search/details, both native performance journeys, real Piper installation/playback, independent app/paper themes, appearance layout, exclusive reader panels, direct paragraph seek, chapter switching, immersive scrolling, listening re-entry, voice selection, light/dark utility sheets, expandable reader menu, 320dp phone with 200% system text and an 800dp tablet. Sixty captured screenshots were collected; the source-mapped screens, independent paper colors and responsive sheets were inspected.
 
+The first CI run subsequently caught an English-only 360dp detail layout failure: “Continue reading” wrapped to two lines, making Read 60dp versus Listen 48dp. This was reproduced locally with `JAVA_TOOL_OPTIONS='-Duser.language=en -Duser.country=US'`. Detail actions now use compact localized Read/Continue labels and one-line text, while accessibility retains the complete reading action description. The existing regression covers both first-read and resume states without relaxing its 48dp balance requirement. After this wording-only correction, all 388 tests passed again in each explicit English and Vietnamese locale; native screenshots/timing above precede that final label correction.
+
 Final installed-runtime timing on the API 36 x86 emulator (1080×2400, 480dpi, system font 100%; milliseconds):
 
 | Mode / journey | Frames | Median | P95 | Maximum | Frames >700ms |

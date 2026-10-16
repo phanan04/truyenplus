@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.*
 import ireader.domain.models.common.ColorModel
 import ireader.domain.preferences.models.ReaderColors
 import ireader.i18n.LocalizeHelper
+import ireader.i18n.resources.*
 import ireader.presentation.ui.core.theme.LocalLocalizeHelper
 import kotlin.test.*
 
@@ -161,14 +162,16 @@ class BooksCheckpoint25Test {
         }
     }
     @Test fun phoneWidthKeepsBothBookActionsOnOneBalancedLine() {
-        ImageComposeScene(360,1000) {CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
-            ReaderBackdrop {ReaderBookScreen(ReaderBookUi(1,"Vạn Cổ Thần Đế",read=1,total=520),"Phi Thiên Ngư",listOf(ireader.domain.models.entities.Chapter(11,1,"a","Chương 1")),{},{},{},{},{})}
+        for(readCount in listOf(0,1))ImageComposeScene(360,1000) {CompositionLocalProvider(LocalLocalizeHelper provides LocalizeHelper()) {MaterialTheme {
+            ReaderBackdrop {ReaderBookScreen(ReaderBookUi(1,"Vạn Cổ Thần Đế",read=readCount,total=520),"Phi Thiên Ngư",listOf(ireader.domain.models.entities.Chapter(11,1,"a","Chương 1")),{},{},{},{},{})}
         }}}.use {s->
             s.render(0);s.render(1_000_000_000)
             val read=node(s,"book-read").boundsInRoot
             val listen=node(s,"book-listen").boundsInRoot
             assertEquals(read.height,listen.height,1f,"Read and Listen cannot leave mismatched action pills at 360dp")
             assertTrue(read.height<=50 && listen.height<=50)
+            assertEquals(listOf(LocalizeHelper().localize(if(readCount>0)Res.string.tp_continue_reading else Res.string.tp_start_reading)),
+                node(s,"book-read").config[SemanticsProperties.ContentDescription],"Screen readers retain the complete action label")
         }
     }
     @Test fun openingAnotherReaderPanelClosesTheReadingToolsMenu() {
